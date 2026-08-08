@@ -65,6 +65,57 @@ export type Database = {
           },
         ]
       }
+      blink_profiles: {
+        Row: {
+          avatar_url: string | null
+          best_rank: number | null
+          category: string | null
+          created_at: string
+          display_name: string | null
+          handle: string | null
+          id: string
+          is_public: boolean
+          last_verified_at: string | null
+          peak_score: number
+          score: number
+          streak: number
+          updated_at: string
+          verified_count: number
+        }
+        Insert: {
+          avatar_url?: string | null
+          best_rank?: number | null
+          category?: string | null
+          created_at?: string
+          display_name?: string | null
+          handle?: string | null
+          id: string
+          is_public?: boolean
+          last_verified_at?: string | null
+          peak_score?: number
+          score?: number
+          streak?: number
+          updated_at?: string
+          verified_count?: number
+        }
+        Update: {
+          avatar_url?: string | null
+          best_rank?: number | null
+          category?: string | null
+          created_at?: string
+          display_name?: string | null
+          handle?: string | null
+          id?: string
+          is_public?: boolean
+          last_verified_at?: string | null
+          peak_score?: number
+          score?: number
+          streak?: number
+          updated_at?: string
+          verified_count?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           auth_method: string | null
@@ -95,9 +146,96 @@ export type Database = {
         }
         Relationships: []
       }
+      score_history: {
+        Row: {
+          analysis_id: string | null
+          category: string | null
+          created_at: string
+          id: string
+          image_hash: string | null
+          score: number
+          user_id: string
+          verified: boolean
+        }
+        Insert: {
+          analysis_id?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          image_hash?: string | null
+          score: number
+          user_id: string
+          verified?: boolean
+        }
+        Update: {
+          analysis_id?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          image_hash?: string | null
+          score?: number
+          user_id?: string
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "score_history_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_winners: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          improvement: number
+          score: number
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          improvement?: number
+          score: number
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          improvement?: number
+          score?: number
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      leaderboard: {
+        Row: {
+          avatar_url: string | null
+          category: string | null
+          category_rank: number | null
+          display_name: string | null
+          handle: string | null
+          id: string | null
+          last_verified_at: string | null
+          peak_score: number | null
+          rank: number | null
+          score: number | null
+          streak: number | null
+          verified_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       user_id: { Args: never; Returns: string }
