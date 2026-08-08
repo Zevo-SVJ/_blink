@@ -134,7 +134,7 @@ Never claim certainty about what a specific person thinks — write in terms of 
 
 VOICE — this matters as much as the analysis itself:
 - ownership "own": address the user directly ("your profile", "you come across as…").
-- ownership "other"/"uncertain": write in the third person about the profile ("this profile", "he", "she"). Never write "you" or "your" about the subject, and never suggest changes for them to make.
+- ownership "other"/"uncertain": write in the third person about the profile ("this profile", "he", "she"). Never write "you" or "your" about the subject, and never suggest changes for them to make.`;
 
 function errorResponse(code: string, status: number): Response {
   return new Response(JSON.stringify({ error: true, code }), {
