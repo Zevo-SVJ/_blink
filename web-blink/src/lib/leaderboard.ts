@@ -146,6 +146,43 @@ export async function fetchMyStanding(
   });
 }
 
+/**
+ * Where a given Blink Score would sit on the public board.
+ *
+ * Used for third-party analyses: the subject isn't a Blink user and has no row
+ * of their own, but the score still has a meaningful position, which is the
+ * "leaderboard position" a public read shows.
+ *
+ * Counts rather than fetches rows, so it stays cheap as the board grows.
+ */
+export async function fetchScoreStanding(
+  score: number,
+): Promise<DataResult<{ rank: number; total: number } | null>> {
+  if (!isSupabaseConfigured) return { status: "error", message: UNREACHABLE };
+
+  return safe("fetchScoreStanding", async () => {
+    const [ahead, all] = await Promise.all([
+      supabase
+        .from("leaderboard")
+        .select("id", { count: "exact", head: true })
+        .gt("score", score),
+      supabase.from("leaderboard").select("id", { count: "exact", head: true }),
+    ]);
+
+    if (ahead.error || all.error) {
+      const error = ahead.error ?? all.error;
+      if (isMissingRelation(error)) return { status: "ok", data: null };
+      console.error("[fetchScoreStanding]", error?.message);
+      return { status: "error", message: UNREACHABLE };
+    }
+
+    const total = all.count ?? 0;
+    if (total === 0) return { status: "ok", data: null };
+
+    return { status: "ok", data: { rank: (ahead.count ?? 0) + 1, total } };
+  });
+}
+
 /** Distinct categories that currently have ranked profiles. */
 export async function fetchCategories(): Promise<DataResult<string[]>> {
   if (!isSupabaseConfigured) return { status: "error", message: UNREACHABLE };

@@ -110,6 +110,7 @@ export default function Library() {
                   analysis={analysis}
                   index={i}
                   deleting={deleting === analysis.id}
+                  onOpen={() => navigate(`/library/${analysis.id}`)}
                   onDelete={() => void handleDelete(analysis.id)}
                 />
               ))}
@@ -167,11 +168,13 @@ function AnalysisRow({
   analysis,
   index,
   deleting,
+  onOpen,
   onDelete,
 }: {
   analysis: SavedAnalysis;
   index: number;
   deleting: boolean;
+  onOpen: () => void;
   onDelete: () => void;
 }) {
   const voice = getVoice(analysis.ownership, analysis.result.subjectGender);
@@ -183,9 +186,15 @@ function AnalysisRow({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 320, damping: 32, delay: Math.min(index * 0.04, 0.3) }}
-      className="flex items-center gap-4 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4"
+      className="flex items-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.03] transition-colors hover:bg-white/[0.06]"
     >
-      <div className="min-w-0 flex-1">
+      {/* The row itself is the button; delete sits outside it so the two
+          targets never nest. */}
+      <button
+        type="button"
+        onClick={onOpen}
+        className="min-w-0 flex-1 rounded-2xl p-4 text-left"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={cn(
@@ -215,7 +224,7 @@ function AnalysisRow({
             year: "numeric",
           })}
         </p>
-      </div>
+      </button>
 
       <div className="shrink-0 text-right">
         <p className="text-lg font-extrabold tabular-nums text-white">{score}</p>
@@ -226,8 +235,8 @@ function AnalysisRow({
         type="button"
         onClick={onDelete}
         disabled={deleting}
-        aria-label="Delete analysis"
-        className="shrink-0 rounded-xl p-2 text-white/25 transition-colors hover:bg-white/[0.06] hover:text-red-400 disabled:opacity-40"
+        aria-label={`Delete analysis of ${analysis.result.handle ?? "this profile"}`}
+        className="mr-2 shrink-0 rounded-xl p-2 text-white/25 transition-colors hover:bg-white/[0.06] hover:text-red-400 disabled:opacity-40"
       >
         <Trash2 className="h-4 w-4" />
       </button>

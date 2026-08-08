@@ -16,10 +16,16 @@
  */
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ImagePlus, Lock, RefreshCw, Trophy, User } from "lucide-react";
+import { ArrowLeft, ImagePlus, Lock, RefreshCw, Share2, Trophy, User } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import {
+  AnalysisResult,
+  OwnershipBanner,
+  type PublicStanding,
+} from "@/components/analysis/AnalysisResult";
+import { ShareSheet } from "@/components/analysis/ShareSheet";
 import { AuthModal } from "@/components/blink/AuthModal";
 import { CTAButton } from "@/components/blink/CTAButton";
 import { PageBackground } from "@/components/blink/PageBackground";
@@ -30,18 +36,19 @@ import {
   ERROR_MESSAGES,
   analyzeProfile,
   getAnalysisMessages,
+  isRefusal,
   saveAnalysis,
   type AnalysisErrorCode,
-  type AnalysisResult,
-  type Perspective,
+  type AnalysisResult as AnalysisResultType,
   type ProfileOwnership,
 } from "@/lib/analysis";
 import { recordAnalysis, type RecordedAnalysis } from "@/lib/blink-profile";
 import { BLINK_LOGO, BRAND } from "@/lib/brand";
 import { getMockMode, mockAnalyze } from "@/lib/dev-mock";
+import { fetchMyStanding, fetchScoreStanding } from "@/lib/leaderboard";
 import { getVoice, type Voice } from "@/lib/ownership";
 import { detectPdp, heuristicPdp, type PdpDetection } from "@/lib/pdp";
-import { computeBlinkScore, getTier } from "@/lib/ranking";
+import { computeBlinkScore } from "@/lib/ranking";
 import { resizeForUpload } from "@/lib/resize";
 import { cn } from "@/lib/utils";
 
@@ -95,12 +102,15 @@ export default function Product() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<AnalysisErrorCode | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [result, setResult] = useState<AnalysisResultType | null>(null);
   const [unlocked, setUnlocked] = useState(false);
   const [revealStage, setRevealStage] = useState(0);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [progression, setProgression] = useState<RecordedAnalysis | null>(null);
+  const [standing, setStanding] = useState<PublicStanding | null>(null);
+  const [myRank, setMyRank] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string>("");
   const navigate = useNavigate();
@@ -125,11 +135,13 @@ export default function Product() {
     });
     setFile(null);
     setError(null);
+    setErrorCode(null);
   }, []);
 
   const validateAndSetImage = useCallback(
     (selectedFile: File) => {
       setError(null);
+      setErrorCode(null);
       if (!ACCEPTED_TYPES.includes(selectedFile.type)) {
         setError(ERROR_MESSAGES.INVALID_IMAGE);
         return;
@@ -159,6 +171,7 @@ export default function Product() {
     if (!file) return;
     setScreen("analyzing");
     setError(null);
+    setErrorCode(null);
     setResult(null);
     setUnlocked(false);
     setRevealStage(0);
@@ -189,9 +202,39 @@ export default function Product() {
             ? "IMAGE_TOO_LARGE"
             : "ANALYSIS_FAILED";
       setError(ERROR_MESSAGES[code]);
+      setErrorCode(code);
       setScreen("preview");
     }
   };
+
+  /**
+   * Resolve the rank the result and share card display.
+   *
+   * Own analyses use the signed-in user's real standing; a third-party read
+   * uses where that score would place. Failures stay silent — rank is simply
+   * omitted rather than blocking the result.
+   */
+  useEffect(() => {
+    if (!result) return;
+    let cancelled = false;
+
+    if (result.ownership === "own") {
+      if (!user) return;
+      void fetchMyStanding(user.id).then((res) => {
+        if (!cancelled && res.status === "ok") setMyRank(res.data?.rank ?? null);
+      });
+    } else {
+      void fetchScoreStanding(computeBlinkScore(result).total).then((res) => {
+        if (cancelled || res.status !== "ok") return;
+        setStanding(res.data);
+        setMyRank(res.data?.rank ?? null);
+      });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [result, user]);
 
   const runReveal = useCallback(() => {
     setRevealStage(1);
@@ -211,7 +254,7 @@ export default function Product() {
    * Only reached once the viewer is authenticated.
    */
   const persist = useCallback(
-    async (analysis: AnalysisResult, sourceFile: File, userId: string) => {
+    async (analysis: AnalysisResultType, sourceFile: File, userId: string) => {
       try {
         const { base64, mimeType } = await resizeForUpload(sourceFile);
         const saved = await saveAnalysis(analysis, base64, mimeType);
@@ -320,9 +363,11 @@ export default function Product() {
                 key="preview"
                 previewUrl={previewUrl}
                 error={error}
+                refused={errorCode !== null && isRefusal(errorCode)}
                 onAnalyze={handleAnalyze}
                 onRetry={() => {
                   setError(null);
+                  setErrorCode(null);
                   setScreen("preview");
                 }}
                 onChange={() => {
@@ -351,6 +396,8 @@ export default function Product() {
                 revealStage={revealStage}
                 unlocked={unlocked || !!user}
                 progression={progression}
+                standing={standing}
+                shareRank={myRank}
                 onUnlock={() => {
                   if (!user) {
                     setAuthModalOpen(true);
@@ -365,6 +412,8 @@ export default function Product() {
                   clearImage();
                   setResult(null);
                   setProgression(null);
+                  setStanding(null);
+                  setMyRank(null);
                   setUnlocked(false);
                   setScreen("upload");
                   if (fileInputRef.current) fileInputRef.current.value = "";
@@ -504,12 +553,15 @@ function ProfilePlaceholder() {
 function PreviewScreen({
   previewUrl,
   error,
+  refused,
   onAnalyze,
   onRetry,
   onChange,
 }: {
   previewUrl: string;
   error: string | null;
+  /** Blink declined the image — retrying the same one won't help. */
+  refused: boolean;
   onAnalyze: () => void;
   onRetry: () => void;
   onChange: () => void;
@@ -547,16 +599,33 @@ function PreviewScreen({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
             role="alert"
-            className="mt-6 w-full max-w-sm rounded-2xl bg-red-500/10 px-5 py-4"
+            className={cn(
+              "mt-6 w-full max-w-sm rounded-2xl px-5 py-4",
+              // A refusal isn't a fault to retry past — it's guidance, so it
+              // gets a calmer treatment and an action that can actually help.
+              refused ? "bg-amber-400/[0.08]" : "bg-red-500/10",
+            )}
           >
-            <p className="text-sm font-medium text-red-400">{error}</p>
+            <p
+              className={cn(
+                "text-sm font-medium leading-relaxed",
+                refused ? "text-amber-200/90" : "text-red-400",
+              )}
+            >
+              {error}
+            </p>
             <button
               type="button"
-              onClick={onRetry}
-              className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700"
+              onClick={refused ? onChange : onRetry}
+              className={cn(
+                "mt-3 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors",
+                refused
+                  ? "bg-white/10 text-white hover:bg-white/15"
+                  : "bg-red-600 text-white hover:bg-red-700",
+              )}
             >
               <RefreshCw className="h-4 w-4" />
-              Try again
+              {refused ? "Choose another screenshot" : "Try again"}
             </button>
           </motion.div>
         )}
@@ -1011,7 +1080,7 @@ function TransformedCircle({
 }
 
 // ---------------------------------------------------------------------------
-// Result
+// Result — locked teaser, then the shared result surface
 // ---------------------------------------------------------------------------
 
 const springUp = {
@@ -1025,13 +1094,17 @@ function ResultScreen({
   revealStage,
   unlocked,
   progression,
+  standing,
+  shareRank,
   onUnlock,
   onAnalyzeAnother,
 }: {
-  result: AnalysisResult;
+  result: AnalysisResultType;
   revealStage: number;
   unlocked: boolean;
   progression: RecordedAnalysis | null;
+  standing: PublicStanding | null;
+  shareRank: number | null;
   onUnlock: () => (() => void) | void;
   onAnalyzeAnother: () => void;
 }) {
@@ -1040,199 +1113,41 @@ function ResultScreen({
   if (!unlocked) return <LockedResult result={result} voice={voice} onUnlock={onUnlock} />;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
-      className="flex flex-col items-center pt-2 text-center sm:pt-6"
-    >
-      <OwnershipBanner voice={voice} handle={result.handle} />
-
-      {revealStage >= 1 && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: "spring", stiffness: 300, damping: 28 }}
-          className="mt-6"
-        >
-          <ScoreRing value={result.overallScore} size={170} light />
-        </motion.div>
-      )}
-
-      {revealStage >= 2 && (
-        <motion.p
-          {...springUp}
-          transition={{ delay: 0.1, ...springUp.transition }}
-          className="mt-4 text-xs font-bold uppercase tracking-widest text-white/45"
-        >
-          {result.firstImpression}
-        </motion.p>
-      )}
-
-      {revealStage >= 3 && result.traits.length > 0 && (
-        <motion.div
-          {...springUp}
-          transition={{ delay: 0.1, ...springUp.transition }}
-          className="mt-6 flex flex-wrap justify-center gap-2"
-        >
-          {result.traits.map((trait) => (
-            <span
-              key={trait}
-              className="rounded-full bg-blink-sky px-4 py-1.5 text-sm font-semibold text-blink-navy"
-            >
-              {trait}
-            </span>
-          ))}
-        </motion.div>
-      )}
-
-      {revealStage >= 4 && result.why && (
-        <motion.p
-          {...springUp}
-          transition={{ delay: 0.1, ...springUp.transition }}
-          className="mt-8 max-w-md text-lg leading-relaxed text-white/80"
-        >
-          {result.why}
-        </motion.p>
-      )}
-
-      {revealStage >= 5 && (
-        <motion.div
-          {...springUp}
-          transition={{ delay: 0.1, ...springUp.transition }}
-          className="mt-12 w-full max-w-md space-y-5 text-left"
-        >
-          <h3 className="text-xs font-bold uppercase tracking-widest text-white/45">
-            {voice.signalsHeading}
-          </h3>
-          {result.signals.map((signal) => (
-            <SignalBar key={signal.label} signal={signal} />
-          ))}
-        </motion.div>
-      )}
-
-      {revealStage >= 6 && (
-        <motion.div
-          {...springUp}
-          transition={{ delay: 0.1, ...springUp.transition }}
-          className="mt-12 w-full max-w-md text-left"
-        >
-          <h3 className="text-xs font-bold uppercase tracking-widest text-white/45">
-            {voice.perspectivesHeading}
-          </h3>
-          <PerspectiveSelector perspectives={result.perspectives} voice={voice} />
-        </motion.div>
-      )}
-
-      {revealStage >= 7 && (
-        <motion.div
-          {...springUp}
-          transition={{ delay: 0.1, ...springUp.transition }}
-          className="mt-12 w-full max-w-md space-y-3 text-left"
-        >
-          {result.strengths.map((text, i) => (
-            <ResultBlock key={`s-${i}`} title={voice.strengthsLabel} text={text} tone="positive" />
-          ))}
-          {result.weaknesses.map((text, i) => (
-            <ResultBlock key={`w-${i}`} title={voice.weaknessesLabel} text={text} tone="neutral" />
-          ))}
-
-          {/* Advice exists only for the account's owner. */}
-          {voice.isOwn && result.nextMove && (
-            <ResultBlock title="Your next move" text={result.nextMove} tone="action" />
-          )}
-
-          {voice.isOwn && result.recommendations.length > 0 && (
-            <ImprovementPlan recommendations={result.recommendations} result={result} />
-          )}
-
-          {voice.isOwn && <ProgressionCard progression={progression} result={result} />}
-
-          {!voice.isOwn && <PublicProfileNote voice={voice} />}
-        </motion.div>
-      )}
-
-      {revealStage >= 7 && (
-        <motion.div
-          {...springUp}
-          transition={{ delay: 0.2, ...springUp.transition }}
-          className="mt-10 w-full max-w-md"
-        >
-          <ResultActions onAnalyzeAnother={onAnalyzeAnother} isOwn={voice.isOwn} />
-        </motion.div>
-      )}
-    </motion.div>
-  );
-}
-
-/** Says plainly whose profile was read, so the framing is never ambiguous. */
-function OwnershipBanner({ voice, handle }: { voice: Voice; handle: string | null }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-4 py-1.5"
-    >
-      <span className="text-xs font-bold text-white/70">
-        {voice.isOwn ? "Your profile" : voice.Subject}
-      </span>
-      {handle && <span className="text-xs font-medium text-white/35">@{handle}</span>}
-    </motion.div>
-  );
-}
-
-/** Ties each recommendation to the score it can move. */
-function ImprovementPlan({
-  recommendations,
-  result,
-}: {
-  recommendations: string[];
-  result: AnalysisResult;
-}) {
-  const score = computeBlinkScore(result).total;
-  const tier = getTier(score);
-
-  return (
-    <div className="rounded-2xl border border-blink-sky/25 bg-blink-sky/[0.06] p-5">
-      <p className="text-xs font-bold uppercase tracking-widest text-blink-sky">
-        How to raise your Blink Score
-      </p>
-      <p className="mt-2 text-xs leading-relaxed text-white/50">
-        You&rsquo;re at <span className="font-bold text-white/80">{score}</span> — {tier.label}.
-        A higher rank means a more optimized profile. Make these changes on Instagram,
-        then upload a fresh screenshot so Blink can verify them.
-      </p>
-      <ol className="mt-4 space-y-2.5">
-        {recommendations.map((rec, i) => (
-          <li key={i} className="flex gap-3">
-            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blink-sky/20 text-[0.65rem] font-bold text-blink-sky">
-              {i + 1}
-            </span>
-            <span className="text-sm leading-relaxed text-white/80">{rec}</span>
-          </li>
-        ))}
-      </ol>
+    <div className="pt-2 sm:pt-6">
+      <AnalysisResult
+        result={result}
+        revealStage={revealStage}
+        standing={standing}
+        progression={
+          voice.isOwn ? <ProgressionCard progression={progression} result={result} /> : undefined
+        }
+        actions={
+          <ResultActions
+            onAnalyzeAnother={onAnalyzeAnother}
+            result={result}
+            isOwn={voice.isOwn}
+            shareRank={shareRank}
+          />
+        }
+      />
     </div>
   );
 }
 
-/** Closes the loop: did this upload actually move the score, and why not. */
+/** Closes the loop: did this upload actually move the score, and if not, why. */
 function ProgressionCard({
   progression,
   result,
 }: {
   progression: RecordedAnalysis | null;
-  result: AnalysisResult;
+  result: AnalysisResultType;
 }) {
   const score = progression?.score ?? computeBlinkScore(result).total;
 
   if (!progression) {
     return (
       <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5">
-        <p className="text-xs font-bold uppercase tracking-widest text-white/45">
-          Blink Score
-        </p>
+        <p className="text-xs font-bold uppercase tracking-widest text-white/45">Blink Score</p>
         <p className="mt-2 text-3xl font-extrabold tabular-nums text-white">{score}</p>
         <p className="mt-1.5 text-xs leading-relaxed text-white/45">
           Saving this analysis to your profile…
@@ -1284,46 +1199,42 @@ function ProgressionCard({
   );
 }
 
-/** Makes the third-party read feel deliberate rather than a truncated self-analysis. */
-function PublicProfileNote({ voice }: { voice: Voice }) {
-  return (
-    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5">
-      <p className="text-xs font-bold uppercase tracking-widest text-white/45">
-        Public read
-      </p>
-      <p className="mt-2 text-sm leading-relaxed text-white/60">
-        This is a perception read of {voice.subject} — what it signals to the people who
-        land on it. Improvement actions belong to whoever runs the account, so Blink
-        doesn&rsquo;t show them here.
-      </p>
-      <p className="mt-3 text-xs leading-relaxed text-white/40">
-        Analyzing someone else never affects your own Blink Score or rank.
-      </p>
-    </div>
-  );
-}
-
 function ResultActions({
   onAnalyzeAnother,
+  result,
   isOwn,
+  shareRank,
 }: {
   onAnalyzeAnother: () => void;
+  result: AnalysisResultType;
   isOwn: boolean;
+  shareRank: number | null;
 }) {
   const navigate = useNavigate();
+  const [shareOpen, setShareOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-3">
+      <button
+        type="button"
+        onClick={() => setShareOpen(true)}
+        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blink-sky px-6 py-3.5 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.02] active:scale-[0.98]"
+      >
+        <Share2 className="h-4 w-4" />
+        Share this result
+      </button>
+
       {isOwn && (
         <button
           type="button"
           onClick={() => navigate("/profile")}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blink-sky px-6 py-3.5 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.02] active:scale-[0.98]"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-3.5 text-sm font-semibold text-white/80 transition-colors hover:bg-white/[0.08]"
         >
           <User className="h-4 w-4" />
           See your Blink profile
         </button>
       )}
+
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
@@ -1342,12 +1253,19 @@ function ResultActions({
           Analyze another
         </button>
       </div>
+
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        result={result}
+        rank={shareRank}
+      />
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Locked result
+// Locked result — blurred teaser behind the auth wall
 // ---------------------------------------------------------------------------
 
 function LockedResult({
@@ -1355,7 +1273,7 @@ function LockedResult({
   voice,
   onUnlock,
 }: {
-  result: AnalysisResult;
+  result: AnalysisResultType;
   voice: Voice;
   onUnlock: () => (() => void) | void;
 }) {
@@ -1448,162 +1366,5 @@ function LockedResult({
         </div>
       </div>
     </motion.div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Pieces
-// ---------------------------------------------------------------------------
-
-function signalLabel(score: number): string {
-  if (score >= 7.5) return "Strong";
-  if (score >= 5.5) return "Moderate";
-  if (score >= 3.5) return "Developing";
-  return "Low";
-}
-
-function SignalBar({ signal }: { signal: { label: string; score: number; description: string } }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-semibold text-white/90">{signal.label}</span>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="text-xs font-medium text-white/45">{signalLabel(signal.score)}</span>
-          <span className="text-sm font-bold tabular-nums text-blink-sky">
-            {signal.score.toFixed(1)}
-          </span>
-        </div>
-      </div>
-      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
-        <motion.div
-          className="h-full rounded-full bg-blink-sky"
-          initial={{ width: 0 }}
-          animate={{ width: `${signal.score * 10}%` }}
-          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
-        />
-      </div>
-      {signal.description && (
-        <p className="mt-1.5 text-xs leading-relaxed text-white/50">{signal.description}</p>
-      )}
-    </div>
-  );
-}
-
-const PERSPECTIVE_ORDER: Perspective["id"][] = ["crush", "stranger", "friends", "recruiter"];
-
-function PerspectiveSelector({
-  perspectives,
-  voice,
-}: {
-  perspectives: AnalysisResult["perspectives"];
-  voice: Voice;
-}) {
-  const [selected, setSelected] = useState<Perspective["id"]>("crush");
-  const current = perspectives[selected];
-
-  return (
-    <div className="mt-4">
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
-        {PERSPECTIVE_ORDER.map((id) => {
-          const isActive = id === selected;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setSelected(id)}
-              className={cn(
-                "flex shrink-0 items-center gap-1.5 rounded-2xl px-3.5 py-2 text-sm font-semibold transition-all",
-                isActive
-                  ? "bg-blink-sky text-blink-navy"
-                  : "border border-white/10 text-white/60 hover:text-white/90",
-              )}
-            >
-              <span>{perspectives[id].emoji}</span>
-              <span className="capitalize">{id}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={selected}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5"
-        >
-          {/* Title comes from the voice, so a third-party read never says "you". */}
-          <p className="text-base font-bold text-white">{voice.perspectiveTitle(selected)}</p>
-
-          {current.traits.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {current.traits.map((trait) => (
-                <span
-                  key={trait}
-                  className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80"
-                >
-                  {trait}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {current.summary && (
-            <p className="mt-3 text-sm leading-relaxed text-white/70">{current.summary}</p>
-          )}
-
-          {current.why && (
-            <div className="mt-4">
-              <p className="text-xs font-bold uppercase tracking-widest text-white/40">Why</p>
-              <p className="mt-1 text-sm leading-relaxed text-white/70">{current.why}</p>
-            </div>
-          )}
-
-          {/* Only ever populated for the user's own profile. */}
-          {voice.isOwn && current.recommendation && (
-            <div className="mt-4">
-              <p className="text-xs font-bold uppercase tracking-widest text-blink-sky/70">
-                If you want to shift this
-              </p>
-              <p className="mt-1 text-sm leading-relaxed text-white/70">
-                {current.recommendation}
-              </p>
-            </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function ResultBlock({
-  title,
-  text,
-  tone,
-}: {
-  title: string;
-  text: string;
-  tone: "positive" | "neutral" | "action";
-}) {
-  const toneClasses = {
-    positive: "border-emerald-400/20 bg-emerald-400/[0.06]",
-    neutral: "border-amber-400/20 bg-amber-400/[0.06]",
-    action: "border-blink-sky/30 bg-blink-sky/[0.08]",
-  };
-  const titleColors = {
-    positive: "text-emerald-300/80",
-    neutral: "text-amber-300/80",
-    action: "text-blink-sky",
-  };
-
-  return (
-    <div className={cn("rounded-2xl border p-4", toneClasses[tone])}>
-      <p className={cn("text-xs font-bold uppercase tracking-widest", titleColors[tone])}>
-        {title}
-      </p>
-      <p className="mt-1 text-sm font-medium leading-relaxed text-white/80 sm:text-base">{text}</p>
-    </div>
   );
 }

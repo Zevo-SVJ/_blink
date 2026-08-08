@@ -1,57 +1,73 @@
-import { AnimatePresence, motion, useInView } from "framer-motion";
+/**
+ * Blink — "How it works", as one continuous motion sequence.
+ *
+ * Four beats — upload → profile → analysis → result — played as a single
+ * take rather than four separate slides. The avatar carries a shared
+ * `layoutId` the whole way through, so Framer Motion tweens the *same element*
+ * from the screenshot's profile picture, out into the analysis circle, and
+ * finally into the score ring. That continuity is the whole point: it shows
+ * the product's actual mechanic instead of illustrating it four times.
+ *
+ * Paced fast enough to feel effortless, slow enough to read. Honours reduced
+ * motion by holding on the result rather than looping.
+ */
+
+import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 import { CTAButton } from "@/components/blink/CTAButton";
 import { Reveal } from "@/components/blink/Reveal";
-import { ScoreRing } from "@/components/blink/ScoreRing";
+import { cn } from "@/lib/utils";
 
-const STAGES = [
-  { id: "profile", label: "Profile" },
-  { id: "upload", label: "Upload" },
-  { id: "analysis", label: "Analysis" },
-  { id: "perception", label: "Perception" },
-  { id: "result", label: "Result" },
-];
+const BEATS = [
+  { id: "upload", caption: "Upload a screenshot" },
+  { id: "profile", caption: "Blink reads the whole profile" },
+  { id: "analysis", caption: "It weighs the signals people notice" },
+  { id: "result", caption: "You get the first impression you make" },
+] as const;
 
-const STAGE_DURATION = 1800;
+type BeatId = (typeof BEATS)[number]["id"];
 
-const SIGNALS = ["Visual identity", "Content", "Social signals", "Profile picture", "Aesthetic"];
-const TRAITS = ["Confident", "Mysterious", "High-status"];
+const BEAT_MS = 1900;
 
-const spring = { type: "spring", stiffness: 340, damping: 30 } as const;
-const exit = { opacity: 0, scale: 0.96, y: 8, transition: { duration: 0.3 } } as const;
+/** One spring for the whole sequence, so every transition feels related. */
+const spring = { type: "spring" as const, stiffness: 240, damping: 28, mass: 0.9 };
+
+const SIGNALS = ["Visual identity", "Aesthetic", "Confidence", "Status"];
+const TRAITS = ["Confident", "Mysterious", "Considered"];
 
 export function HowItWorks({ onCTA }: { onCTA: () => void }) {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const inView = useInView(sectionRef, { amount: 0.4 });
-  const [stage, setStage] = useState(0);
-  const [loopKey, setLoopKey] = useState(0);
+  const inView = useInView(sectionRef, { amount: 0.45 });
+  const reduceMotion = useReducedMotion();
+  const [beat, setBeat] = useState(0);
 
   useEffect(() => {
     if (!inView) return;
-    let step = 0;
-    let timer: number;
-    const run = () => {
-      timer = window.setTimeout(() => {
-        step = (step + 1) % STAGES.length;
-        setStage(step);
-        if (step === 0) setLoopKey((k) => k + 1);
-        run();
-      }, STAGE_DURATION);
-    };
-    run();
-    return () => window.clearTimeout(timer);
-  }, [inView, loopKey]);
+    // Reduced motion: show the finished state, don't cycle.
+    if (reduceMotion) {
+      setBeat(BEATS.length - 1);
+      return;
+    }
+    const timer = window.setInterval(
+      () => setBeat((b) => (b + 1) % BEATS.length),
+      BEAT_MS,
+    );
+    return () => window.clearInterval(timer);
+  }, [inView, reduceMotion]);
 
+  // Restart from the top each time the section is re-entered.
   useEffect(() => {
-    if (!inView) setStage(0);
-  }, [inView]);
+    if (!inView && !reduceMotion) setBeat(0);
+  }, [inView, reduceMotion]);
+
+  const current: BeatId = BEATS[beat].id;
 
   return (
     <section
       id="how-it-works"
       ref={sectionRef}
-      className="relative overflow-hidden px-4 py-20 sm:px-6 sm:py-28"
+      className="relative px-4 py-20 sm:px-6 sm:py-28"
     >
       <div className="mx-auto max-w-3xl">
         <Reveal className="text-center">
@@ -59,35 +75,43 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
             How it works
           </h2>
           <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-white/50">
-            One seamless flow. Your profile becomes a perception in seconds.
+            One screenshot becomes a perception. Here&rsquo;s the whole thing.
           </p>
         </Reveal>
 
-        <div className="relative mx-auto mt-14 aspect-square w-full max-w-[360px] sm:mt-16 sm:max-w-[420px]">
-          <div className="absolute inset-0 rounded-[2.5rem] border border-white/8 bg-white/[0.02]" />
-          <div className="relative flex h-full items-center justify-center p-6 sm:p-8">
-            <AnimatePresence mode="wait">
-              {stage === 0 && <ProfileStage key={`profile-${loopKey}`} />}
-              {stage === 1 && <UploadStage key={`upload-${loopKey}`} />}
-              {stage === 2 && <AnalysisStage key={`analysis-${loopKey}`} />}
-              {stage === 3 && <PerceptionStage key={`perception-${loopKey}`} />}
-              {stage === 4 && <ResultStage key={`result-${loopKey}`} onCTA={onCTA} />}
-            </AnimatePresence>
+        <div className="relative mx-auto mt-14 w-full max-w-[380px] sm:mt-16">
+          <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[2rem] border border-white/[0.07] bg-white/[0.02]">
+            <Stage beat={current} />
           </div>
 
-          <div className="absolute bottom-5 left-0 right-0 flex justify-center gap-1.5">
-            {STAGES.map((s, i) => (
-              <motion.div
-                key={s.id}
-                className="h-1.5 rounded-full bg-white"
-                initial={false}
-                animate={{
-                  width: i === stage ? 20 : 6,
-                  opacity: i === stage ? 1 : 0.25,
-                }}
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
-            ))}
+          {/* Caption + progress, outside the stage so it never crowds it. */}
+          <div className="mt-6 flex flex-col items-center gap-4">
+            <div className="h-6 text-center">
+              <AnimatePresence mode="wait">
+                <motion.p
+                  key={current}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.28 }}
+                  className="text-sm font-medium text-white/60"
+                >
+                  {BEATS[beat].caption}
+                </motion.p>
+              </AnimatePresence>
+            </div>
+
+            <div className="flex gap-1.5">
+              {BEATS.map((b, i) => (
+                <motion.span
+                  key={b.id}
+                  className="h-1 rounded-full bg-white"
+                  initial={false}
+                  animate={{ width: i === beat ? 18 : 5, opacity: i === beat ? 0.9 : 0.2 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                />
+              ))}
+            </div>
           </div>
         </div>
 
@@ -99,163 +123,201 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
   );
 }
 
-function ProfileStage() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.92 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={exit}
-      transition={spring}
-      className="flex w-full flex-col items-center"
-    >
-      <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blink-sky to-blink-sky-bright" />
-      <p className="mt-3 text-sm font-bold text-white">you</p>
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        {[0.5, 0.7, 0.4, 0.6, 0.8, 0.5].map((opacity, i) => (
-          <div key={i} className="h-14 w-14 rounded-lg bg-white/15" style={{ opacity }} />
-        ))}
-      </div>
-      <p className="mt-6 text-xs font-bold uppercase tracking-widest text-white/40">Your profile</p>
-    </motion.div>
-  );
-}
+// ---------------------------------------------------------------------------
+// The stage — one element tree, four arrangements
+// ---------------------------------------------------------------------------
 
-function UploadStage() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={exit}
-      transition={spring}
-      className="flex w-full flex-col items-center"
-    >
-      <div className="relative">
-        <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blink-sky to-blink-sky-bright" />
-        <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 400, damping: 25, delay: 0.2 }}
-          className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-white text-blink-navy"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 19V5" />
-            <path d="m5 12 7-7 7 7" />
-          </svg>
-        </motion.div>
-      </div>
-      <p className="mt-4 text-sm font-bold text-white">you</p>
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3, type: "spring", stiffness: 300, damping: 25 }}
-        className="mt-5 rounded-2xl bg-blink-sky px-6 py-3 text-sm font-semibold text-blink-navy"
-      >
-        Upload profile
-      </motion.div>
-      <p className="mt-5 text-xs font-bold uppercase tracking-widest text-white/40">Screenshot</p>
-    </motion.div>
-  );
-}
+function Stage({ beat }: { beat: BeatId }) {
+  const showCard = beat === "upload" || beat === "profile";
 
-function AnalysisStage() {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={exit}
-      transition={{ duration: 0.3 }}
-      className="relative flex h-full w-full items-center justify-center"
-    >
-      <div className="relative h-24 w-24 rounded-full border border-blink-sky/40 bg-blink-sky/10">
-        <div className="absolute inset-0 rounded-full border border-blink-sky/20" />
-        <div className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-blink-sky to-blink-sky-bright" />
-      </div>
-
-      {SIGNALS.map((label, i) => {
-        const angle = (i * 360) / SIGNALS.length - 90;
-        const radius = 110;
-        const x = Math.cos((angle * Math.PI) / 180) * radius;
-        const y = Math.sin((angle * Math.PI) / 180) * radius;
-        return (
+    <div className="absolute inset-0 flex items-center justify-center p-6">
+      {/* The profile card. Present for the first two beats, then it hands the
+          avatar over to the analysis circle and leaves. */}
+      <AnimatePresence>
+        {showCard && (
           <motion.div
-            key={label}
-            className="absolute flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 shadow-sm backdrop-blur-sm"
-            initial={{ opacity: 0, x: 0, y: 0, scale: 0.8 }}
-            animate={{ opacity: 1, x, y, scale: 1 }}
-            transition={{ type: "spring", stiffness: 300, damping: 24, delay: i * 0.1 }}
+            key="card"
+            initial={{ opacity: 0, y: 28, scale: 0.94 }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              scale: beat === "upload" ? 0.94 : 1,
+            }}
+            exit={{ opacity: 0, scale: 1.04, transition: { duration: 0.4 } }}
+            transition={spring}
+            className="w-full max-w-[220px] overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.04]"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-blink-sky-bright" />
-            <span className="text-[10px] font-bold text-white/90 sm:text-xs">{label}</span>
+            <div className="flex items-center gap-3 p-3.5">
+              <AvatarMark size={44} />
+              <div className="min-w-0 flex-1">
+                <motion.div
+                  className="h-2 rounded-full bg-white/25"
+                  initial={{ width: "40%" }}
+                  animate={{ width: beat === "profile" ? "62%" : "40%" }}
+                  transition={spring}
+                />
+                <motion.div
+                  className="mt-1.5 h-1.5 rounded-full bg-white/12"
+                  initial={{ width: "60%" }}
+                  animate={{ width: beat === "profile" ? "84%" : "60%" }}
+                  transition={{ ...spring, delay: 0.05 }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-[3px] px-[3px] pb-[3px]">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="aspect-square bg-white/[0.07]"
+                  initial={{ opacity: 0.25 }}
+                  animate={{ opacity: beat === "profile" ? 0.3 + (i % 3) * 0.16 : 0.25 }}
+                  transition={{ ...spring, delay: beat === "profile" ? i * 0.025 : 0 }}
+                />
+              ))}
+            </div>
+
+            {/* Scan pass, only while Blink is "reading" the profile. */}
+            <AnimatePresence>
+              {beat === "profile" && (
+                <motion.div
+                  className="pointer-events-none absolute inset-x-0 h-16"
+                  initial={{ top: "-10%", opacity: 0 }}
+                  animate={{ top: "100%", opacity: [0, 1, 1, 0] }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1.5, ease: "easeInOut" }}
+                  style={{
+                    background:
+                      "linear-gradient(to bottom, transparent, rgba(175,224,249,0.16), transparent)",
+                  }}
+                />
+              )}
+            </AnimatePresence>
           </motion.div>
-        );
-      })}
-      <p className="absolute bottom-8 text-xs font-bold uppercase tracking-widest text-white/40">Reading signals</p>
-    </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Analysis: the avatar has travelled to the centre and signals fan out. */}
+      {beat === "analysis" && (
+        <div className="relative flex items-center justify-center">
+          <AvatarMark size={92} />
+
+          {/* Ripples leave the avatar's own edge, so nothing pops into being. */}
+          {[0, 1].map((i) => (
+            <motion.span
+              key={i}
+              className="absolute rounded-full border border-blink-sky/30"
+              style={{ width: 92, height: 92 }}
+              initial={{ opacity: 0, scale: 1 }}
+              animate={{ opacity: [0, 0.4, 0], scale: [1, 1.5, 1.95] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: "easeOut", delay: i * 0.9 }}
+            />
+          ))}
+
+          {SIGNALS.map((label, i) => {
+            const angle = (i * 360) / SIGNALS.length - 90;
+            const r = 104;
+            return (
+              <motion.span
+                key={label}
+                className="absolute whitespace-nowrap rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-semibold text-white/80 backdrop-blur-sm"
+                initial={{ opacity: 0, x: 0, y: 0, scale: 0.7 }}
+                animate={{
+                  opacity: 1,
+                  x: Math.cos((angle * Math.PI) / 180) * r,
+                  y: Math.sin((angle * Math.PI) / 180) * r,
+                  scale: 1,
+                }}
+                transition={{ ...spring, delay: 0.12 + i * 0.07 }}
+              >
+                {label}
+              </motion.span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Result: the same mark, now ringed by the score. */}
+      {beat === "result" && (
+        <div className="flex flex-col items-center">
+          <div className="relative flex items-center justify-center">
+            <AvatarMark size={92} />
+            <svg
+              className="absolute -rotate-90"
+              width={124}
+              height={124}
+              aria-hidden
+            >
+              <circle
+                cx={62}
+                cy={62}
+                r={56}
+                fill="none"
+                stroke="rgba(255,255,255,0.08)"
+                strokeWidth={5}
+              />
+              <motion.circle
+                cx={62}
+                cy={62}
+                r={56}
+                fill="none"
+                stroke="hsl(var(--blink-sky))"
+                strokeWidth={5}
+                strokeLinecap="round"
+                strokeDasharray={2 * Math.PI * 56}
+                initial={{ strokeDashoffset: 2 * Math.PI * 56 }}
+                animate={{ strokeDashoffset: 2 * Math.PI * 56 * (1 - 0.87) }}
+                transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+              />
+            </svg>
+          </div>
+
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...spring, delay: 0.35 }}
+            className="mt-6 text-3xl font-extrabold tabular-nums tracking-tight text-white"
+          >
+            8.7
+          </motion.p>
+
+          <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+            {TRAITS.map((trait, i) => (
+              <motion.span
+                key={trait}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...spring, delay: 0.45 + i * 0.07 }}
+                className="rounded-full bg-white/[0.08] px-2.5 py-1 text-[11px] font-semibold text-white/80"
+              >
+                {trait}
+              </motion.span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
-function PerceptionStage() {
+/**
+ * The profile picture.
+ *
+ * One `layoutId` across every beat is what makes this a single sequence —
+ * Framer Motion tweens this element between the card, the analysis centre and
+ * the score ring instead of cross-fading three separate circles.
+ */
+function AvatarMark({ size }: { size: number }) {
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={exit}
-      transition={{ duration: 0.3 }}
-      className="relative flex h-full w-full items-center justify-center"
-    >
-      <div className="relative h-20 w-20 rounded-full bg-gradient-to-br from-blink-sky to-blink-sky-bright" />
-      {TRAITS.map((trait, i) => {
-        const angle = (i - 1) * 55 - 90;
-        const radius = 105;
-        const x = Math.cos((angle * Math.PI) / 180) * radius;
-        const y = Math.sin((angle * Math.PI) / 180) * radius;
-        return (
-          <motion.div
-            key={trait}
-            className="absolute rounded-full bg-blink-sky px-3.5 py-1.5 text-xs font-bold text-blink-navy"
-            initial={{ opacity: 0, x: 0, y: 20, scale: 0.8 }}
-            animate={{ opacity: 1, x, y, scale: 1 }}
-            transition={{ type: "spring", stiffness: 320, damping: 24, delay: i * 0.12 }}
-          >
-            {trait}
-          </motion.div>
-        );
-      })}
-      <p className="absolute bottom-8 text-xs font-bold uppercase tracking-widest text-white/40">Interpretation</p>
-    </motion.div>
-  );
-}
-
-function ResultStage({ onCTA }: { onCTA: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.92 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.3 } }}
+      layoutId="how-it-works-avatar"
       transition={spring}
-      className="flex flex-col items-center"
-    >
-      <ScoreRing value={8.7} size={130} light />
-      <p className="mt-2 text-xs font-bold uppercase tracking-widest text-white/50">First impression</p>
-      <div className="mt-4 flex gap-2">
-        {TRAITS.map((t) => (
-          <span
-            key={t}
-            className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white/90"
-          >
-            {t}
-          </span>
-        ))}
-      </div>
-      <motion.button
-        type="button"
-        onClick={onCTA}
-        whileHover={{ scale: 1.03 }}
-        whileTap={{ scale: 0.97 }}
-        className="mt-6 rounded-2xl bg-blink-sky px-5 py-2.5 text-sm font-bold text-blink-navy"
-      >
-        See mine
-      </motion.button>
-    </motion.div>
+      className={cn(
+        "shrink-0 overflow-hidden rounded-full",
+        "bg-[linear-gradient(140deg,hsl(var(--blink-sky))_0%,hsl(var(--blink-sky-bright))_100%)]",
+      )}
+      style={{ width: size, height: size }}
+    />
   );
 }

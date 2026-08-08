@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Product from "./pages/Product";
 import AppHome from "./pages/AppHome";
 import Library from "./pages/Library";
+import AnalysisDetail from "./pages/AnalysisDetail";
 import Profile from "./pages/Profile";
 import Ranks from "./pages/Ranks";
 import Settings from "./pages/Settings";
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/auth/reset" element={<AuthCallback />} />
             <Route path="/app" element={<AppHome />} />
             <Route path="/library" element={<Library />} />
+            <Route path="/library/:id" element={<AnalysisDetail />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/ranks" element={<Ranks />} />
             <Route path="/settings" element={<Settings />} />

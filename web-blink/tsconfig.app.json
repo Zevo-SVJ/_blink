@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
-    "types": ["vitest/globals"],
+    // `node` is needed by tests that read files off disk (the edge-function
+    // syntax guard); app code stays browser-only.
+    "types": ["vitest/globals", "node"],
     "target": "ES2020",
     "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],

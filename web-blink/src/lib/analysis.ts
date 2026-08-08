@@ -86,7 +86,11 @@ export type AnalysisErrorCode =
   | "UNSUPPORTED_SCREENSHOT"
   | "NETWORK_ERROR"
   | "IMAGE_TOO_LARGE"
-  | "TIMEOUT";
+  | "TIMEOUT"
+  /** The image isn't an Instagram profile page. */
+  | "NOT_INSTAGRAM"
+  /** The image contains content Blink won't analyze. */
+  | "UNSAFE_CONTENT";
 
 export const ERROR_MESSAGES: Record<AnalysisErrorCode, string> = {
   INVALID_IMAGE: "Upload a screenshot of your Instagram profile.",
@@ -95,7 +99,15 @@ export const ERROR_MESSAGES: Record<AnalysisErrorCode, string> = {
   NETWORK_ERROR: "Blink lost connection. Try again.",
   IMAGE_TOO_LARGE: "That image is too large. Try a smaller screenshot.",
   TIMEOUT: "Analysis is taking longer than expected. Try again.",
+  NOT_INSTAGRAM:
+    "That doesn't look like an Instagram profile. Upload a screenshot of a profile page — the one showing the username, profile picture and post grid.",
+  UNSAFE_CONTENT: "Blink can't analyze that image. Try a different screenshot.",
 };
+
+/** Refusals are the user's to fix, so they read as guidance rather than failure. */
+export function isRefusal(code: AnalysisErrorCode): boolean {
+  return code === "NOT_INSTAGRAM" || code === "UNSAFE_CONTENT";
+}
 
 export class AnalysisError extends Error {
   code: AnalysisErrorCode;
@@ -465,6 +477,57 @@ export async function fetchSavedAnalyses(): Promise<SavedAnalysis[]> {
   } catch (err) {
     console.error("[fetchSavedAnalyses] exception:", err);
     return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fetch one saved analysis — for reopening from the Library
+// ---------------------------------------------------------------------------
+
+export type FetchOne =
+  | { status: "ok"; analysis: SavedAnalysis }
+  | { status: "not-found" }
+  | { status: "error"; message: string };
+
+/**
+ * Load a single saved analysis by id.
+ *
+ * RLS scopes this to the signed-in user, so a valid id belonging to someone
+ * else comes back as not-found rather than leaking their analysis.
+ */
+export async function fetchAnalysisById(id: string): Promise<FetchOne> {
+  try {
+    const { data, error } = await supabase
+      .from("analyses")
+      .select("id, created_at, ownership, result")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[fetchAnalysisById] Supabase error:", error.message);
+      return {
+        status: "error",
+        message: "Blink couldn't load that analysis. Check your connection and try again.",
+      };
+    }
+
+    if (!data) return { status: "not-found" };
+
+    return {
+      status: "ok",
+      analysis: {
+        id: data.id,
+        createdAt: data.created_at,
+        ownership: validateOwnership(data.ownership),
+        result: validateAnalysisResult(data.result),
+      },
+    };
+  } catch (err) {
+    console.error("[fetchAnalysisById] exception:", err);
+    return {
+      status: "error",
+      message: "Blink couldn't load that analysis. Check your connection and try again.",
+    };
   }
 }
 

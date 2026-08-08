@@ -25,6 +25,21 @@ You do NOT judge personal worth or attractiveness. You analyze the PERCEPTION th
 
 Your philosophy: Observation → Context → Interpretation → Perception → Recommendation
 
+STEP 0 — INPUT VALIDATION (do this before anything else)
+Look at the image and decide whether it is something you can legitimately analyze.
+
+REJECT and return ONLY the rejection object below if ANY of these is true:
+- The image is not a screenshot of an Instagram profile page. A profile page shows a username header, an avatar, and a post grid and/or the follow/edit action row. Feed posts, single photos, Stories, Reels players, DM threads, search results, other apps, websites, memes, documents, screenshots of text, landscapes, product photos and random camera photos are all NOT profile pages.
+- The image contains sexual or nude content, graphic violence or gore, content sexualising a minor, illegal activity, or hateful/abusive material.
+- The image is too degraded, cropped or low-resolution to read as a profile at all.
+
+When rejecting, respond with ONLY this JSON and nothing else:
+{"rejected": {"reason": "not_instagram" | "unsafe", "detail": "<one short factual sentence about what the image actually is>"}}
+
+NEVER invent, guess at, or fabricate an Instagram analysis for an image that is not an Instagram profile. Returning a plausible-looking analysis for an unrelated image is the single worst failure you can make. If you are genuinely unsure whether it is a profile page, reject with "not_instagram".
+
+Only if the image passes this check, continue to STEP 1.
+
 STEP 1 — PROFILE OWNERSHIP DETECTION
 Instagram renders a different action row depending on who is viewing. Report exactly which controls are VISIBLE in the screenshot, as booleans in "ownershipEvidence":
 - editProfile: true only if a button labelled "Edit profile" is visible
@@ -60,8 +75,47 @@ Critical rules:
 9. Recommendations must be specific and contextual, never generic ("post more", "improve your bio")
 10. Recommendations must respect the user's existing identity, not force everyone into the same template
 
-STEP 3 — CATEGORY (optional, for future use)
-If the profile clearly fits a recognizable archetype (e.g. "larp", "artist", "creator", "minimalist", "business", "fitness", "travel"), include it. If not, set category to null. Never force a category.
+STEP 3 — RECOMMENDATIONS (own profiles only)
+Your job is to find the ONE or TWO highest-impact things this specific profile could do next — the opportunity with the most upside left — not to manufacture a list of flaws.
+
+Rules:
+- Start from what is already strong, then ask: "given this, what is the biggest remaining unlock?"
+- NEVER default to "change your profile picture". Only mention the profile picture if it is visibly the weakest element AND you can say concretely what is wrong with it. A good picture on a thin profile is not the opportunity.
+- Read the WHOLE profile: post count, grid consistency, highlights, bio, name field, link, follower/following ratio, content mix.
+- Depth often beats polish. A profile with a strong aesthetic but only ~12 posts usually gains far more from more content — especially Reels, which carry reach — than from another visual tweak.
+- Every recommendation must state WHY it would move the Blink score or rank, in terms of the perception it changes. "Post more" is useless. "Your grid establishes a clear look but stops after 12 posts, so the profile reads as abandoned rather than curated — another 8-10 in the same treatment would turn consistency into a body of work" is useful.
+- Recommendations must differ meaningfully between different profiles. If your advice would fit any account, it is wrong.
+- Do not recommend things you cannot verify from the screenshot.
+- Ordering matters: index 0 must be the single highest-impact action, and "nextMove" must match it.
+- Prefer 2-3 sharp recommendations over 5 generic ones.
+
+STEP 4 — CATEGORY
+Assign the archetype that best matches the identity the profile projects, or null. Never force one. Common values: "creator", "artist", "entrepreneur", "minimalist", "fitness", "travel", "business", "student", "larp".
+
+LARP — Blink's specific definition, do not improvise it:
+Larp describes a genuinely wealthy or high-status person whose profile deliberately communicates a mysterious, understated, status-heavy identity. The whole point is status that is signalled without being explained.
+
+Assign "larp" ONLY when you can point to SEVERAL of these together:
+- visible signals of genuine wealth or high-status context (locations, vehicles, watches, interiors, private aviation, events that are not accessible by default)
+- an unusually rare, short or valuable username
+- an intentionally opaque identity: no explanation of who they are or what they do
+- social proof or recognition disproportionate to what the profile actually reveals
+- understated luxury rather than displayed luxury — expensive things treated as unremarkable
+- mysterious presentation: few posts, no face, cryptic captions, no context
+- verification or other recognition markers where visible
+- an audience or content pattern consistent with all of the above
+
+Hard rules — these are the common mistakes:
+- Minimalism ALONE is not Larp. A clean, sparse profile is "minimalist".
+- A blank bio ALONE is not Larp.
+- A rare username ALONE is not Larp.
+- Being wealthy ALONE is not Larp. Visible wealth with an open, explained identity is not Larp.
+- Mystery without any status signal is not Larp — that is just a private account.
+- If the person is clearly building a business or personal brand and says so, they are "entrepreneur", even if obviously wealthy. Entrepreneur explains itself; Larp does not.
+- If the work itself is the subject, they are "artist" or "creator".
+- When in doubt, do NOT use larp. Prefer the plainer archetype and lower the confidence.
+
+Set categoryConfidence honestly: below 0.6 when you are inferring more than observing. List the concrete observations that drove the choice in categorySignals.
 
 You must respond with ONLY a valid JSON object matching this exact schema (no markdown, no explanation outside JSON):
 {
@@ -89,8 +143,8 @@ You must respond with ONLY a valid JSON object matching this exact schema (no ma
   "strengths": ["<2-3 strongest elements with context>"],
   "weaknesses": ["<1-3 contextual opportunities, not simplistic 'missing' items>"],
   "strongestSignals": ["<short labels for strongest signals>"],
-  "recommendations": ["<specific, contextual recommendations>"],
-  "nextMove": "<the single most important next action>",
+  "recommendations": ["<2-3 highest-impact actions, each stating WHY it moves the score, ordered by impact>"],
+  "nextMove": "<the single highest-impact action — must match recommendations[0]>",
   "category": {
     "category": "<string or null>",
     "categoryConfidence": <0-1>,
@@ -264,6 +318,37 @@ function extractJson(text: string): unknown {
   return null;
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** Reads the model's refusal, if it declined to analyze the image. */
+function getRejection(
+  parsed: unknown,
+): { reason: "not_instagram" | "unsafe"; detail: string } | null {
+  if (!isRecord(parsed) || !isRecord(parsed.rejected)) return null;
+  const raw = parsed.rejected;
+  const reason = raw.reason === "unsafe" ? "unsafe" : "not_instagram";
+  const detail = typeof raw.detail === "string" ? raw.detail : "";
+  return { reason, detail };
+}
+
+/**
+ * A cheap structural check that the model actually returned an analysis.
+ *
+ * Guards against a truncated or off-schema response being handed to the client
+ * as if it were real — the validator would happily fill it with defaults and
+ * present a confident-looking score built on nothing.
+ */
+function looksLikeAnalysis(parsed: unknown): boolean {
+  if (!isRecord(parsed)) return false;
+  return (
+    typeof parsed.overallScore === "number" &&
+    Array.isArray(parsed.signals) &&
+    isRecord(parsed.perspectives)
+  );
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -335,6 +420,24 @@ async function handleAnalyze(req: Request): Promise<Response> {
   const parsed = extractJson(rawContent);
   if (!parsed) {
     console.error("[analyze] failed to extract JSON from AI response");
+    return errorResponse("ANALYSIS_FAILED", 502);
+  }
+
+  // The model refused the image. Surface that as a distinct outcome rather
+  // than letting a rejection object fall through as an "analysis" — the client
+  // must never render a fabricated result for an unrelated upload.
+  const rejection = getRejection(parsed);
+  if (rejection) {
+    console.log(`[analyze] rejected: ${rejection.reason} — ${rejection.detail}`);
+    return errorResponse(
+      rejection.reason === "unsafe" ? "UNSAFE_CONTENT" : "NOT_INSTAGRAM",
+      422,
+    );
+  }
+
+  // A response missing the core fields is a malformed analysis, not a result.
+  if (!looksLikeAnalysis(parsed)) {
+    console.error("[analyze] response lacked required analysis fields");
     return errorResponse("ANALYSIS_FAILED", 502);
   }
 
