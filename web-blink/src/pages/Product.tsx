@@ -1,33 +1,69 @@
+/**
+ * Blink — the analysis flow: upload → preview → analysing → result.
+ *
+ * Three things here are load-bearing and easy to break:
+ *
+ *  1. LAYOUT. The screenshot lives in a height-capped stage and is bounded on
+ *     both axes, so a 9:19.5 phone capture and a wide desktop crop both fit
+ *     entirely inside it. Nothing can ever grow into the progress bar below.
+ *
+ *  2. VOICE. Copy is driven by `getVoice(ownership)`. Someone else's profile is
+ *     never addressed as "you" and never receives the owner's improvement plan
+ *     (also stripped in `validateAnalysisResult`, so this is the second gate).
+ *
+ *  3. THE LOOP. A new screenshot of your own profile is the only thing that
+ *     moves your score. The result screen closes that loop explicitly.
+ */
+
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ImagePlus, Lock, RefreshCw } from "lucide-react";
+import { ArrowLeft, ImagePlus, Lock, RefreshCw, Trophy, User } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { AuthModal } from "@/components/blink/AuthModal";
 import { CTAButton } from "@/components/blink/CTAButton";
+import { PageBackground } from "@/components/blink/PageBackground";
 import { ScoreRing } from "@/components/blink/ScoreRing";
-import { BLINK_LOGO, BRAND } from "@/lib/brand";
+import { useAuth } from "@/hooks/useAuth";
 import {
-  type AnalysisErrorCode,
-  type AnalysisResult,
-  type Perspective,
-  type ProfileOwnership,
   AnalysisError,
   ERROR_MESSAGES,
   analyzeProfile,
   getAnalysisMessages,
   saveAnalysis,
+  type AnalysisErrorCode,
+  type AnalysisResult,
+  type Perspective,
+  type ProfileOwnership,
 } from "@/lib/analysis";
+import { recordAnalysis, type RecordedAnalysis } from "@/lib/blink-profile";
+import { BLINK_LOGO, BRAND } from "@/lib/brand";
+import { getMockMode, mockAnalyze } from "@/lib/dev-mock";
+import { getVoice, type Voice } from "@/lib/ownership";
+import { detectPdp, heuristicPdp, type PdpDetection } from "@/lib/pdp";
+import { computeBlinkScore, getTier } from "@/lib/ranking";
 import { resizeForUpload } from "@/lib/resize";
-import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_SIZE_MB = 20;
 
-// ---------------------------------------------------------------------------
-// Analysis stages — progress with mid-point transformation at ~50%
-// ---------------------------------------------------------------------------
+/**
+ * Height of the screenshot stage. The image's max-height is pinned to the same
+ * value, which is what guarantees it can never overlap what follows.
+ */
+const STAGE_HEIGHT = "clamp(220px, 44vh, 420px)";
+
+/**
+ * Width cap for the screenshot.
+ *
+ * Deliberately expressed in viewport units rather than `100%`: the image sits
+ * inside shrink-to-fit ancestors, and a percentage max-width against an
+ * indefinite containing block resolves to `none`, which let very wide captures
+ * escape the column. A viewport-based value is always definite, and it tracks
+ * the content column (`max-w-2xl` inside `px-4`) on both mobile and desktop.
+ */
+const STAGE_MAX_WIDTH = "min(calc(100vw - 2rem), 40rem)";
 
 interface StageDef {
   target: number;
@@ -39,7 +75,7 @@ const STAGES: StageDef[] = [
   { target: 14, messageKey: 0, duration: 900 },
   { target: 27, messageKey: 1, duration: 1300 },
   { target: 41, messageKey: 2, duration: 1300 },
-  { target: 50, messageKey: 3, duration: 1000 }, // ← transformation triggers at 50%
+  { target: 50, messageKey: 3, duration: 1000 }, // transformation fires here
   { target: 65, messageKey: 4, duration: 1300 },
   { target: 80, messageKey: 5, duration: 1200 },
   { target: 93, messageKey: 6, duration: 1100 },
@@ -48,14 +84,10 @@ const STAGES: StageDef[] = [
 
 const TRANSFORM_PROGRESS = 50;
 
-// ---------------------------------------------------------------------------
-// Screen type
-// ---------------------------------------------------------------------------
-
 type Screen = "upload" | "preview" | "analyzing" | "result";
 
 // ---------------------------------------------------------------------------
-// Main component
+// Page
 // ---------------------------------------------------------------------------
 
 export default function Product() {
@@ -68,16 +100,32 @@ export default function Product() {
   const [unlocked, setUnlocked] = useState(false);
   const [revealStage, setRevealStage] = useState(0);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [progression, setProgression] = useState<RecordedAnalysis | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef<string>("");
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const clearImage = useCallback(() => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setFile(null);
-    setPreviewUrl("");
-    setError(null);
+  // Kept in a ref so the unmount cleanup always revokes the current URL
+  // without needing `previewUrl` in its dependency list.
+  useEffect(() => {
+    previewUrlRef.current = previewUrl;
   }, [previewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
+  }, []);
+
+  const clearImage = useCallback(() => {
+    setPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return "";
+    });
+    setFile(null);
+    setError(null);
+  }, []);
 
   const validateAndSetImage = useCallback(
     (selectedFile: File) => {
@@ -107,18 +155,6 @@ export default function Product() {
     [clearImage],
   );
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (selected) validateAndSetImage(selected);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const dropped = e.dataTransfer.files?.[0];
-    if (dropped) validateAndSetImage(dropped);
-  };
-
   const handleAnalyze = async () => {
     if (!file) return;
     setScreen("analyzing");
@@ -126,17 +162,23 @@ export default function Product() {
     setResult(null);
     setUnlocked(false);
     setRevealStage(0);
+    setProgression(null);
 
     try {
+      // Dev-only escape hatch for exercising the animation and both result
+      // variants without live credentials. Compiled out of production builds.
+      const mock = import.meta.env.DEV ? getMockMode(window.location.search) : null;
+      if (mock) {
+        setResult(await mockAnalyze(mock));
+        return;
+      }
+
       const { base64, mimeType } = await resizeForUpload(file);
-      console.log("[handleAnalyze] image resized, starting analysis");
       const analysisResult = await analyzeProfile(base64, mimeType);
-      console.log("[handleAnalyze] analysis complete", { score: analysisResult.overallScore, ownership: analysisResult.ownership });
       setResult(analysisResult);
     } catch (err) {
-      // Log the real error for development diagnostics
       if (err instanceof AnalysisError) {
-        console.error("[handleAnalyze] AnalysisError:", err.code, err.debugDetail ?? err.message);
+        console.error("[handleAnalyze]", err.code, err.debugDetail ?? err.message);
       } else {
         console.error("[handleAnalyze] unexpected error:", err);
       }
@@ -151,8 +193,7 @@ export default function Product() {
     }
   };
 
-  const handleAnalysisComplete = useCallback(() => {
-    setScreen("result");
+  const runReveal = useCallback(() => {
     setRevealStage(1);
     const timers = [500, 900, 1300, 1800, 2300, 2800].map((ms, i) =>
       window.setTimeout(() => setRevealStage(i + 2), ms),
@@ -160,81 +201,97 @@ export default function Product() {
     return () => timers.forEach(window.clearTimeout);
   }, []);
 
-  // After auth succeeds, unlock results and save
-  useEffect(() => {
-    if (user && result && !unlocked && screen === "result") {
-      setUnlocked(true);
-      setAuthModalOpen(false);
-      setRevealStage(1);
-      const timers = [500, 900, 1300, 1800, 2300, 2800].map((ms, i) =>
-        window.setTimeout(() => setRevealStage(i + 2), ms),
-      );
-      // Save analysis to account
-      if (file) {
-        resizeForUpload(file).then(({ base64, mimeType }) => {
-          saveAnalysis(result, base64, mimeType);
-        }).catch(() => {});
+  const handleAnalysisComplete = useCallback(() => {
+    setScreen("result");
+    return runReveal();
+  }, [runReveal]);
+
+  /**
+   * Persist the analysis and run it through the progression gate.
+   * Only reached once the viewer is authenticated.
+   */
+  const persist = useCallback(
+    async (analysis: AnalysisResult, sourceFile: File, userId: string) => {
+      try {
+        const { base64, mimeType } = await resizeForUpload(sourceFile);
+        const saved = await saveAnalysis(analysis, base64, mimeType);
+        const recorded = await recordAnalysis(userId, analysis, base64, saved?.id);
+        if (recorded.status === "ok") setProgression(recorded.data);
+      } catch (err) {
+        // A failed save must not take down a result the user is already reading.
+        console.error("[persist]", err);
       }
-      return () => timers.forEach(window.clearTimeout);
-    }
-  }, [user, result, unlocked, screen, file]);
+    },
+    [],
+  );
 
-  const handleRetry = () => {
-    setError(null);
-    setScreen("preview");
-  };
-
+  // Auth completed while results were locked — unlock and save.
   useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, []);
+    if (!user || !result || unlocked || screen !== "result") return;
+    setUnlocked(true);
+    setAuthModalOpen(false);
+    const cleanup = runReveal();
+    if (file) void persist(result, file, user.id);
+    return cleanup;
+  }, [user, result, unlocked, screen, file, runReveal, persist]);
 
-  // Determine if we're in the blue "analysis mode"
   const inAnalysisMode = screen === "analyzing" || screen === "result";
+
+  const goBack = () => {
+    if (screen === "result" || screen === "analyzing") {
+      // Don't strand the user on a finished analysis.
+      navigate(user ? "/app" : "/");
+      return;
+    }
+    if (screen === "preview") {
+      clearImage();
+      setScreen("upload");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    navigate(user ? "/app" : "/");
+  };
 
   return (
     <div className="relative min-h-screen overflow-x-hidden">
-      {/* Continuous page-level background — same environment as landing */}
-      <div
-        className="fixed inset-0 -z-10"
-        aria-hidden
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% 0%, hsl(220 70% 14%) 0%, hsl(220 84% 10%) 40%, hsl(220 80% 8%) 100%)",
-        }}
-      />
+      <PageBackground />
 
-      {/* Top navigation */}
-      {inAnalysisMode ? (
-        <header className="fixed inset-x-0 top-0 z-50">
-          <div className="mx-auto flex max-w-6xl items-center justify-center px-4 py-4 sm:py-5">
-            <span className="text-lg font-bold tracking-tight text-white">{BRAND.name}</span>
-          </div>
-        </header>
-      ) : (
-        <header className="fixed inset-x-0 top-0 z-50 bg-white/[0.03] shadow-[0_1px_0_rgba(175,224,249,0.06)] backdrop-blur-xl">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="group flex items-center gap-2 text-sm font-semibold text-white/60 transition-colors hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-              Back
-            </button>
-            <img
-              src={BLINK_LOGO}
-              alt={BRAND.name}
-              className="h-8 w-8 select-none rounded-lg sm:h-9 sm:w-9"
-              draggable={false}
-            />
-            <div className="w-10" />
-          </div>
-        </header>
-      )}
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-blink-navy/50 backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+          <button
+            type="button"
+            onClick={goBack}
+            className="group flex items-center gap-2 text-sm font-semibold text-white/60 transition-colors hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+            <span className="hidden sm:inline">
+              {screen === "preview" ? "Change" : user ? "Home" : "Back"}
+            </span>
+          </button>
 
-      <main className={cn("px-4 pb-20 sm:px-6", inAnalysisMode ? "pt-20 sm:pt-24" : "pt-28 sm:pt-32")}>
+          <img
+            src={BLINK_LOGO}
+            alt={BRAND.name}
+            className="h-8 w-8 select-none rounded-lg"
+            draggable={false}
+          />
+
+          {/* Balances the back button so the logo stays optically centred. */}
+          <div className="flex w-[4.5rem] justify-end">
+            {user && !inAnalysisMode && (
+              <button
+                type="button"
+                onClick={() => navigate("/library")}
+                className="text-sm font-semibold text-white/60 transition-colors hover:text-white"
+              >
+                Library
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="px-4 pb-24 pt-20 sm:px-6 sm:pt-24">
         <div className="mx-auto max-w-2xl">
           <AnimatePresence mode="wait">
             {screen === "upload" && (
@@ -243,19 +300,31 @@ export default function Product() {
                 fileInputRef={fileInputRef}
                 error={error}
                 isDragging={isDragging}
-                onFileInput={handleFileInput}
-                onDrop={handleDrop}
+                onFileInput={(e) => {
+                  const selected = e.target.files?.[0];
+                  if (selected) validateAndSetImage(selected);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  const dropped = e.dataTransfer.files?.[0];
+                  if (dropped) validateAndSetImage(dropped);
+                }}
                 onDragOver={() => setIsDragging(true)}
                 onDragLeave={() => setIsDragging(false)}
               />
             )}
+
             {screen === "preview" && (
               <PreviewScreen
                 key="preview"
                 previewUrl={previewUrl}
                 error={error}
                 onAnalyze={handleAnalyze}
-                onRetry={handleRetry}
+                onRetry={() => {
+                  setError(null);
+                  setScreen("preview");
+                }}
                 onChange={() => {
                   clearImage();
                   setScreen("upload");
@@ -263,37 +332,42 @@ export default function Product() {
                 }}
               />
             )}
+
             {screen === "analyzing" && (
               <AnalysisScreen
                 key="analyzing"
                 previewUrl={previewUrl}
+                file={file}
                 onComplete={handleAnalysisComplete}
                 hasResult={!!result}
                 ownership={result?.ownership ?? "uncertain"}
               />
             )}
+
             {screen === "result" && result && (
               <ResultScreen
                 key="result"
                 result={result}
                 revealStage={revealStage}
                 unlocked={unlocked || !!user}
+                progression={progression}
                 onUnlock={() => {
-                  if (user) {
-                    setUnlocked(true);
-                    setRevealStage(1);
-                    const timers = [500, 900, 1300, 1800, 2300, 2800].map((ms, i) =>
-                      window.setTimeout(() => setRevealStage(i + 2), ms),
-                    );
-                    if (file) {
-                      resizeForUpload(file).then(({ base64, mimeType }) => {
-                        saveAnalysis(result, base64, mimeType);
-                      }).catch(() => {});
-                    }
-                    return () => timers.forEach(window.clearTimeout);
+                  if (!user) {
+                    setAuthModalOpen(true);
+                    return;
                   }
-                  // Not authenticated — show auth modal
-                  setAuthModalOpen(true);
+                  setUnlocked(true);
+                  const cleanup = runReveal();
+                  if (file) void persist(result, file, user.id);
+                  return cleanup;
+                }}
+                onAnalyzeAnother={() => {
+                  clearImage();
+                  setResult(null);
+                  setProgression(null);
+                  setUnlocked(false);
+                  setScreen("upload");
+                  if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
               />
             )}
@@ -301,19 +375,18 @@ export default function Product() {
         </div>
       </main>
 
-      {/* Auth modal for unlock flow */}
       <AuthModal
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         title="Unlock your Blink results"
-        subtitle="Create your account to see your complete analysis."
+        subtitle="Create your account to see the complete analysis."
       />
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Upload screen
+// Upload
 // ---------------------------------------------------------------------------
 
 function UploadScreen({
@@ -339,16 +412,17 @@ function UploadScreen({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="flex flex-col items-center pt-8 text-center sm:pt-16"
+      className="flex flex-col items-center pt-6 text-center sm:pt-12"
     >
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/8">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/[0.07]">
         <ImagePlus className="h-8 w-8 text-blink-sky" />
       </div>
       <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
         Show us a profile.
       </h1>
       <p className="mt-4 max-w-sm text-base leading-relaxed text-white/55">
-        Upload a screenshot of an Instagram profile and Blink will analyze the first impression it gives.
+        Upload a screenshot of an Instagram profile and Blink will analyze the first
+        impression it gives.
       </p>
 
       <div className="mt-10 w-full max-w-sm">
@@ -380,7 +454,9 @@ function UploadScreen({
           <div className="flex flex-col items-center">
             <ProfilePlaceholder />
             <p className="mt-5 text-sm font-bold text-white">Upload profile screenshot</p>
-            <p className="mt-1 text-xs font-medium text-white/45">PNG, JPG, JPEG, WEBP — max 20MB</p>
+            <p className="mt-1 text-xs font-medium text-white/45">
+              PNG, JPG, WEBP — max {MAX_SIZE_MB}MB
+            </p>
           </div>
         </div>
 
@@ -390,6 +466,7 @@ function UploadScreen({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
+              role="alert"
               className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm font-medium text-red-400"
             >
               {error}
@@ -398,7 +475,7 @@ function UploadScreen({
         </AnimatePresence>
 
         <div className="mt-6 flex items-center justify-center gap-2 text-xs font-medium text-white/40">
-          <Lock className="h-3.5 w-3.5" />
+          <Lock className="h-3.5 w-3.5 shrink-0" />
           <span>Your screenshot is analyzed and deleted. Never stored or shared.</span>
         </div>
       </div>
@@ -408,12 +485,12 @@ function UploadScreen({
 
 function ProfilePlaceholder() {
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-white/8 bg-white/[0.04] p-4">
+    <div className="flex flex-col items-center rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4">
       <div className="h-12 w-12 rounded-full bg-white/10" />
       <div className="mt-2 h-2 w-16 rounded-full bg-white/10" />
       <div className="mt-3 grid grid-cols-3 gap-1">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-7 w-7 rounded bg-white/8" />
+          <div key={i} className="h-7 w-7 rounded bg-white/[0.08]" />
         ))}
       </div>
     </div>
@@ -421,7 +498,7 @@ function ProfilePlaceholder() {
 }
 
 // ---------------------------------------------------------------------------
-// Preview screen
+// Preview
 // ---------------------------------------------------------------------------
 
 function PreviewScreen({
@@ -443,16 +520,23 @@ function PreviewScreen({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="flex flex-col items-center pt-4 text-center sm:pt-10"
+      className="flex flex-col items-center pt-2 text-center sm:pt-8"
     >
-      <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Your screenshot</h1>
+      <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+        Your screenshot
+      </h1>
       <p className="mt-2 text-sm text-white/50">Looks good?</p>
 
-      <div className="mt-6 w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-xl">
+      {/* Bounded on both axes so any aspect ratio fits without stretching. */}
+      <div
+        className="mt-6 flex w-full items-center justify-center"
+        style={{ height: STAGE_HEIGHT }}
+      >
         <img
           src={previewUrl}
           alt="Your profile screenshot"
-          className="h-auto max-h-[420px] w-full object-contain"
+          className="block h-auto w-auto min-w-0 rounded-2xl border border-white/10 object-contain shadow-xl"
+          style={{ maxHeight: STAGE_HEIGHT, maxWidth: STAGE_MAX_WIDTH }}
         />
       </div>
 
@@ -462,6 +546,7 @@ function PreviewScreen({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
+            role="alert"
             className="mt-6 w-full max-w-sm rounded-2xl bg-red-500/10 px-5 py-4"
           >
             <p className="text-sm font-medium text-red-400">{error}</p>
@@ -479,7 +564,7 @@ function PreviewScreen({
 
       {!error && (
         <div className="mt-8 flex w-full max-w-sm flex-col gap-3">
-          <CTAButton label="Analyze my profile" onClick={onAnalyze} size="lg" className="w-full" />
+          <CTAButton label="Analyze this profile" onClick={onAnalyze} size="lg" className="w-full" />
           <button
             type="button"
             onClick={onChange}
@@ -495,17 +580,30 @@ function PreviewScreen({
 }
 
 // ---------------------------------------------------------------------------
-// Analysis screen — mid-analysis transformation at ~50%
-// The circle originates from the profile picture, NOT a Blink logo.
+// Analysing
 // ---------------------------------------------------------------------------
 
-function AnalysisScreen({
+/** Where the profile picture sits, in on-screen pixels relative to stage centre. */
+interface PdpTarget {
+  offsetX: number;
+  offsetY: number;
+  /** Displayed diameter of the avatar, in pixels. */
+  diameter: number;
+  pdp: PdpDetection;
+  /** Aspect ratio of the screenshot, for the circular crop. */
+  aspect: number;
+}
+
+/** Exported for the layout regression test in `analysis-layout.browser.test.tsx`. */
+export function AnalysisScreen({
   previewUrl,
+  file,
   onComplete,
   hasResult,
   ownership,
 }: {
   previewUrl: string;
+  file: File | null;
   onComplete: () => (() => void) | void;
   hasResult: boolean;
   ownership: ProfileOwnership;
@@ -514,45 +612,85 @@ function AnalysisScreen({
   const [messageIdx, setMessageIdx] = useState(0);
   const [scanY, setScanY] = useState(0);
   const [transformed, setTransformed] = useState(false);
+  const [screenshotGone, setScreenshotGone] = useState(false);
   const [signalsVisible, setSignalsVisible] = useState(false);
-  const [pdpOffset, setPdpOffset] = useState({ x: 0, y: 0 });
-  const screenshotRef = useRef<HTMLDivElement>(null);
-  const screenshotDims = useRef({ w: 0, h: 0 });
+  const [target, setTarget] = useState<PdpTarget | null>(null);
+
+  const stageRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const pdpRef = useRef<PdpDetection | null>(null);
+  const stageTimers = useRef<number[]>([]);
+
   const messages = getAnalysisMessages(ownership);
 
-  // Measure screenshot dimensions continuously while visible
+  // Find the avatar in the uploaded file while the early stages play out, so
+  // the result is ready well before the transformation needs it.
   useEffect(() => {
-    if (transformed) return;
-    const el = screenshotRef.current;
-    if (!el) return;
-    const measure = () => {
-      const rect = el.getBoundingClientRect();
-      screenshotDims.current = { w: rect.width, h: rect.height };
+    if (!file) return;
+    let cancelled = false;
+    detectPdp(file).then((pdp) => {
+      if (!cancelled) pdpRef.current = pdp;
+    });
+    return () => {
+      cancelled = true;
     };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [transformed]);
+  }, [file]);
 
-  // Calculate PDP offset when transformation begins
-  // Instagram PDP is approximately at 18% from left, 15% from top
-  useEffect(() => {
-    if (transformed && screenshotDims.current.w > 0) {
-      setPdpOffset({
-        x: (0.18 - 0.5) * screenshotDims.current.w,
-        y: (0.15 - 0.5) * screenshotDims.current.h,
-      });
-    }
-  }, [transformed]);
+  /**
+   * Map the avatar's position in the *image* onto the *displayed* element.
+   *
+   * Measured at transform time rather than precomputed, because the rendered
+   * size depends on the viewport and on how the image letterboxes inside the
+   * stage.
+   */
+  const measureTarget = useCallback((): PdpTarget | null => {
+    const img = imgRef.current;
+    const stage = stageRef.current;
+    if (!img || !stage || !img.naturalWidth) return null;
 
-  // Progress through stages with varying timing
+    const imgRect = img.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    if (imgRect.width === 0) return null;
+
+    const pdp = pdpRef.current ?? heuristicPdp(img.naturalWidth, img.naturalHeight);
+
+    const pdpX = imgRect.left + pdp.cx * imgRect.width;
+    const pdpY = imgRect.top + pdp.cy * imgRect.height;
+
+    return {
+      offsetX: pdpX - (stageRect.left + stageRect.width / 2),
+      offsetY: pdpY - (stageRect.top + stageRect.height / 2),
+      diameter: Math.max(24, pdp.r * 2 * imgRect.width),
+      pdp,
+      aspect: img.naturalWidth / img.naturalHeight,
+    };
+  }, []);
+
+  const beginTransform = useCallback(() => {
+    setTarget(measureTarget());
+    setTransformed(true);
+    window.setTimeout(() => setSignalsVisible(true), 900);
+  }, [measureTarget]);
+
+  /**
+   * Abandon the scripted timeline.
+   *
+   * Called when the analysis returns early. Without this the queued stage
+   * timers keep writing lower progress values over the 100 we just set, which
+   * repeatedly cancels the completion timeout — the screen would sit there for
+   * the full scripted duration no matter how fast the model replied.
+   */
+  const cancelStages = useCallback(() => {
+    stageTimers.current.forEach(window.clearTimeout);
+    stageTimers.current = [];
+  }, []);
+
+  // Stage progression.
   useEffect(() => {
-    const timers: number[] = [];
+    const timers = stageTimers.current;
 
     const runStage = (stageIdx: number) => {
       if (stageIdx >= STAGES.length) return;
-
       const stage = STAGES[stageIdx];
       setMessageIdx(stage.messageKey);
 
@@ -562,30 +700,33 @@ function AnalysisScreen({
       const increment = (stage.target - startProgress) / steps;
 
       for (let s = 0; s < steps; s++) {
-        const t = window.setTimeout(() => {
-          setProgress(startProgress + increment * (s + 1));
-        }, s * stepDuration);
-        timers.push(t);
+        timers.push(
+          window.setTimeout(() => {
+            setProgress(startProgress + increment * (s + 1));
+          }, s * stepDuration),
+        );
       }
 
-      const t = window.setTimeout(() => {
-        setProgress(stage.target);
-        // Trigger transformation at the mid-point stage
-        if (stage.target >= TRANSFORM_PROGRESS && !transformed) {
-          setTransformed(true);
-          // Signals appear shortly after transformation
-          window.setTimeout(() => setSignalsVisible(true), 800);
-        }
-        runStage(stageIdx + 1);
-      }, stage.duration);
-      timers.push(t);
+      timers.push(
+        window.setTimeout(() => {
+          setProgress(stage.target);
+          if (stage.target >= TRANSFORM_PROGRESS) {
+            setTransformed((already) => {
+              if (!already) beginTransform();
+              return true;
+            });
+          }
+          runStage(stageIdx + 1);
+        }, stage.duration),
+      );
     };
 
     runStage(0);
-    return () => timers.forEach(window.clearTimeout);
-  }, [transformed]);
+    return cancelStages;
+    // Runs once for the lifetime of the screen; both callbacks are stable.
+  }, [beginTransform, cancelStages]);
 
-  // Scanning line — only active before transformation
+  // Scan line, retired once the screenshot collapses.
   useEffect(() => {
     if (transformed) return;
     let frame: number;
@@ -594,17 +735,15 @@ function AnalysisScreen({
 
     const animate = (time: number) => {
       if (startTime === null) startTime = time;
-      const elapsed = time - startTime;
-      const cycle = (elapsed % period) / period;
-      const pos = cycle < 0.5 ? cycle * 2 : (1 - cycle) * 2;
-      setScanY(pos);
+      const cycle = ((time - startTime) % period) / period;
+      setScanY(cycle < 0.5 ? cycle * 2 : (1 - cycle) * 2);
       frame = requestAnimationFrame(animate);
     };
     frame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(frame);
   }, [transformed]);
 
-  // When result arrives AND progress reaches 100, transition
+  // Result landed and the bar is full — hand off to the result screen.
   useEffect(() => {
     if (hasResult && progress >= 100) {
       const t = window.setTimeout(onComplete, 600);
@@ -612,17 +751,18 @@ function AnalysisScreen({
     }
   }, [hasResult, progress, onComplete]);
 
-  // If result arrives before progress hits 100, fast-forward
+  // Result beat the animation — drop the remaining stages and jump to the end.
   useEffect(() => {
-    if (hasResult && progress < 100) {
-      setProgress(100);
-      setMessageIdx(messages.length - 1);
-      if (!transformed) {
-        setTransformed(true);
-        setSignalsVisible(true);
-      }
-    }
-  }, [hasResult, progress, transformed, messages.length]);
+    if (!hasResult || progress >= 100) return;
+    cancelStages();
+    setProgress(100);
+    setMessageIdx(messages.length - 1);
+    setTransformed((already) => {
+      if (!already) beginTransform();
+      return true;
+    });
+    setSignalsVisible(true);
+  }, [hasResult, progress, messages.length, beginTransform, cancelStages]);
 
   return (
     <motion.div
@@ -630,39 +770,47 @@ function AnalysisScreen({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.4 }}
-      className="flex flex-col items-center justify-center pt-8 sm:pt-12"
+      // Centred in the remaining viewport so the stage isn't stranded at the
+      // top of a mostly empty screen while the analysis runs.
+      className="flex flex-col items-center justify-center"
+      style={{ minHeight: "calc(100dvh - 11rem)" }}
     >
-      {/* Central area — screenshot OR transformed circle */}
-      <div className="relative flex h-[340px] w-full items-center justify-center sm:h-[400px]">
-        {/* Subtle blue glow behind */}
+      {/* Stage — height-capped, so nothing here can reach the progress bar. */}
+      <div
+        ref={stageRef}
+        className="relative flex w-full items-center justify-center"
+        style={{ height: STAGE_HEIGHT }}
+      >
         <div
           className={cn(
-            "pointer-events-none absolute rounded-full bg-blink-sky/8 blur-2xl transition-all duration-1000",
-            transformed ? "h-[200px] w-[200px]" : "h-full w-full max-w-[300px]",
+            "pointer-events-none absolute rounded-full bg-blink-sky/[0.07] blur-2xl transition-all duration-1000",
+            transformed ? "h-[220px] w-[220px]" : "h-full w-full max-w-[320px]",
           )}
           aria-hidden
         />
 
-        {/* Screenshot — stays in flow, fades out during transformation */}
+        {/* Screenshot.
+            `min-w-0` matters: a flex item's default `min-width: auto` is its
+            content size, which overrides `max-width` and lets a wide capture
+            burst out of the stage. Zeroing it lets the max-width cap win. */}
         <motion.div
-          ref={screenshotRef}
-          className="relative w-full max-w-[260px] sm:max-w-[300px]"
-          animate={transformed ? { opacity: 0, scale: 0.88 } : { opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-          style={{ pointerEvents: transformed ? "none" : "auto" }}
+          className="relative flex min-w-0 max-h-full max-w-full items-center justify-center"
+          animate={transformed ? { opacity: 0, scale: 0.94 } : { opacity: 1, scale: 1 }}
+          transition={{ duration: 0.65, ease: [0.4, 0, 0.2, 1] }}
+          // Dropped from the tree once faded, so no ghost of the frame's
+          // border or shadow can survive behind the circle.
+          onAnimationComplete={() => transformed && setScreenshotGone(true)}
+          style={{ pointerEvents: "none", display: screenshotGone ? "none" : undefined }}
         >
-          <div className="relative overflow-hidden rounded-2xl border border-blink-sky/30 bg-white/5 shadow-[0_0_30px_-8px_rgba(175,224,249,0.15)]">
+          <div className="relative max-w-full overflow-hidden rounded-2xl border border-blink-sky/25 shadow-[0_0_40px_-12px_rgba(175,224,249,0.2)]">
             <img
+              ref={imgRef}
               src={previewUrl}
-              alt="Your profile being analyzed"
-              className="w-full opacity-95"
+              alt="The profile being analyzed"
+              className="block h-auto w-auto object-contain"
+              style={{ maxHeight: STAGE_HEIGHT, maxWidth: STAGE_MAX_WIDTH }}
               draggable={false}
             />
-            <div
-              className="pointer-events-none absolute inset-0 bg-gradient-to-b from-blink-sky/5 via-transparent to-blink-sky/5"
-              aria-hidden
-            />
-            {/* Scanning line — only visible before transformation */}
             {!transformed && (
               <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
                 <div
@@ -690,33 +838,29 @@ function AnalysisScreen({
           </div>
         </motion.div>
 
-        {/* Transformed circle — emerges from PDP position, moves to center */}
         {transformed && (
-          <motion.div
-            className="absolute inset-0 flex items-center justify-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            <TransformedCircle
-              previewUrl={previewUrl}
-              signalsVisible={signalsVisible}
-              pdpOffset={pdpOffset}
-            />
-          </motion.div>
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <TransformedCircle previewUrl={previewUrl} signalsVisible={signalsVisible} target={target} />
+          </div>
         )}
       </div>
 
-      {/* Progress bar — subtle, premium */}
-      <div className="mt-6 w-full max-w-[260px] sm:max-w-[300px]">
-        <div className="relative h-1 overflow-hidden rounded-full bg-white/10">
+      {/* Progress — a sibling of the stage, never overlapped by it. */}
+      <div className="mt-8 w-full max-w-[320px] shrink-0">
+        <div
+          className="relative h-1 overflow-hidden rounded-full bg-white/10"
+          role="progressbar"
+          aria-valuenow={Math.round(progress)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
           <motion.div
             className="absolute left-0 top-0 h-full rounded-full bg-blink-sky"
-            style={{ width: `${progress}%` }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
           />
         </div>
-        <div className="mt-2 flex items-center justify-between">
+        <div className="mt-3 flex items-center justify-between gap-3">
           <AnimatePresence mode="wait">
             <motion.p
               key={messageIdx}
@@ -724,12 +868,12 @@ function AnalysisScreen({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.3 }}
-              className="text-xs font-medium text-white/60 sm:text-sm"
+              className="min-w-0 flex-1 truncate text-xs font-medium text-white/60 sm:text-sm"
             >
               {messages[messageIdx] ?? "Analyzing…"}
             </motion.p>
           </AnimatePresence>
-          <span className="text-xs font-bold tabular-nums text-white/40">
+          <span className="shrink-0 text-xs font-bold tabular-nums text-white/40">
             {Math.round(progress)}%
           </span>
         </div>
@@ -739,92 +883,123 @@ function AnalysisScreen({
 }
 
 // ---------------------------------------------------------------------------
-// Transformed circle — the mid-analysis moment.
-// The circle contains the user's actual profile image, NOT the Blink logo.
-// The screenshot visually collapses toward the profile picture location.
+// The transformation
 // ---------------------------------------------------------------------------
 
+/** Rendered diameter of the circle once it settles in the centre. */
+const CIRCLE_SIZE = 132;
+
+const SIGNAL_LABELS = [
+  "Visual Identity",
+  "Aesthetic",
+  "Confidence",
+  "Status",
+  "Approachability",
+  "Mystery",
+];
+
+/**
+ * The circle lifts off the profile picture inside the screenshot and carries it
+ * to the centre.
+ *
+ * It is always a `CIRCLE_SIZE` element that animates `scale` and `x`/`y`, never
+ * width/height — transform-only keeps it on the compositor, and it keeps the
+ * background crop maths constant while the circle is moving.
+ */
 function TransformedCircle({
   previewUrl,
   signalsVisible,
-  pdpOffset,
+  target,
 }: {
   previewUrl: string;
   signalsVisible: boolean;
-  pdpOffset: { x: number; y: number };
+  target: PdpTarget | null;
 }) {
-  const SIGNAL_LABELS = [
-    "Visual Identity",
-    "Aesthetic",
-    "Confidence",
-    "Status",
-    "Approachability",
-    "Mystery",
-  ];
+  // Crop the screenshot so the circle shows the avatar itself, not a circular
+  // window onto the whole screenshot.
+  const crop = (() => {
+    if (!target) return { backgroundSize: "cover", backgroundPosition: "center" };
+    const { pdp, aspect } = target;
+    const bgW = CIRCLE_SIZE / (2 * pdp.r);
+    const bgH = bgW / aspect;
+    return {
+      backgroundSize: `${bgW}px ${bgH}px`,
+      backgroundPosition: `${-(pdp.cx * bgW - CIRCLE_SIZE / 2)}px ${-(pdp.cy * bgH - CIRCLE_SIZE / 2)}px`,
+    };
+  })();
+
+  const from = target
+    ? { x: target.offsetX, y: target.offsetY, scale: target.diameter / CIRCLE_SIZE }
+    : { x: 0, y: 0, scale: 0.55 };
 
   return (
-    <div className="relative flex h-[280px] w-[280px] items-center justify-center sm:h-[340px] sm:w-[340px]">
-      {/* The profile image circle — emerges from the PDP position, moves to center */}
-      <motion.div
-        className="absolute overflow-hidden rounded-full ring-2 ring-blink-sky/40"
-        initial={{ width: 80, height: 80, opacity: 0, x: pdpOffset.x, y: pdpOffset.y, scale: 0.5 }}
-        animate={{ width: 130, height: 130, opacity: 1, x: 0, y: 0, scale: 1 }}
-        transition={{ type: "spring", stiffness: 200, damping: 26, delay: 0.15 }}
-      >
-        <img
-          src={previewUrl}
-          alt="Your profile picture"
-          className="h-full w-full object-cover"
-          draggable={false}
+    <div className="relative flex h-[300px] w-[300px] items-center justify-center sm:h-[340px] sm:w-[340px]">
+      {/* Ripples. Each is exactly the circle's size, so scale 1 sits on its rim
+          and there is no visible spawn — they fade up out of the edge. */}
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          className="absolute rounded-full border border-blink-sky/30"
+          style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}
+          initial={{ opacity: 0, scale: 1 }}
+          animate={{ opacity: [0, 0.45, 0], scale: [1, 1.55, 2.05] }}
+          transition={{
+            duration: 3.2,
+            repeat: Infinity,
+            ease: "easeOut",
+            delay: 0.9 + i * 1.05,
+            times: [0, 0.35, 1],
+          }}
+          aria-hidden
         />
-      </motion.div>
+      ))}
 
-      {/* Outer ring — follows the circle from PDP to center */}
-      <motion.div
-        className="absolute rounded-full border-2 border-blink-sky/30"
-        style={{ width: 145, height: 145 }}
-        initial={{ opacity: 0, scale: 0.55, x: pdpOffset.x, y: pdpOffset.y }}
-        animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-        transition={{ duration: 0.7, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      />
-
-      {/* Pulsing scan ring — smoothly emerges from the circle, no abrupt start */}
+      {/* Ring, settling a beat after the avatar. */}
       <motion.div
         className="absolute rounded-full border border-blink-sky/25"
-        style={{ width: 145, height: 145 }}
-        initial={{ opacity: 0, scale: 1 }}
-        animate={{
-          opacity: [0, 0, 0.5, 0.25, 0],
-          scale: [1, 1.02, 1.12, 1.28, 1.45],
-        }}
-        transition={{
-          duration: 2.4,
-          repeat: Infinity,
-          ease: [0.22, 1, 0.36, 1],
-          delay: 0.6,
-          times: [0, 0.1, 0.3, 0.65, 1],
-        }}
+        style={{ width: CIRCLE_SIZE + 16, height: CIRCLE_SIZE + 16 }}
+        initial={{ opacity: 0, x: from.x, y: from.y, scale: from.scale }}
+        animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+        transition={{ duration: 0.85, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+        aria-hidden
       />
 
-      {/* Surrounding perception signals */}
+      {/* The avatar. */}
+      <motion.div
+        className="absolute overflow-hidden rounded-full bg-blink-navy-2 ring-2 ring-blink-sky/40"
+        style={{
+          width: CIRCLE_SIZE,
+          height: CIRCLE_SIZE,
+          backgroundImage: `url(${previewUrl})`,
+          backgroundRepeat: "no-repeat",
+          ...crop,
+        }}
+        initial={{ opacity: 0, x: from.x, y: from.y, scale: from.scale }}
+        animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 150, damping: 22, mass: 0.9 }}
+        role="img"
+        aria-label="The profile picture being analyzed"
+      />
+
+      {/* Perception signals fanning out. */}
       {signalsVisible &&
         SIGNAL_LABELS.map((label, i) => {
           const angle = (i * 360) / SIGNAL_LABELS.length - 90;
-          const radius = 140;
-          const x = Math.cos((angle * Math.PI) / 180) * radius;
-          const y = Math.sin((angle * Math.PI) / 180) * radius;
+          // Far enough out that the longest label still clears the circle's
+          // rim, close enough that the widest one stays inside a 390px phone.
+          const radius = 146;
           return (
             <motion.div
               key={label}
-              className="absolute flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 backdrop-blur-sm"
+              className="absolute flex items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 backdrop-blur-sm"
               initial={{ opacity: 0, x: 0, y: 0, scale: 0.6 }}
-              animate={{ opacity: 1, x, y, scale: 1 }}
-              transition={{
-                type: "spring",
-                stiffness: 300,
-                damping: 24,
-                delay: i * 0.1,
+              animate={{
+                opacity: 1,
+                x: Math.cos((angle * Math.PI) / 180) * radius,
+                y: Math.sin((angle * Math.PI) / 180) * radius,
+                scale: 1,
               }}
+              transition={{ type: "spring", stiffness: 280, damping: 26, delay: i * 0.09 }}
             >
               <span className="h-1.5 w-1.5 rounded-full bg-blink-sky-bright" />
               <span className="text-[10px] font-bold text-white/90 sm:text-xs">{label}</span>
@@ -836,7 +1011,7 @@ function TransformedCircle({
 }
 
 // ---------------------------------------------------------------------------
-// Result screen — locked (blurred) or unlocked (full narrative)
+// Result
 // ---------------------------------------------------------------------------
 
 const springUp = {
@@ -849,30 +1024,36 @@ function ResultScreen({
   result,
   revealStage,
   unlocked,
+  progression,
   onUnlock,
+  onAnalyzeAnother,
 }: {
   result: AnalysisResult;
   revealStage: number;
   unlocked: boolean;
+  progression: RecordedAnalysis | null;
   onUnlock: () => (() => void) | void;
+  onAnalyzeAnother: () => void;
 }) {
-  if (!unlocked) {
-    return <LockedResult result={result} onUnlock={onUnlock} />;
-  }
+  const voice = getVoice(result.ownership, result.subjectGender);
+
+  if (!unlocked) return <LockedResult result={result} voice={voice} onUnlock={onUnlock} />;
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
-      className="flex flex-col items-center pt-4 text-center sm:pt-8"
+      className="flex flex-col items-center pt-2 text-center sm:pt-6"
     >
-      {/* Hero — score + first impression + traits */}
+      <OwnershipBanner voice={voice} handle={result.handle} />
+
       {revealStage >= 1 && (
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 28 }}
+          className="mt-6"
         >
           <ScoreRing value={result.overallScore} size={170} light />
         </motion.div>
@@ -888,7 +1069,7 @@ function ResultScreen({
         </motion.p>
       )}
 
-      {revealStage >= 3 && (
+      {revealStage >= 3 && result.traits.length > 0 && (
         <motion.div
           {...springUp}
           transition={{ delay: 0.1, ...springUp.transition }}
@@ -905,8 +1086,7 @@ function ResultScreen({
         </motion.div>
       )}
 
-      {/* Personalized interpretation */}
-      {revealStage >= 4 && (
+      {revealStage >= 4 && result.why && (
         <motion.p
           {...springUp}
           transition={{ delay: 0.1, ...springUp.transition }}
@@ -916,7 +1096,6 @@ function ResultScreen({
         </motion.p>
       )}
 
-      {/* Signal dimensions — narrative, not generic cards */}
       {revealStage >= 5 && (
         <motion.div
           {...springUp}
@@ -924,7 +1103,7 @@ function ResultScreen({
           className="mt-12 w-full max-w-md space-y-5 text-left"
         >
           <h3 className="text-xs font-bold uppercase tracking-widest text-white/45">
-            What creates this impression
+            {voice.signalsHeading}
           </h3>
           {result.signals.map((signal) => (
             <SignalBar key={signal.label} signal={signal} />
@@ -932,7 +1111,6 @@ function ResultScreen({
         </motion.div>
       )}
 
-      {/* Perspectives — how different people may see you */}
       {revealStage >= 6 && (
         <motion.div
           {...springUp}
@@ -940,13 +1118,12 @@ function ResultScreen({
           className="mt-12 w-full max-w-md text-left"
         >
           <h3 className="text-xs font-bold uppercase tracking-widest text-white/45">
-            How different people may see you
+            {voice.perspectivesHeading}
           </h3>
-          <PerspectiveSelector perspectives={result.perspectives} />
+          <PerspectiveSelector perspectives={result.perspectives} voice={voice} />
         </motion.div>
       )}
 
-      {/* What works / What to change / Next move — narrative ending */}
       {revealStage >= 7 && (
         <motion.div
           {...springUp}
@@ -954,35 +1131,248 @@ function ResultScreen({
           className="mt-12 w-full max-w-md space-y-3 text-left"
         >
           {result.strengths.map((text, i) => (
-            <ResultBlock key={`strength-${i}`} title="What's working" text={text} tone="positive" />
+            <ResultBlock key={`s-${i}`} title={voice.strengthsLabel} text={text} tone="positive" />
           ))}
           {result.weaknesses.map((text, i) => (
-            <ResultBlock key={`weak-${i}`} title="What you could change" text={text} tone="neutral" />
+            <ResultBlock key={`w-${i}`} title={voice.weaknessesLabel} text={text} tone="neutral" />
           ))}
-          <ResultBlock title="Your next move" text={result.nextMove} tone="action" />
+
+          {/* Advice exists only for the account's owner. */}
+          {voice.isOwn && result.nextMove && (
+            <ResultBlock title="Your next move" text={result.nextMove} tone="action" />
+          )}
+
+          {voice.isOwn && result.recommendations.length > 0 && (
+            <ImprovementPlan recommendations={result.recommendations} result={result} />
+          )}
+
+          {voice.isOwn && <ProgressionCard progression={progression} result={result} />}
+
+          {!voice.isOwn && <PublicProfileNote voice={voice} />}
+        </motion.div>
+      )}
+
+      {revealStage >= 7 && (
+        <motion.div
+          {...springUp}
+          transition={{ delay: 0.2, ...springUp.transition }}
+          className="mt-10 w-full max-w-md"
+        >
+          <ResultActions onAnalyzeAnother={onAnalyzeAnother} isOwn={voice.isOwn} />
         </motion.div>
       )}
     </motion.div>
   );
 }
 
+/** Says plainly whose profile was read, so the framing is never ambiguous. */
+function OwnershipBanner({ voice, handle }: { voice: Voice; handle: string | null }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-4 py-1.5"
+    >
+      <span className="text-xs font-bold text-white/70">
+        {voice.isOwn ? "Your profile" : voice.Subject}
+      </span>
+      {handle && <span className="text-xs font-medium text-white/35">@{handle}</span>}
+    </motion.div>
+  );
+}
+
+/** Ties each recommendation to the score it can move. */
+function ImprovementPlan({
+  recommendations,
+  result,
+}: {
+  recommendations: string[];
+  result: AnalysisResult;
+}) {
+  const score = computeBlinkScore(result).total;
+  const tier = getTier(score);
+
+  return (
+    <div className="rounded-2xl border border-blink-sky/25 bg-blink-sky/[0.06] p-5">
+      <p className="text-xs font-bold uppercase tracking-widest text-blink-sky">
+        How to raise your Blink Score
+      </p>
+      <p className="mt-2 text-xs leading-relaxed text-white/50">
+        You&rsquo;re at <span className="font-bold text-white/80">{score}</span> — {tier.label}.
+        A higher rank means a more optimized profile. Make these changes on Instagram,
+        then upload a fresh screenshot so Blink can verify them.
+      </p>
+      <ol className="mt-4 space-y-2.5">
+        {recommendations.map((rec, i) => (
+          <li key={i} className="flex gap-3">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blink-sky/20 text-[0.65rem] font-bold text-blink-sky">
+              {i + 1}
+            </span>
+            <span className="text-sm leading-relaxed text-white/80">{rec}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/** Closes the loop: did this upload actually move the score, and why not. */
+function ProgressionCard({
+  progression,
+  result,
+}: {
+  progression: RecordedAnalysis | null;
+  result: AnalysisResult;
+}) {
+  const score = progression?.score ?? computeBlinkScore(result).total;
+
+  if (!progression) {
+    return (
+      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5">
+        <p className="text-xs font-bold uppercase tracking-widest text-white/45">
+          Blink Score
+        </p>
+        <p className="mt-2 text-3xl font-extrabold tabular-nums text-white">{score}</p>
+        <p className="mt-1.5 text-xs leading-relaxed text-white/45">
+          Saving this analysis to your profile…
+        </p>
+      </div>
+    );
+  }
+
+  const { check, delta } = progression;
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border p-5",
+        check.counts
+          ? "border-emerald-400/20 bg-emerald-400/[0.06]"
+          : "border-amber-400/20 bg-amber-400/[0.06]",
+      )}
+    >
+      <p
+        className={cn(
+          "text-xs font-bold uppercase tracking-widest",
+          check.counts ? "text-emerald-300/80" : "text-amber-300/80",
+        )}
+      >
+        {check.counts ? "Verified — this counts" : "Not counted"}
+      </p>
+
+      <div className="mt-2 flex items-baseline gap-3">
+        <span className="text-3xl font-extrabold tabular-nums text-white">{score}</span>
+        {check.counts && delta !== 0 && (
+          <span
+            className={cn(
+              "text-sm font-bold tabular-nums",
+              delta > 0 ? "text-emerald-300" : "text-amber-300",
+            )}
+          >
+            {delta > 0 ? `+${delta}` : delta}
+          </span>
+        )}
+      </div>
+
+      <p className="mt-1.5 text-xs leading-relaxed text-white/55">
+        {check.counts
+          ? "Your rank has been updated from this screenshot."
+          : check.message}
+      </p>
+    </div>
+  );
+}
+
+/** Makes the third-party read feel deliberate rather than a truncated self-analysis. */
+function PublicProfileNote({ voice }: { voice: Voice }) {
+  return (
+    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5">
+      <p className="text-xs font-bold uppercase tracking-widest text-white/45">
+        Public read
+      </p>
+      <p className="mt-2 text-sm leading-relaxed text-white/60">
+        This is a perception read of {voice.subject} — what it signals to the people who
+        land on it. Improvement actions belong to whoever runs the account, so Blink
+        doesn&rsquo;t show them here.
+      </p>
+      <p className="mt-3 text-xs leading-relaxed text-white/40">
+        Analyzing someone else never affects your own Blink Score or rank.
+      </p>
+    </div>
+  );
+}
+
+function ResultActions({
+  onAnalyzeAnother,
+  isOwn,
+}: {
+  onAnalyzeAnother: () => void;
+  isOwn: boolean;
+}) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="flex flex-col gap-3">
+      {isOwn && (
+        <button
+          type="button"
+          onClick={() => navigate("/profile")}
+          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blink-sky px-6 py-3.5 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <User className="h-4 w-4" />
+          See your Blink profile
+        </button>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => navigate("/ranks")}
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-sm font-semibold text-white/80 transition-colors hover:bg-white/[0.08]"
+        >
+          <Trophy className="h-4 w-4" />
+          Ranks
+        </button>
+        <button
+          type="button"
+          onClick={onAnalyzeAnother}
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-sm font-semibold text-white/80 transition-colors hover:bg-white/[0.08]"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Analyze another
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
-// Locked result — blurred preview + Unlock CTA
+// Locked result
 // ---------------------------------------------------------------------------
 
-function LockedResult({ result, onUnlock }: { result: AnalysisResult; onUnlock: () => (() => void) | void }) {
+function LockedResult({
+  result,
+  voice,
+  onUnlock,
+}: {
+  result: AnalysisResult;
+  voice: Voice;
+  onUnlock: () => (() => void) | void;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
-      className="flex flex-col items-center pt-4 text-center sm:pt-8"
+      className="flex flex-col items-center pt-2 text-center sm:pt-6"
     >
-      {/* Visible score — creates curiosity */}
+      <OwnershipBanner voice={voice} handle={result.handle} />
+
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: "spring", stiffness: 300, damping: 28 }}
+        className="mt-6"
       >
         <ScoreRing value={result.overallScore} size={170} light />
       </motion.div>
@@ -995,12 +1385,11 @@ function LockedResult({ result, onUnlock }: { result: AnalysisResult; onUnlock: 
         {result.firstImpression}
       </motion.p>
 
-      {/* Visible first trait only */}
       {result.traits.length > 0 && (
         <motion.div
           {...springUp}
           transition={{ delay: 0.15, ...springUp.transition }}
-          className="mt-6 flex justify-center gap-2"
+          className="mt-6 flex flex-wrap justify-center gap-2"
         >
           <span className="rounded-full bg-blink-sky px-4 py-1.5 text-sm font-semibold text-blink-navy">
             {result.traits[0]}
@@ -1013,10 +1402,9 @@ function LockedResult({ result, onUnlock }: { result: AnalysisResult; onUnlock: 
         </motion.div>
       )}
 
-      {/* Blurred detailed results with lock CTA */}
       <div className="mt-10 w-full max-w-md">
-        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-5">
-          <div className="space-y-3 blur-[6px] select-none" aria-hidden>
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
+          <div className="select-none space-y-3 blur-[6px]" aria-hidden>
             <p className="text-sm font-bold text-white/80">{result.why.slice(0, 80)}…</p>
             <div className="space-y-2">
               {result.signals.slice(0, 3).map((s) => (
@@ -1026,17 +1414,26 @@ function LockedResult({ result, onUnlock }: { result: AnalysisResult; onUnlock: 
                     <span className="text-xs font-bold text-blink-sky">{s.score.toFixed(1)}</span>
                   </div>
                   <div className="mt-1 h-1.5 rounded-full bg-white/10">
-                    <div className="h-full rounded-full bg-blink-sky" style={{ width: `${s.score * 10}%` }} />
+                    <div
+                      className="h-full rounded-full bg-blink-sky"
+                      style={{ width: `${s.score * 10}%` }}
+                    />
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="mt-4 flex flex-col items-center border-t border-white/8 pt-5">
+          <div className="mt-4 flex flex-col items-center border-t border-white/[0.08] pt-5">
             <Lock className="h-6 w-6 text-blink-sky/60" />
-            <p className="mt-3 text-sm font-semibold text-white/70">Your full analysis is ready</p>
-            <p className="mt-1 text-xs text-white/40">See how your profile comes across — and what you can do about it.</p>
+            <p className="mt-3 text-sm font-semibold text-white/70">
+              The full analysis is ready
+            </p>
+            <p className="mt-1 text-xs text-white/40">
+              {voice.isOwn
+                ? "See how your profile comes across — and what you can do about it."
+                : `See how ${voice.subject} comes across to different people.`}
+            </p>
 
             <button
               type="button"
@@ -1044,7 +1441,7 @@ function LockedResult({ result, onUnlock }: { result: AnalysisResult; onUnlock: 
               className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-blink-sky px-8 py-3.5 text-sm font-bold text-blink-navy transition-all hover:scale-[1.02] hover:bg-[hsl(var(--blink-sky-2))]"
             >
               <Lock className="h-4 w-4" />
-              Unlock my results
+              Unlock the results
             </button>
             <p className="mt-3 text-xs text-white/30">Free — create an account or sign in</p>
           </div>
@@ -1055,24 +1452,23 @@ function LockedResult({ result, onUnlock }: { result: AnalysisResult; onUnlock: 
 }
 
 // ---------------------------------------------------------------------------
-// Signal bar — individual perception dimension
+// Pieces
 // ---------------------------------------------------------------------------
 
-function SignalBar({ signal }: { signal: { label: string; score: number; description: string } }) {
-  const [label, setLabel] = useState("");
-  useEffect(() => {
-    if (signal.score >= 7.5) setLabel("Strong");
-    else if (signal.score >= 5.5) setLabel("Moderate");
-    else if (signal.score >= 3.5) setLabel("Developing");
-    else setLabel("Low");
-  }, [signal.score]);
+function signalLabel(score: number): string {
+  if (score >= 7.5) return "Strong";
+  if (score >= 5.5) return "Moderate";
+  if (score >= 3.5) return "Developing";
+  return "Low";
+}
 
+function SignalBar({ signal }: { signal: { label: string; score: number; description: string } }) {
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-semibold text-white/90">{signal.label}</span>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-white/45">{label}</span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-xs font-medium text-white/45">{signalLabel(signal.score)}</span>
           <span className="text-sm font-bold tabular-nums text-blink-sky">
             {signal.score.toFixed(1)}
           </span>
@@ -1093,22 +1489,22 @@ function SignalBar({ signal }: { signal: { label: string; score: number; descrip
   );
 }
 
-// ---------------------------------------------------------------------------
-// Perspective selector — crush, stranger, friends, recruiter
-// ---------------------------------------------------------------------------
-
 const PERSPECTIVE_ORDER: Perspective["id"][] = ["crush", "stranger", "friends", "recruiter"];
 
-function PerspectiveSelector({ perspectives }: { perspectives: AnalysisResult["perspectives"] }) {
+function PerspectiveSelector({
+  perspectives,
+  voice,
+}: {
+  perspectives: AnalysisResult["perspectives"];
+  voice: Voice;
+}) {
   const [selected, setSelected] = useState<Perspective["id"]>("crush");
   const current = perspectives[selected];
 
   return (
     <div className="mt-4">
-      {/* Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
         {PERSPECTIVE_ORDER.map((id) => {
-          const p = perspectives[id];
           const isActive = id === selected;
           return (
             <button
@@ -1122,14 +1518,13 @@ function PerspectiveSelector({ perspectives }: { perspectives: AnalysisResult["p
                   : "border border-white/10 text-white/60 hover:text-white/90",
               )}
             >
-              <span>{p.emoji}</span>
+              <span>{perspectives[id].emoji}</span>
               <span className="capitalize">{id}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Content */}
       <AnimatePresence mode="wait">
         <motion.div
           key={selected}
@@ -1139,7 +1534,8 @@ function PerspectiveSelector({ perspectives }: { perspectives: AnalysisResult["p
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5"
         >
-          <p className="text-base font-bold text-white">{current.title}</p>
+          {/* Title comes from the voice, so a third-party read never says "you". */}
+          <p className="text-base font-bold text-white">{voice.perspectiveTitle(selected)}</p>
 
           {current.traits.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -1165,7 +1561,8 @@ function PerspectiveSelector({ perspectives }: { perspectives: AnalysisResult["p
             </div>
           )}
 
-          {current.recommendation && (
+          {/* Only ever populated for the user's own profile. */}
+          {voice.isOwn && current.recommendation && (
             <div className="mt-4">
               <p className="text-xs font-bold uppercase tracking-widest text-blink-sky/70">
                 If you want to shift this
@@ -1181,10 +1578,6 @@ function PerspectiveSelector({ perspectives }: { perspectives: AnalysisResult["p
   );
 }
 
-// ---------------------------------------------------------------------------
-// Result block — what works / what to change / next move
-// ---------------------------------------------------------------------------
-
 function ResultBlock({
   title,
   text,
@@ -1199,7 +1592,6 @@ function ResultBlock({
     neutral: "border-amber-400/20 bg-amber-400/[0.06]",
     action: "border-blink-sky/30 bg-blink-sky/[0.08]",
   };
-
   const titleColors = {
     positive: "text-emerald-300/80",
     neutral: "text-amber-300/80",
@@ -1208,7 +1600,9 @@ function ResultBlock({
 
   return (
     <div className={cn("rounded-2xl border p-4", toneClasses[tone])}>
-      <p className={cn("text-xs font-bold uppercase tracking-widest", titleColors[tone])}>{title}</p>
+      <p className={cn("text-xs font-bold uppercase tracking-widest", titleColors[tone])}>
+        {title}
+      </p>
       <p className="mt-1 text-sm font-medium leading-relaxed text-white/80 sm:text-base">{text}</p>
     </div>
   );

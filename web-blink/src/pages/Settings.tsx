@@ -1,9 +1,8 @@
-import { motion } from "framer-motion";
-import { ArrowLeft, LogOut, Mail, Shield, Trash2 } from "lucide-react";
+import { LogOut, Mail, Shield, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { BRAND } from "@/lib/brand";
+import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 
@@ -39,63 +38,10 @@ export default function Settings() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
-      {/* Continuous background */}
-      <div
-        className="fixed inset-0 -z-10"
-        aria-hidden
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% 0%, hsl(220 70% 14%) 0%, hsl(220 84% 10%) 40%, hsl(220 80% 8%) 100%)",
-        }}
-      />
-
-      <header className="fixed inset-x-0 top-0 z-50 bg-white/[0.03] shadow-[0_1px_0_rgba(175,224,249,0.06)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
-          <span className="text-lg font-bold tracking-tight text-white">{BRAND.name}</span>
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => navigate("/app")}
-              className="text-sm font-medium text-white/60 transition-colors hover:text-white"
-            >
-              Home
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/library")}
-              className="hidden text-sm font-medium text-white/60 transition-colors hover:text-white sm:block"
-            >
-              Library
-            </button>
-            <button
-              type="button"
-              onClick={signOut}
-              className="text-sm font-medium text-white/60 transition-colors hover:text-white"
-            >
-              Log out
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="px-4 pb-20 pt-28 sm:px-6 sm:pt-32">
-        <div className="mx-auto max-w-md">
-          <button
-            type="button"
-            onClick={() => navigate("/app")}
-            className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-white/50 transition-colors hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Home
-          </button>
-
-          <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-            Settings
-          </h1>
-
+    <AppShell title="Settings" subtitle="Your account, privacy and data.">
+      <div className="space-y-4">
           {/* Account */}
-          <div className="mt-8 rounded-2xl border border-white/8 bg-white/[0.03] p-5">
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5">
             <p className="text-xs font-bold uppercase tracking-widest text-white/40">Account</p>
             <div className="mt-4 flex items-center gap-4">
               {user?.picture ? (
@@ -114,7 +60,7 @@ export default function Settings() {
                 <p className="truncate text-xs text-white/50">{user?.email}</p>
               </div>
             </div>
-            <div className="mt-4 flex items-center gap-2 border-t border-white/8 pt-4">
+            <div className="mt-4 flex items-center gap-2 border-t border-white/[0.07] pt-4">
               <Mail className="h-4 w-4 text-white/40" />
               <span className="text-xs font-medium text-white/50">
                 Authentication method: {user?.authMethod === "google" ? "Google" : "Email"}
@@ -123,7 +69,7 @@ export default function Settings() {
           </div>
 
           {/* Security & Privacy */}
-          <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.03] p-5">
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5">
             <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/40">
               <Shield className="h-3.5 w-3.5" />
               Security & Privacy
@@ -156,7 +102,7 @@ export default function Settings() {
           </div>
 
           {/* Danger zone */}
-          <div className="mt-4 rounded-2xl border border-red-500/15 bg-red-500/[0.04] p-5">
+          <div className="rounded-2xl border border-red-500/15 bg-red-500/[0.04] p-5">
             <p className="text-xs font-bold uppercase tracking-widest text-red-400/80">Danger zone</p>
             <p className="mt-2 text-sm leading-relaxed text-white/50">
               Delete your Blink account and all associated data. This action cannot be undone.
@@ -202,14 +148,16 @@ export default function Settings() {
           {/* Sign out */}
           <button
             type="button"
-            onClick={signOut}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 py-3.5 text-sm font-semibold text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+            onClick={() => {
+              signOut();
+              navigate("/");
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 py-3.5 text-sm font-semibold text-white/60 transition-colors hover:bg-white/5 hover:text-white"
           >
             <LogOut className="h-4 w-4" />
             Log out
           </button>
-        </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

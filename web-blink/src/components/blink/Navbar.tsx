@@ -19,7 +19,7 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   useMotionValueEvent(scrollY, "change", (latest) => {
@@ -61,8 +61,20 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
             ))}
           </div>
 
-          <div className="hidden md:block">
-            <CTAButton label={user ? "Analyze a profile" : "See my first impression"} onClick={handleCTA} />
+          <div className="hidden items-center gap-4 md:flex">
+            {user && (
+              <button
+                type="button"
+                onClick={() => navigate("/app")}
+                className="text-sm font-semibold text-white/70 transition-colors hover:text-white"
+              >
+                My Blink
+              </button>
+            )}
+            <CTAButton
+              label={user ? "Analyze a profile" : "See my first impression"}
+              onClick={handleCTA}
+            />
           </div>
 
           {/* Mobile hamburger */}
@@ -92,6 +104,11 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
               setMenuOpen(false);
               navigate(path);
             }}
+            onSignOut={() => {
+              setMenuOpen(false);
+              signOut();
+              navigate("/");
+            }}
           />
         )}
       </AnimatePresence>
@@ -104,19 +121,22 @@ function MobileMenu({
   onCTA,
   onClose,
   onNavigate,
+  onSignOut,
 }: {
   isAuthenticated: boolean;
   onCTA: () => void;
   onClose: () => void;
   onNavigate: (path: string) => void;
+  onSignOut: () => void;
 }) {
   const menuItems = isAuthenticated
     ? [
         { label: "Home", action: () => onNavigate("/app") },
         { label: "Library", action: () => onNavigate("/library") },
-        { label: "My analyses", action: () => onNavigate("/library") },
+        { label: "Ranks", action: () => onNavigate("/ranks") },
+        { label: "Profile", action: () => onNavigate("/profile") },
         { label: "Settings", action: () => onNavigate("/settings") },
-        { label: "Log out", action: () => onNavigate("/settings") },
+        { label: "Log out", action: onSignOut },
       ]
     : [
         { label: "Home", href: "#" },

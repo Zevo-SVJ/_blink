@@ -1,172 +1,236 @@
+/**
+ * Blink — library of past analyses.
+ *
+ * Own-profile analyses and third-party reads are shown side by side but
+ * labelled distinctly, because only the former affect your score.
+ */
+
 import { motion } from "framer-motion";
-import { ArrowLeft, Clock } from "lucide-react";
-import { useEffect, useState } from "react";
+import { LayoutGrid, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { fetchSavedAnalyses, type SavedAnalysis } from "@/lib/analysis";
-import { BRAND } from "@/lib/brand";
-import { useAuth } from "@/hooks/useAuth";
+import { AppShell } from "@/components/app/AppShell";
+import { EmptyState, ErrorState, SkeletonList } from "@/components/app/states";
+import {
+  deleteAnalysis,
+  fetchSavedAnalyses,
+  type SavedAnalysis,
+} from "@/lib/analysis";
+import { getVoice } from "@/lib/ownership";
+import { computeBlinkScore, getTier } from "@/lib/ranking";
+import { cn } from "@/lib/utils";
+
+type Filter = "all" | "own" | "other";
+
+type Load =
+  | { state: "loading" }
+  | { state: "error"; message: string }
+  | { state: "ready"; analyses: SavedAnalysis[] };
 
 export default function Library() {
-  const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [analyses, setAnalyses] = useState<SavedAnalysis[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [load, setLoad] = useState<Load>({ state: "loading" });
+  const [filter, setFilter] = useState<Filter>("all");
+  const [deleting, setDeleting] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/", { replace: true });
+  const refresh = useCallback(async () => {
+    setLoad({ state: "loading" });
+    try {
+      const analyses = await fetchSavedAnalyses();
+      setLoad({ state: "ready", analyses });
+    } catch (err) {
+      console.error("[Library]", err);
+      setLoad({
+        state: "error",
+        message: "Blink couldn't load your analyses. Check your connection and try again.",
+      });
     }
-  }, [user, authLoading, navigate]);
+  }, []);
 
   useEffect(() => {
-    if (!user) return;
-    fetchSavedAnalyses()
-      .then(setAnalyses)
-      .finally(() => setLoading(false));
-  }, [user]);
+    void refresh();
+  }, [refresh]);
 
-  if (authLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div
-          className="fixed inset-0 -z-10"
-          aria-hidden
-          style={{
-            background:
-              "radial-gradient(ellipse 80% 60% at 50% 0%, hsl(220 70% 14%) 0%, hsl(220 84% 10%) 40%, hsl(220 80% 8%) 100%)",
-          }}
-        />
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="h-8 w-8 rounded-full border-2 border-blink-sky/30 border-t-blink-sky"
-        />
-      </div>
-    );
-  }
+  const handleDelete = async (id: string) => {
+    setDeleting(id);
+    const ok = await deleteAnalysis(id);
+    setDeleting(null);
+    if (ok && load.state === "ready") {
+      setLoad({
+        state: "ready",
+        analyses: load.analyses.filter((a) => a.id !== id),
+      });
+    }
+  };
+
+  const analyses = load.state === "ready" ? load.analyses : [];
+  const visible = analyses.filter((a) =>
+    filter === "all" ? true : filter === "own" ? a.ownership === "own" : a.ownership !== "own",
+  );
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
-      {/* Continuous background */}
-      <div
-        className="fixed inset-0 -z-10"
-        aria-hidden
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% 0%, hsl(220 70% 14%) 0%, hsl(220 84% 10%) 40%, hsl(220 80% 8%) 100%)",
-        }}
-      />
+    <AppShell title="Library" subtitle="Every profile you've analyzed.">
+      {load.state === "loading" && <SkeletonList rows={4} />}
 
-      <header className="fixed inset-x-0 top-0 z-50 bg-white/[0.03] shadow-[0_1px_0_rgba(175,224,249,0.06)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
-          <span className="text-lg font-bold tracking-tight text-white">{BRAND.name}</span>
-          <div className="flex items-center gap-4">
+      {load.state === "error" && (
+        <ErrorState message={load.message} onRetry={() => void refresh()} />
+      )}
+
+      {load.state === "ready" && analyses.length === 0 && (
+        <EmptyState
+          icon={LayoutGrid}
+          title="No analyses yet"
+          description="Analyze a profile to start building your library."
+          action={
             <button
               type="button"
-              onClick={() => navigate("/app")}
-              className="text-sm font-medium text-white/60 transition-colors hover:text-white"
+              onClick={() => navigate("/analyze")}
+              className="rounded-2xl bg-blink-sky px-6 py-3 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.02]"
             >
-              Home
+              Analyze a profile
             </button>
-            <button
-              type="button"
-              onClick={() => navigate("/settings")}
-              className="hidden text-sm font-medium text-white/60 transition-colors hover:text-white sm:block"
-            >
-              Settings
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/settings")}
-              className="text-sm font-medium text-white/60 transition-colors hover:text-white sm:hidden"
-            >
-              Menu
-            </button>
-          </div>
-        </div>
-      </header>
+          }
+        />
+      )}
 
-      <main className="px-4 pb-20 pt-28 sm:px-6 sm:pt-32">
-        <div className="mx-auto max-w-2xl">
-          <button
-            type="button"
-            onClick={() => navigate("/app")}
-            className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-white/50 transition-colors hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Home
-          </button>
+      {load.state === "ready" && analyses.length > 0 && (
+        <div className="space-y-4">
+          <FilterTabs filter={filter} onChange={setFilter} />
 
-          <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-            Library
-          </h1>
-          <p className="mt-3 text-sm text-white/50">
-            Your previous analyses and saved profiles.
-          </p>
-
-          {/* Analyses list */}
-          <div className="mt-8 space-y-3">
-            {loading ? (
-              <div className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] p-5">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="h-5 w-5 rounded-full border-2 border-blink-sky/30 border-t-blink-sky"
-                />
-                <span className="text-sm text-white/50">Loading your analyses…</span>
-              </div>
-            ) : analyses.length === 0 ? (
-              <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-8 text-center">
-                <Clock className="mx-auto h-8 w-8 text-white/30" />
-                <p className="mt-4 text-sm font-medium text-white/60">No analyses yet</p>
-                <p className="mt-1 text-xs text-white/40">
-                  Analyze a profile to start building your library.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => navigate("/analyze")}
-                  className="mt-5 inline-flex items-center justify-center rounded-2xl bg-blink-sky px-6 py-3 text-sm font-bold text-blink-navy transition-all hover:scale-[1.02]"
-                >
-                  Analyze a profile
-                </button>
-              </div>
-            ) : (
-              analyses.map((analysis, i) => (
-                <motion.div
+          {visible.length === 0 ? (
+            <p className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 text-center text-sm text-white/40">
+              Nothing here with that filter.
+            </p>
+          ) : (
+            <div className="space-y-2.5">
+              {visible.map((analysis, i) => (
+                <AnalysisRow
                   key={analysis.id}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 30, delay: i * 0.05 }}
-                  className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] p-5"
-                >
-                  <div>
-                    <p className="text-sm font-bold text-white">
-                      Score: {(analysis.result.overallScore ?? 0).toFixed(1)}
-                    </p>
-                    <p className="mt-0.5 text-xs text-white/40">
-                      {analysis.result.firstImpression}
-                    </p>
-                    <p className="mt-0.5 text-xs text-white/30">
-                      {new Date(analysis.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {(analysis.result.traits ?? []).slice(0, 2).map((trait) => (
-                      <span
-                        key={trait}
-                        className="rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-white/70"
-                      >
-                        {trait}
-                      </span>
-                    ))}
-                  </div>
-                </motion.div>
-              ))
-            )}
-          </div>
+                  analysis={analysis}
+                  index={i}
+                  deleting={deleting === analysis.id}
+                  onDelete={() => void handleDelete(analysis.id)}
+                />
+              ))}
+            </div>
+          )}
         </div>
-      </main>
+      )}
+    </AppShell>
+  );
+}
+
+function FilterTabs({
+  filter,
+  onChange,
+}: {
+  filter: Filter;
+  onChange: (f: Filter) => void;
+}) {
+  const tabs: Array<{ id: Filter; label: string }> = [
+    { id: "all", label: "All" },
+    { id: "own", label: "Your profile" },
+    { id: "other", label: "Others" },
+  ];
+
+  return (
+    <div className="flex gap-1 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-1">
+      {tabs.map((tab) => {
+        const active = filter === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => onChange(tab.id)}
+            className={cn(
+              "relative flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:text-sm",
+              active ? "text-blink-navy" : "text-white/55 hover:text-white",
+            )}
+          >
+            {active && (
+              <motion.span
+                layoutId="library-tab"
+                className="absolute inset-0 rounded-xl bg-blink-sky"
+                transition={{ type: "spring", stiffness: 420, damping: 36 }}
+              />
+            )}
+            <span className="relative">{tab.label}</span>
+          </button>
+        );
+      })}
     </div>
+  );
+}
+
+function AnalysisRow({
+  analysis,
+  index,
+  deleting,
+  onDelete,
+}: {
+  analysis: SavedAnalysis;
+  index: number;
+  deleting: boolean;
+  onDelete: () => void;
+}) {
+  const voice = getVoice(analysis.ownership, analysis.result.subjectGender);
+  const score = computeBlinkScore(analysis.result).total;
+  const tier = getTier(score);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 320, damping: 32, delay: Math.min(index * 0.04, 0.3) }}
+      className="flex items-center gap-4 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-[0.65rem] font-bold",
+              voice.isOwn
+                ? "bg-blink-sky/20 text-blink-sky"
+                : "bg-white/[0.08] text-white/55",
+            )}
+          >
+            {voice.isOwn ? "Your profile" : voice.Subject}
+          </span>
+          {analysis.result.handle && (
+            <span className="truncate text-xs font-medium text-white/35">
+              @{analysis.result.handle}
+            </span>
+          )}
+        </div>
+
+        <p className="mt-1.5 truncate text-sm font-bold text-white">
+          {analysis.result.firstImpression}
+        </p>
+        <p className="mt-0.5 text-xs text-white/35">
+          {tier.label} ·{" "}
+          {new Date(analysis.createdAt).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </p>
+      </div>
+
+      <div className="shrink-0 text-right">
+        <p className="text-lg font-extrabold tabular-nums text-white">{score}</p>
+        <p className="text-[0.6rem] uppercase tracking-wider text-white/30">score</p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={deleting}
+        aria-label="Delete analysis"
+        className="shrink-0 rounded-xl p-2 text-white/25 transition-colors hover:bg-white/[0.06] hover:text-red-400 disabled:opacity-40"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </motion.div>
   );
 }

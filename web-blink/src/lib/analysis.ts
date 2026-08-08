@@ -7,13 +7,19 @@
  * Auth: uses Supabase sessions. Save/fetch use Supabase client directly with RLS.
  */
 
+import {
+  EMPTY_EVIDENCE,
+  resolveOwnership,
+  type OwnershipEvidence,
+  type ProfileOwnership,
+  type SubjectGender,
+} from "@/lib/ownership";
 import { supabase } from "@/lib/supabase";
 
-// ---------------------------------------------------------------------------
-// Profile ownership detection
-// ---------------------------------------------------------------------------
-
-export type ProfileOwnership = "own" | "other" | "uncertain";
+// Ownership lives in its own module, but it is part of an analysis result's
+// public shape — re-exported so callers have a single import site.
+export type { OwnershipEvidence, ProfileOwnership, SubjectGender };
+export { getAnalysisMessages, getVoice } from "@/lib/ownership";
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -58,8 +64,14 @@ export interface AnalysisResult {
     friends: Perspective;
     recruiter: Perspective;
   };
-  /** Who the profile belongs to — detected from visible UI elements */
+  /** Who the profile belongs to — reconciled from visible UI elements */
   ownership: ProfileOwnership;
+  /** The raw UI controls the model saw, used to decide `ownership` */
+  ownershipEvidence: OwnershipEvidence;
+  /** Gender of the subject, when legible — drives his/her wording */
+  subjectGender: SubjectGender;
+  /** Instagram handle read off the screenshot, without the leading @ */
+  handle: string | null;
   /** Future category system — not forced, but structured for later use */
   category: CategoryInfo;
 }
@@ -95,28 +107,6 @@ export class AnalysisError extends Error {
     this.debugDetail = debugDetail;
     this.name = "AnalysisError";
   }
-}
-
-// ---------------------------------------------------------------------------
-// Contextual messages based on ownership
-// ---------------------------------------------------------------------------
-
-export function getAnalysisMessages(ownership: ProfileOwnership): string[] {
-  const isOwn = ownership === "own";
-  const isOther = ownership === "other";
-  const subject = isOwn ? "your profile" : isOther ? "the profile" : "this profile";
-  const possessive = isOwn ? "your" : isOther ? "the" : "this";
-
-  return [
-    `Analyzing ${subject}…`,
-    `Reading the visual identity`,
-    `Understanding the aesthetic`,
-    `Looking at the signals people notice first`,
-    `Mapping the personality cues`,
-    `Building ${possessive} first impression`,
-    `Seeing how different people may perceive ${subject}`,
-    `Your analysis is ready.`,
-  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -184,6 +174,54 @@ function validateOwnership(v: unknown): ProfileOwnership {
   return "uncertain";
 }
 
+function validateEvidence(v: unknown): OwnershipEvidence {
+  if (!isObject(v)) return EMPTY_EVIDENCE;
+  return {
+    editProfile: v.editProfile === true,
+    shareProfile: v.shareProfile === true,
+    follow: v.follow === true,
+    message: v.message === true,
+  };
+}
+
+function validateGender(v: unknown): SubjectGender {
+  if (v === "male" || v === "female") return v;
+  return "unknown";
+}
+
+function validateHandle(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const cleaned = v.trim().replace(/^@+/, "");
+  // Instagram handles: letters, digits, dots, underscores, up to 30 chars.
+  return /^[A-Za-z0-9._]{1,30}$/.test(cleaned) ? cleaned : null;
+}
+
+/**
+ * Strip everything written *for the account's owner* out of a result.
+ *
+ * Someone analysing another person's profile gets the read — score, signals,
+ * category, perception lenses — but never the improvement plan, which is only
+ * meaningful (and only appropriate) for the person who controls the account.
+ *
+ * This runs on every result rather than trusting the model to withhold advice,
+ * so a prompt regression can't leak it.
+ */
+function stripOwnerAdvice(result: AnalysisResult): AnalysisResult {
+  if (result.ownership === "own") return result;
+
+  const perspectives = { ...result.perspectives };
+  for (const id of Object.keys(perspectives) as Perspective["id"][]) {
+    perspectives[id] = { ...perspectives[id], recommendation: "" };
+  }
+
+  return {
+    ...result,
+    recommendations: [],
+    nextMove: "",
+    perspectives,
+  };
+}
+
 function validateCategory(v: unknown): CategoryInfo {
   if (!isObject(v)) return { category: null, categoryConfidence: 0, categorySignals: [] };
   return {
@@ -207,7 +245,9 @@ export function validateAnalysisResult(raw: unknown): AnalysisResult {
     "Mystery",
   ];
 
-  return {
+  const evidence = validateEvidence(obj.ownershipEvidence);
+
+  const result: AnalysisResult = {
     overallScore: Math.max(0, Math.min(10, asNumber(obj.overallScore, 5))),
     firstImpression: asString(obj.firstImpression, "First impression"),
     traits: asStringArray(obj.traits, []),
@@ -224,9 +264,15 @@ export function validateAnalysisResult(raw: unknown): AnalysisResult {
       friends: validatePerspective(perspectivesRaw.friends, "friends"),
       recruiter: validatePerspective(perspectivesRaw.recruiter, "recruiter"),
     },
-    ownership: validateOwnership(obj.ownership),
+    // Visible UI controls decide this, not the model's self-report.
+    ownership: resolveOwnership(evidence, validateOwnership(obj.ownership)),
+    ownershipEvidence: evidence,
+    subjectGender: validateGender(obj.subjectGender),
+    handle: validateHandle(obj.handle),
     category: validateCategory(obj.category),
   };
+
+  return stripOwnerAdvice(result);
 }
 
 // ---------------------------------------------------------------------------

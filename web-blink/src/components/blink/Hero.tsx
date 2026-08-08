@@ -21,9 +21,12 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
           />
           <h1 className="text-left text-4xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl">
             <span className="block">See yourself the way</span>
-            <span className="relative inline-block">
+            {/* `pb-*` gives the inline box room below the baseline so the rule
+                clears the descender of the "y" instead of striking through it —
+                the tight leading pulls the box above the glyph otherwise. */}
+            <span className="relative inline-block pb-2.5 sm:pb-3.5">
               others see you.
-              <span className="absolute -bottom-1 left-0 h-1.5 w-full overflow-hidden rounded-full bg-blink-sky sm:h-2">
+              <span className="absolute bottom-0 left-0 h-1.5 w-full overflow-hidden rounded-full bg-blink-sky sm:h-2">
                 <span
                   aria-hidden
                   className="absolute inset-0 -translate-x-full animate-underline-sweep"
@@ -54,6 +57,22 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
         >
           <CTAButton label={BRAND.cta} onClick={onCTA} size="lg" />
         </motion.div>
+
+        {/* Answers the three objections people have before uploading, in one
+            quiet line. Plain text rather than badges — the brief is minimal. */}
+        <motion.ul
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30, delay: 0.42 }}
+          className="mx-auto mt-7 flex max-w-md flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-medium text-white/35 sm:text-sm"
+        >
+          {["Free to try", "No Instagram login", "Screenshot never stored"].map((item, i) => (
+            <li key={item} className="flex items-center gap-5">
+              {i > 0 && <span aria-hidden className="h-1 w-1 rounded-full bg-white/20" />}
+              {item}
+            </li>
+          ))}
+        </motion.ul>
       </div>
     </section>
   );

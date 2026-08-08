@@ -26,10 +26,26 @@ You do NOT judge personal worth or attractiveness. You analyze the PERCEPTION th
 Your philosophy: Observation → Context → Interpretation → Perception → Recommendation
 
 STEP 1 — PROFILE OWNERSHIP DETECTION
-First, inspect the screenshot for UI elements that indicate whose profile this is:
-- If you see "Edit profile" and/or "Share profile" or profile management controls → this is the user's OWN profile → ownership: "own"
-- If you see "Follow", "Following", "Message", or "Contact" buttons → this is ANOTHER person's profile → ownership: "other"
-- If you cannot confidently determine ownership → ownership: "uncertain"
+Instagram renders a different action row depending on who is viewing. Report exactly which controls are VISIBLE in the screenshot, as booleans in "ownershipEvidence":
+- editProfile: true only if a button labelled "Edit profile" is visible
+- shareProfile: true only if a button labelled "Share profile" is visible
+- follow: true only if a "Follow", "Following", or "Requested" button is visible
+- message: true only if a "Message" or "Contact" button is visible
+
+Report only what you can actually READ in the image. Never infer a button that is cropped out or not rendered. These booleans are the single most important output of this step — downstream logic depends on them being literal observations.
+
+Then set "ownership":
+- "Edit profile" and/or "Share profile" visible → "own"
+- "Follow"/"Following"/"Message" visible → "other"
+- Neither, or both → "uncertain"
+
+Also report:
+- "handle": the @username shown in the header, WITHOUT the leading @. null if not legible.
+- "subjectGender": "male" | "female" | "unknown" — only when the profile makes it clearly legible (name, pronouns in bio, or unambiguous photos). Use "unknown" whenever there is genuine doubt. Do not guess.
+
+STEP 1b — WHO THE OUTPUT IS FOR
+If ownership is "own", the user IS the account owner: give full recommendations and improvement actions.
+If ownership is "other" or "uncertain", the user is looking at SOMEONE ELSE. Return "recommendations": [], "nextMove": "", and "" for every perspective "recommendation". Never write advice addressed to that account's owner, and never address the subject as "you". Describe the profile in the third person.
 
 STEP 2 — ANALYSIS
 Critical rules:
@@ -50,6 +66,14 @@ If the profile clearly fits a recognizable archetype (e.g. "larp", "artist", "cr
 You must respond with ONLY a valid JSON object matching this exact schema (no markdown, no explanation outside JSON):
 {
   "ownership": "own" | "other" | "uncertain",
+  "ownershipEvidence": {
+    "editProfile": <boolean>,
+    "shareProfile": <boolean>,
+    "follow": <boolean>,
+    "message": <boolean>
+  },
+  "handle": "<username without @, or null>",
+  "subjectGender": "male" | "female" | "unknown",
   "overallScore": <number 0-10>,
   "firstImpression": "<short label>",
   "traits": ["<3-5 perception trait words>"],
@@ -106,7 +130,11 @@ For perspectives, reinterpret the SAME core analysis through different lenses:
 - friends: focus on personality, consistency, social energy, authenticity
 - recruiter: focus on professionalism, credibility, maturity, clarity
 
-All perspective text must use language like "Based on your profile, Blink predicts..." — never claim certainty about what a specific person thinks.`;
+Never claim certainty about what a specific person thinks — write in terms of the impression the profile creates.
+
+VOICE — this matters as much as the analysis itself:
+- ownership "own": address the user directly ("your profile", "you come across as…").
+- ownership "other"/"uncertain": write in the third person about the profile ("this profile", "he", "she"). Never write "you" or "your" about the subject, and never suggest changes for them to make.
 
 function errorResponse(code: string, status: number): Response {
   return new Response(JSON.stringify({ error: true, code }), {
@@ -169,7 +197,7 @@ async function callVisionModel(
       content: [
         {
           type: "text",
-          text: "Analyze this Instagram profile screenshot. First determine whose profile this is (look for Edit profile/Share profile = own, or Follow/Following/Message = other person's). Then analyze the entire profile as one system — profile picture, bio, posts grid, highlights, followers/following count, aesthetic, visual consistency, and any visible signals. Return the structured JSON analysis.",
+          text: "Analyze this Instagram profile screenshot. First read the action row and report literally which buttons are visible (Edit profile / Share profile / Follow / Message) in ownershipEvidence — this decides whether the analysis is written to the account owner or about a third party. Also read the @handle. Then analyze the entire profile as one system — profile picture, bio, posts grid, highlights, followers/following count, aesthetic, visual consistency, and any visible signals. Return the structured JSON analysis.",
         },
         { type: "image_url", image_url: { url: dataUri } },
       ],
