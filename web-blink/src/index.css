@@ -1,0 +1,230 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------
+   Blink design system — light-blue identity
+   Primary: soft sky blue (#AFE0F9, hsl 195 88% 83%)
+   Contrast: deep navy (#04102D, hsl 220 84% 10%)
+   Surfaces: clean white and cool off-whites
+   Motion: spring physics, spatial continuity, subtle precision
+------------------------------------------------------------------- */
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 220 84% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 84% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 84% 10%;
+
+    --primary: 220 84% 10%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 25% 96%;
+    --secondary-foreground: 220 84% 10%;
+
+    --muted: 220 25% 96%;
+    --muted-foreground: 220 12% 50%;
+
+    --accent: 195 88% 83%;
+    --accent-foreground: 220 84% 10%;
+
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 18% 90%;
+    --input: 220 18% 90%;
+    --ring: 195 88% 83%;
+
+    --radius: 0.875rem;
+
+    /* Blink brand tokens */
+    --blink-navy: 220 84% 10%;
+    --blink-navy-2: 220 60% 16%;
+    --blink-navy-3: 220 45% 24%;
+    --blink-sky: 195 88% 83%;
+    --blink-sky-2: 199 85% 76%;
+    --blink-sky-bright: 208 95% 60%;
+    --blink-white: 0 0% 98%;
+    --blink-cloud: 220 25% 96%;
+    --blink-cloud-2: 220 18% 92%;
+    --blink-gray: 220 12% 50%;
+    --blink-success: 150 55% 45%;
+    --blink-warning: 38 92% 55%;
+    --blink-error: 0 72% 58%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    background-color: hsl(220 84% 10%);
+  }
+
+  body {
+    @apply text-foreground antialiased;
+    background-color: hsl(220 84% 10%);
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-feature-settings: "ss01" on, "tnum" on;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: hsl(var(--blink-sky) / 0.45);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .bg-blink-navy {
+    background-color: hsl(var(--blink-navy));
+  }
+
+  .bg-blink-navy-2 {
+    background-color: hsl(var(--blink-navy-2));
+  }
+
+  .bg-blink-cloud {
+    background-color: hsl(var(--blink-cloud));
+  }
+
+  .text-blink-sky {
+    color: hsl(var(--blink-sky));
+  }
+
+  .text-blink-sky-bright {
+    color: hsl(var(--blink-sky-bright));
+  }
+
+  .text-blink-navy {
+    color: hsl(var(--blink-navy));
+  }
+
+  .text-blink-gray {
+    color: hsl(var(--blink-gray));
+  }
+
+  .ring-blink-sky {
+    --tw-ring-color: hsl(var(--blink-sky));
+  }
+}
+
+/* Continuous horizontal stream — infinite, seamless, GPU-only */
+@keyframes blink-stream {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.stream-track {
+  display: flex;
+  width: max-content;
+  animation: blink-stream var(--stream-duration, 60s) linear infinite;
+  will-change: transform;
+}
+
+/* Never pause the testimonial stream automatically */
+.stream-pausable .stream-track {
+  animation-play-state: running;
+}
+
+.stream-mask {
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    black 8%,
+    black 92%,
+    transparent
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent,
+    black 8%,
+    black 92%,
+    transparent
+  );
+}
+
+/* Soft floating motion for logo / result marks */
+@keyframes blink-float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-blink-float {
+  animation: blink-float-slow 7s ease-in-out infinite;
+}
+
+/* Subtle radial pulse behind key elements */
+@keyframes blink-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.04);
+  }
+}
+
+.animate-blink-breathe {
+  animation: blink-breathe 6s ease-in-out infinite;
+}
+
+/* Continuous subtle shine across CTA buttons */
+@keyframes cta-shine {
+  0% {
+    transform: translate3d(-120%, 0, 0);
+  }
+  100% {
+    transform: translate3d(180%, 0, 0);
+  }
+}
+
+.animate-cta-shine {
+  animation: cta-shine 5s linear infinite;
+}
+
+/* Premium animated underline for the hero phrase */
+@keyframes underline-sweep {
+  0% {
+    transform: translate3d(-120%, 0, 0);
+  }
+  100% {
+    transform: translate3d(120%, 0, 0);
+  }
+}
+
+.animate-underline-sweep {
+  animation: underline-sweep 3.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stream-track,
+  .animate-blink-float,
+  .animate-blink-breathe,
+  .animate-cta-shine {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

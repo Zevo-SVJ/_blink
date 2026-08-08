@@ -1,0 +1,23 @@
+{
+  "$schema": "https://rork.com/schema/rork.json",
+  "apps": [
+    {
+      "name": "Blink",
+      "path": "web-blink",
+      "framework": "web",
+      "settings": {
+        "webSlug": "blink-ig"
+      }
+    },
+    {
+      "name": "Functions",
+      "path": "functions",
+      "framework": "cloudflare"
+    },
+    {
+      "name": "Backend",
+      "path": "backend",
+      "framework": "supabase"
+    }
+  ]
+}
