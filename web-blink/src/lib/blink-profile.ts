@@ -22,12 +22,72 @@ export type DataResult<T> =
   | { status: "ok"; data: T }
   | { status: "error"; message: string };
 
-const NOT_CONFIGURED =
-  "Blink can't reach your account right now. Check your connection and try again.";
+/**
+ * Turn a PostgREST/Postgres error into a message the user can act on.
+ *
+ * The previous version returned a generic "can't reach your account" for every
+ * failure, which hid the real cause — a taken handle read as a network
+ * outage, a check-constraint violation read as a server outage, and an RLS
+ * rejection read as a connection problem. Each of those has a different fix,
+ * so each needs its own message.
+ */
+function describeError(error: {
+  code?: string;
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+}): string {
+  const code = error.code ?? "";
+  const msg = error.message ?? "";
+
+  // 23505 — unique_violation. The most common: handle already taken.
+  if (code === "23505" && /handle/i.test(msg)) {
+    return "That Instagram username is already taken. Try a different one.";
+  }
+  if (code === "23505") {
+    return "That username is already taken. Try a different one.";
+  }
+
+  // 23514 — check_violation. Country format, handle format, instagram_url format.
+  if (code === "23514") {
+    if (/country/i.test(msg)) return "Pick a country from the list.";
+    if (/instagram_url/i.test(msg)) return "That doesn't look like an Instagram profile link.";
+    if (/handle/i.test(msg)) return "Usernames can only use letters, numbers, dots and underscores.";
+    return "One of the fields has an invalid value. Check and try again.";
+  }
+
+  // 42501 — RLS rejection. Means the session doesn't match the row's owner.
+  if (code === "42501" || /row-level security/i.test(msg)) {
+    return "Your session has expired. Sign out and back in, then try again.";
+  }
+
+  // PGRST204 — column not in PostgREST schema cache (stale cache after migration).
+  if (code === "PGRST204" || /could not find the .* column/i.test(msg)) {
+    return "Blink is updating. Please refresh the page and try again.";
+  }
+
+  // 42P01 — table doesn't exist (migration not applied).
+  if (code === "42P01") {
+    return "Blink is setting up. Please try again in a moment.";
+  }
+
+  // Network / CORS / fetch failures.
+  if (/failed to fetch|network|cors/i.test(msg)) {
+    return "Blink can't reach the server. Check your connection and try again.";
+  }
+
+  // Fallback — still more useful than the old generic message because it
+  // includes the Postgres code for debugging via console.error.
+  return `Blink couldn't save your profile${code ? ` (error ${code})` : ""}. Please try again.`;
+}
 
 function fail<T>(context: string, detail: unknown): DataResult<T> {
   console.error(`[${context}]`, detail);
-  return { status: "error", message: NOT_CONFIGURED };
+  const message =
+    detail && typeof detail === "object" && "code" in detail
+      ? describeError(detail as Parameters<typeof describeError>[0])
+      : "Blink couldn't save your profile. Please try again.";
+  return { status: "error", message };
 }
 
 /**
@@ -180,7 +240,7 @@ export async function fetchBlinkProfile(
 
     if (error) {
       if (isMissingRelation(error)) return { status: "ok", data: null };
-      return fail("fetchBlinkProfile", error.message);
+      return fail("fetchBlinkProfile", error);
     }
     return { status: "ok", data: data ? mapProfile(data as BlinkProfileRow) : null };
   });
@@ -198,41 +258,88 @@ export async function updateBlinkProfile(
   if (!isSupabaseConfigured) return fail("updateBlinkProfile", "not configured");
 
   return safe("updateBlinkProfile", async () => {
-    /** Columns present since migration 0003 — always safe to write. */
-    const base: Record<string, unknown> = {
+    const payload: Record<string, unknown> = {
       id: userId,
       ...(patch.handle !== undefined ? { handle: patch.handle } : {}),
       ...(patch.displayName !== undefined ? { display_name: patch.displayName } : {}),
       ...(patch.country !== undefined ? { country: patch.country } : {}),
       ...(patch.avatarUrl !== undefined ? { avatar_url: patch.avatarUrl } : {}),
       ...(patch.isPublic !== undefined ? { is_public: patch.isPublic } : {}),
-    };
-
-    /** Columns that only exist once migration 0004 has run. */
-    const extended: Record<string, unknown> = {
       ...(patch.instagramUrl !== undefined ? { instagram_url: patch.instagramUrl } : {}),
       ...(patch.markOnboarded ? { onboarded_at: new Date().toISOString() } : {}),
     };
 
-    const write = (payload: Record<string, unknown>) =>
-      supabase.from("blink_profiles").upsert(payload, { onConflict: "id" });
+    // UPDATE-then-INSERT instead of UPSERT.
+    //
+    // UPSERT (INSERT ... ON CONFLICT (id) DO UPDATE) always tries INSERT
+    // first. The `handle` column has a UNIQUE constraint (migration 0002), so
+    // if another user already has the same handle, the INSERT fails with
+    // 23505 unique_violation BEFORE the ON CONFLICT (id) clause can redirect
+    // to an UPDATE — and the error is on `handle`, not `id`, so the conflict
+    // target doesn't match anyway.
+    //
+    // UPDATE-first never touches the unique constraint: it matches on `id`
+    // only. INSERT only runs when no row exists, which is the only time a
+    // handle conflict can genuinely occur — and that gets a clear message.
 
-    const { error } = await write({ ...base, ...extended });
-    if (!error) return { status: "ok", data: null };
+    const { data: updated, error: updateError } = await supabase
+      .from("blink_profiles")
+      .update(payload)
+      .eq("id", userId)
+      .select("id")
+      .maybeSingle();
 
-    // The build can be ahead of the schema. Saving the identity the user just
-    // typed matters far more than the two optional columns, so drop them and
-    // retry rather than losing their input to a migration they can't run.
-    if (isMissingColumn(error) && Object.keys(extended).length > 0) {
-      console.warn(
-        "[updateBlinkProfile] schema is missing migration 0004 columns — saving without them",
-      );
-      const retry = await write(base);
-      if (!retry.error) return { status: "ok", data: null };
-      return fail("updateBlinkProfile", retry.error.message);
+    if (updateError) {
+      // If the error is a missing column (stale schema cache), retry without
+      // the extended columns — but still surface the real error if the retry
+      // also fails, instead of hiding it behind a generic message.
+      if (isMissingColumn(updateError)) {
+        console.warn("[updateBlinkProfile] schema missing extended columns — retrying with base");
+        const { id: _id, onboarded_at: _oa, instagram_url: _iu, ...basePayload } = payload;
+        void _id; void _oa; void _iu;
+        const { data: retryUpdated, error: retryError } = await supabase
+          .from("blink_profiles")
+          .update(basePayload)
+          .eq("id", userId)
+          .select("id")
+          .maybeSingle();
+        if (retryError) return fail("updateBlinkProfile", retryError);
+        if (retryUpdated) return { status: "ok", data: null };
+        // No row existed — fall through to INSERT with base payload.
+        const { error: insertError } = await supabase
+          .from("blink_profiles")
+          .insert(basePayload);
+        if (insertError) return fail("updateBlinkProfile", insertError);
+        return { status: "ok", data: null };
+      }
+      return fail("updateBlinkProfile", updateError);
     }
 
-    return fail("updateBlinkProfile", error.message);
+    if (updated) {
+      return { status: "ok", data: null };
+    }
+
+    // No row was updated — this is a new user. INSERT now.
+    const { error: insertError } = await supabase
+      .from("blink_profiles")
+      .insert(payload);
+
+    if (insertError) {
+      // Stale schema cache — retry without extended columns.
+      if (isMissingColumn(insertError)) {
+        console.warn("[updateBlinkProfile] INSERT failed on extended columns — retrying with base");
+        const { onboarded_at: _oa, instagram_url: _iu, ...basePayload } = payload;
+        void _oa; void _iu;
+        const { error: baseInsertError } = await supabase
+          .from("blink_profiles")
+          .insert(basePayload);
+        if (baseInsertError) return fail("updateBlinkProfile", baseInsertError);
+        return { status: "ok", data: null };
+      }
+      return fail("updateBlinkProfile", insertError);
+    }
+
+    return { status: "ok", data: null };
   });
 }
 
@@ -265,7 +372,7 @@ export async function fetchScoreHistory(
 
     if (error) {
       if (isMissingRelation(error)) return { status: "ok", data: [] };
-      return fail("fetchScoreHistory", error.message);
+      return fail("fetchScoreHistory", error);
     }
 
     const entries: ScoreEntry[] = (data ?? []).map((row) => {
@@ -326,7 +433,7 @@ export async function recordAnalysis(
       verified: check.counts,
     });
 
-    if (error && !isMissingRelation(error)) return fail("recordAnalysis", error.message);
+    if (error && !isMissingRelation(error)) return fail("recordAnalysis", error);
 
     return {
       status: "ok",
