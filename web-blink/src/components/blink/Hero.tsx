@@ -1,33 +1,47 @@
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { CTAButton } from "@/components/blink/CTAButton";
-import { BLINK_LOGO, BRAND } from "@/lib/brand";
+import { BRAND } from "@/lib/brand";
 
 /**
  * Blink — hero.
  *
- * Recomposed around one idea: the headline is the subject, and directly under
- * the CTA sits a small piece of the actual product, so the first screen ends
- * on something concrete instead of empty space. The previous version centred a
- * short stack in a full-height section, which left a visible hole between the
- * CTA and the fold.
+ * The job of the first screen is to make one sentence obvious: *you give it a
+ * screenshot, it tells you how people read you.* The previous version put a
+ * score card here, which showed an output with no visible input — a newcomer
+ * had no idea what "8.7 / Deliberate and low-key" referred to, so it read as
+ * random data rather than a demonstration.
  *
- * Timing is deliberate. Nothing here waits on scroll, and the whole entrance is
- * done in ~400ms: a page that reveals itself slowly reads as loading, not as
- * craft. Text is present in the DOM from the first paint — only opacity and a
- * small offset animate — so nothing pops in late or shifts layout.
+ * The preview below the CTA is now the mechanism, not a result: a profile
+ * screenshot, an arrow, and a perception that keeps changing. Input, transform,
+ * output. It reads in about a second and needs no caption, and it contains no
+ * numbers a stranger can't place.
+ *
+ * Nothing waits on scroll and nothing waits on a chain: one container, a 40ms
+ * stagger, 300ms tweens. Text is in the DOM from first paint, so motion never
+ * gates content.
  */
 
 const TRUST = ["Free to try", "No Instagram login", "Screenshot never stored"];
 
-/** Traits shown in the preview card. Illustrative, not a claim. */
-const PREVIEW_TRAITS = ["Considered", "Understated"];
+/**
+ * Lenses cycled in the preview — the same profile, read differently.
+ *
+ * Each entry carries its whole phrase rather than just a subject, because the
+ * verb has to agree: "your friends see you", not "your friends sees you".
+ */
+const LENSES = [
+  { emoji: "❤️", phrase: "your crush sees you" },
+  { emoji: "👀", phrase: "a stranger sees you" },
+  { emoji: "🤝", phrase: "your friends see you" },
+  { emoji: "💼", phrase: "a recruiter sees you" },
+];
 
 export function Hero({ onCTA }: { onCTA: () => void }) {
   const reduceMotion = useReducedMotion();
 
-  // One shared entrance: a container fade with a tight stagger, rather than
-  // each element carrying its own escalating delay.
   const group = reduceMotion
     ? {}
     : {
@@ -40,7 +54,7 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
     ? {}
     : {
         variants: {
-          hidden: { opacity: 0, y: 14 },
+          hidden: { opacity: 0, y: 12 },
           shown: {
             opacity: 1,
             y: 0,
@@ -51,41 +65,22 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
 
   return (
     <section
-      className="relative flex flex-col items-center justify-center overflow-hidden px-4 pb-16 pt-28 sm:px-6 sm:pb-20 sm:pt-32"
-      style={{ minHeight: "100svh" }}
+      className="relative flex flex-col items-center justify-center px-4 pb-14 pt-24 sm:px-6 sm:pb-20 sm:pt-28"
+      style={{ minHeight: "90svh" }}
     >
-      <motion.div {...group} className="relative z-10 mx-auto w-full max-w-2xl text-center">
-        <motion.div {...item} className="flex justify-center">
-          <img
-            src={BLINK_LOGO}
-            alt=""
-            width={56}
-            height={56}
-            className="h-12 w-12 select-none rounded-2xl shadow-[0_0_40px_-12px_rgba(175,224,249,0.3)] sm:h-14 sm:w-14"
-            draggable={false}
-          />
-        </motion.div>
-
+      <motion.div {...group} className="relative z-10 mx-auto w-full max-w-xl text-center">
         <motion.h1
           {...item}
-          className="mt-6 text-[1.9rem] font-extrabold leading-[1.02] tracking-[-0.03em] text-white min-[400px]:text-[2.1rem] sm:mt-7 sm:text-5xl lg:text-6xl"
+          className="text-[2rem] font-extrabold leading-[1.02] tracking-[-0.035em] text-white min-[400px]:text-[2.25rem] sm:text-5xl lg:text-[3.5rem]"
         >
           See yourself the way
           <br />
-          <span className="relative inline-block pb-2 sm:pb-3">
-            <span className="bg-gradient-to-r from-blink-sky via-white to-blink-sky bg-clip-text text-transparent">
-              others see you.
-            </span>
-            <span
-              aria-hidden
-              className="absolute bottom-0 left-0 h-[3px] w-full rounded-full bg-blink-sky/70 sm:h-1"
-            />
-          </span>
+          <AccentPhrase />
         </motion.h1>
 
         <motion.p
           {...item}
-          className="mx-auto mt-5 max-w-md text-balance text-base leading-relaxed text-white/55 sm:text-lg"
+          className="mx-auto mt-4 max-w-sm text-balance text-[0.95rem] leading-relaxed text-white/55 sm:mt-5 sm:max-w-md sm:text-lg"
         >
           {BRAND.name} analyzes your Instagram presence and reveals the first impression you
           make.
@@ -97,69 +92,153 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
 
         <motion.ul
           {...item}
-          className="mx-auto mt-5 flex max-w-md flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[0.68rem] font-medium text-white/35 min-[400px]:text-xs sm:text-[0.8rem]"
+          className="mx-auto mt-4 flex max-w-md flex-wrap items-center justify-center gap-1.5 text-[0.68rem] font-medium text-white/35 min-[400px]:text-xs"
         >
-          {TRUST.map((item, i) => (
-            <li key={item} className="flex items-center gap-3">
-              {i > 0 && <span aria-hidden className="h-1 w-1 rounded-full bg-white/20" />}
-              {item}
+          {TRUST.map((label) => (
+            <li
+              key={label}
+              className="rounded-full bg-white/[0.045] px-2.5 py-1 ring-1 ring-white/[0.06]"
+            >
+              {label}
             </li>
           ))}
         </motion.ul>
 
-        {/* The product, in miniature. Gives the fold something to land on and
-            shows what "a first impression" actually looks like as an output. */}
-        <motion.div {...item} className="mt-10 flex justify-center sm:mt-12">
-          <ResultPeek />
+        <motion.div {...item} className="mt-9 flex justify-center sm:mt-11">
+          <MechanismPreview />
         </motion.div>
       </motion.div>
     </section>
   );
 }
 
-function ResultPeek() {
+/**
+ * "others see you." — the accent phrase.
+ *
+ * A slow sheen crosses the gradient text every few seconds. It is the only
+ * continuous motion on the screen, kept low-contrast so it registers as a
+ * material quality rather than an animation asking for attention.
+ */
+function AccentPhrase() {
   const reduceMotion = useReducedMotion();
-  const R = 26;
-  const circumference = 2 * Math.PI * R;
 
   return (
-    <div className="flex w-full max-w-[19rem] items-center gap-4 rounded-2xl border border-white/[0.09] bg-white/[0.04] p-4 text-left backdrop-blur-sm">
-      <div className="relative flex h-[62px] w-[62px] shrink-0 items-center justify-center">
-        <svg width={62} height={62} className="-rotate-90" aria-hidden>
-          <circle cx={31} cy={31} r={R} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth={4} />
-          <motion.circle
-            cx={31}
-            cy={31}
-            r={R}
-            fill="none"
-            stroke="hsl(var(--blink-sky))"
-            strokeWidth={4}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            initial={{ strokeDashoffset: reduceMotion ? circumference * 0.13 : circumference }}
-            animate={{ strokeDashoffset: circumference * 0.13 }}
-            transition={{ duration: 0.7, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
-          />
-        </svg>
-        <span className="absolute text-base font-extrabold tabular-nums text-white">8.7</span>
-      </div>
+    <span className="relative inline-block pb-1.5 sm:pb-2.5">
+      <span className="relative">
+        <span className="bg-gradient-to-r from-blink-sky via-white to-blink-sky bg-clip-text text-transparent">
+          others see you.
+        </span>
+        {!reduceMotion && (
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 1, 0] }}
+            transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 3.2, times: [0, 0.15, 0.85, 1] }}
+          >
+            <motion.span
+              className="absolute inset-y-0 w-1/3"
+              initial={{ left: "-40%" }}
+              animate={{ left: "120%" }}
+              transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 3.2, ease: "easeInOut" }}
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)",
+              }}
+            />
+          </motion.span>
+        )}
+      </span>
+      <span
+        aria-hidden
+        className="absolute bottom-0 left-0 h-[3px] w-full rounded-full bg-blink-sky/70 sm:h-1"
+      />
+    </span>
+  );
+}
 
-      <div className="min-w-0 flex-1">
-        <p className="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-white/35">
-          First impression
+/**
+ * Input → transform → output, at a glance.
+ *
+ * A miniature profile screenshot, an arrow, and a perception that keeps
+ * changing. Deliberately no score: the point here is what Blink *does*, and a
+ * number without context was the thing that confused people.
+ */
+function MechanismPreview() {
+  const reduceMotion = useReducedMotion();
+  const [lens, setLens] = useState(0);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    const timer = window.setInterval(() => setLens((i) => (i + 1) % LENSES.length), 2400);
+    return () => window.clearInterval(timer);
+  }, [reduceMotion]);
+
+  const current = LENSES[lens];
+
+  return (
+    <div className="flex w-full max-w-[21rem] items-center gap-3 sm:max-w-[23rem] sm:gap-4">
+      <ScreenshotMock />
+
+      <ArrowRight className="h-4 w-4 shrink-0 text-white/25" aria-hidden />
+
+      <div className="min-w-0 flex-1 text-left">
+        <p className="text-[0.6rem] font-bold uppercase tracking-[0.14em] text-white/30">
+          Reads as
         </p>
-        <p className="mt-0.5 truncate text-sm font-bold text-white">Deliberate and low-key</p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {PREVIEW_TRAITS.map((trait) => (
-            <span
-              key={trait}
-              className="rounded-full bg-white/[0.08] px-2.5 py-0.5 text-[0.68rem] font-semibold text-white/70"
+        <div className="mt-1 h-[2.75rem]">
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={current.phrase}
+              initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? undefined : { opacity: 0, y: -10 }}
+              transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+              className="text-[0.92rem] font-bold leading-snug text-white sm:text-base"
             >
-              {trait}
-            </span>
-          ))}
+              <span className="mr-1.5">{current.emoji}</span>
+              How {current.phrase}
+            </motion.p>
+          </AnimatePresence>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** A recognisably-Instagram profile, abstracted to shapes. */
+function ScreenshotMock() {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <div className="relative h-[92px] w-[70px] shrink-0 overflow-hidden rounded-xl bg-white/[0.06] shadow-[0_12px_34px_-14px_rgba(0,0,0,0.9)] ring-1 ring-white/[0.09]">
+      <div className="flex items-center gap-1.5 p-2">
+        <span className="h-4 w-4 shrink-0 rounded-full bg-[linear-gradient(140deg,hsl(var(--blink-sky)),hsl(var(--blink-sky-bright)))]" />
+        <span className="flex flex-1 flex-col gap-1">
+          <span className="block h-1 w-full rounded-full bg-white/25" />
+          <span className="block h-1 w-2/3 rounded-full bg-white/12" />
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-[2px] px-[2px]">
+        {Array.from({ length: 9 }).map((_, i) => (
+          <span key={i} className="aspect-square bg-white/[0.09]" />
+        ))}
+      </div>
+
+      {/* A scan pass, so the still reads as "being looked at". */}
+      {!reduceMotion && (
+        <motion.span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 h-6"
+          initial={{ top: "-25%" }}
+          animate={{ top: "110%" }}
+          transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.1, ease: "easeInOut" }}
+          style={{
+            background:
+              "linear-gradient(to bottom, transparent, rgba(175,224,249,0.28), transparent)",
+          }}
+        />
+      )}
     </div>
   );
 }

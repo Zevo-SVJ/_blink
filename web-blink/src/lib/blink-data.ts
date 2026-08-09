@@ -127,54 +127,36 @@ export const FAQS: FAQ[] = [
     id: "what-is-blink",
     question: "What is Blink?",
     answer:
-      "Blink analyzes how your Instagram presence comes across to different people — your crush, a stranger, a recruiter, your friends — and surfaces the first impression you actually make.",
+      "Blink reads your Instagram profile the way a person would and tells you the first impression it actually makes — to a stranger, a crush, a recruiter, your friends.",
   },
   {
     id: "how-analyze",
-    question: "How does Blink analyze my Instagram?",
+    question: "How does Blink analyze my profile?",
     answer:
-      "We look at public signals on your profile: your bio, content patterns, highlights, profile picture, overall aesthetic, and how they work together. Then we interpret them in context, not as a checklist.",
-  },
-  {
-    id: "judging",
-    question: "Is Blink actually judging my profile?",
-    answer:
-      "Not in a 'good or bad' way. Blink is a mirror. It shows you how your profile is likely read by others. A minimal profile can signal confidence or distance depending on context.",
-  },
-  {
-    id: "crush-perspective",
-    question: "What does 'How your crush sees you' mean?",
-    answer:
-      "It means we simulate the impression your profile creates for someone evaluating you romantically — what signals feel attractive, mysterious, approachable, high-status, or uncertain.",
-  },
-  {
-    id: "recommendations",
-    question: "Can Blink tell me what I should change?",
-    answer:
-      "Yes. Based on your perception profile, Blink suggests small, intentional shifts that align your Instagram with how you want to be seen.",
+      "You upload a screenshot of your profile. Blink looks at what anyone visiting would see — profile picture, name, bio, and the pattern of your grid — and interprets those signals together, not as a checklist.",
   },
   {
     id: "connect-account",
     question: "Do I need to connect my Instagram account?",
     answer:
-      "You can start by simply entering a public username. Optional deeper features will ask for a secure, read-only connection when you're ready.",
+      "No. There is no login, no password, and no permissions to grant. A screenshot is all Blink needs, which also means it works on private accounts.",
   },
   {
     id: "data-storage",
     question: "Does Blink store my Instagram data?",
     answer:
-      "We only store what is necessary to show your results and improve your experience. We never sell your data or post on your behalf.",
+      "Your screenshot is used to produce your result and is not kept. Blink saves your results so you can revisit them, and never posts anything or sells your data.",
   },
   {
-    id: "private-account",
-    question: "Can I use Blink if my account is private?",
+    id: "recommendations",
+    question: "Can Blink tell me what to change?",
     answer:
-      "Some features require a public profile because they read public signals. If your account is private, you can connect it to analyze your own profile privately.",
+      "Yes. Alongside the impression you make, Blink suggests small, specific shifts that move your profile closer to how you want to be read.",
   },
   {
     id: "free",
     question: "Is Blink free?",
     answer:
-      "Blink has a free first impression preview. Full perspectives and improvement tools will be available with a premium plan when we launch.",
+      "Your first impression is free. Deeper perspectives and improvement tools come with a premium plan.",
   },
 ];
