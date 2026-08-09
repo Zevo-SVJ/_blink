@@ -66,10 +66,11 @@ describe("validateIdentity", () => {
     isPublic: true,
   };
 
-  it("accepts a complete draft and derives the Instagram link from the handle", () => {
+  it("accepts a complete draft and does NOT derive an Instagram link from the handle", () => {
     const res = validateIdentity(base);
     expect(res.ok).toBe(true);
-    expect(res.clean.instagramUrl).toBe("https://instagram.com/sam.dev");
+    // No URL was provided, so instagramUrl must be null — never derived.
+    expect(res.clean.instagramUrl).toBeNull();
   });
 
   it("requires a display name and a handle", () => {
@@ -90,12 +91,60 @@ describe("validateIdentity", () => {
     expect(validateIdentity({ ...base, instagramUrl: "https://instagram.com/sam" }).ok).toBe(true);
   });
 
-  it("keeps an explicit link over the derived one", () => {
+  it("stores an explicit link exactly as provided (trailing slash removed)", () => {
     const res = validateIdentity({
       ...base,
       instagramUrl: "https://www.instagram.com/other.name/",
     });
     expect(res.clean.instagramUrl).toBe("https://www.instagram.com/other.name");
+  });
+});
+
+describe("validateIdentity — no Instagram URL derivation (privacy)", () => {
+  // Regression: validateIdentity used to derive `https://instagram.com/${handle}`
+  // when no URL was provided. That invented a link to a real Instagram profile
+  // the user may not own, and the profile card rendered it as a "View Instagram"
+  // button. The button must only appear when the user explicitly provided a URL.
+  const base: IdentityDraft = {
+    displayName: "Sam Rivera",
+    handle: "sam.dev",
+    instagramUrl: "",
+    country: "GB",
+    avatarUrl: null,
+    isPublic: true,
+  };
+
+  it("handle + no URL → instagramUrl is null, not a derived URL", () => {
+    const res = validateIdentity(base);
+    expect(res.ok).toBe(true);
+    expect(res.clean.instagramUrl).toBeNull();
+  });
+
+  it("handle = 'randomusername' + instagram_url = null → no button, no generated URL", () => {
+    const res = validateIdentity({
+      ...base,
+      handle: "randomusername",
+      instagramUrl: "",
+    });
+    expect(res.ok).toBe(true);
+    expect(res.clean.instagramUrl).toBeNull();
+    // Explicitly check no URL is constructed from the handle.
+    expect(res.clean.instagramUrl).not.toBe("https://instagram.com/randomusername");
+  });
+
+  it("empty or whitespace instagramUrl string → null, never a fallback URL", () => {
+    const res = validateIdentity({ ...base, instagramUrl: "   " });
+    expect(res.ok).toBe(true);
+    expect(res.clean.instagramUrl).toBeNull();
+  });
+
+  it("explicit URL is stored exactly and opens the right profile", () => {
+    const res = validateIdentity({
+      ...base,
+      instagramUrl: "https://instagram.com/sam.dev",
+    });
+    expect(res.ok).toBe(true);
+    expect(res.clean.instagramUrl).toBe("https://instagram.com/sam.dev");
   });
 });
 

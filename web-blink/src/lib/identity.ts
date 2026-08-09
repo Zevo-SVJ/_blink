@@ -32,9 +32,11 @@ export interface ValidationResult {
 /**
  * Validate and normalise a draft.
  *
- * When a handle is given but no URL, we derive the URL — the "View Instagram"
- * button should appear whenever we can honestly link somewhere real, and a
- * handle is enough for that.
+ * The Instagram URL is NEVER derived from the handle. A handle is just a
+ * display name with an @ prefix — it does not prove the user owns that
+ * Instagram account, and constructing a URL from it would link to a real
+ * profile they may have no connection to. The URL is only stored when the
+ * user explicitly provides one during onboarding or edit.
  */
 export function validateIdentity(draft: IdentityDraft): ValidationResult {
   const displayName = draft.displayName.trim();
@@ -65,7 +67,10 @@ export function validateIdentity(draft: IdentityDraft): ValidationResult {
     return { ok: false, message: "That doesn't look like an Instagram profile link.", clean };
   }
 
-  clean.instagramUrl = url ? url.replace(/\/$/, "") : `https://instagram.com/${handle}`;
+  // Only store a URL the user explicitly provided. Never derive one from
+  // the handle — that would invent a link to a real Instagram profile the
+  // user may not own.
+  clean.instagramUrl = url ? url.replace(/\/$/, "") : null;
 
   return { ok: true, clean };
 }
