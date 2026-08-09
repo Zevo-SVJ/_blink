@@ -50,12 +50,17 @@ const STEPS = [
 
 type StepId = (typeof STEPS)[number]["id"];
 
-const STEP_MS = 2100;
+const STEP_MS = 1500;
 const spring = { type: "spring" as const, stiffness: 320, damping: 34 };
 
 export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const inView = useInView(sectionRef, { amount: 0.4 });
+  const inView = useInView(sectionRef, {
+    // Fire as the section approaches, not once it is a third of the way up the
+    // screen — otherwise the user scrolls into an animation that hasn't begun.
+    amount: 0.15,
+    margin: "0px 0px 150px 0px",
+  });
   const reduceMotion = useReducedMotion();
   const [step, setStep] = useState(0);
 
@@ -155,17 +160,6 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
               </AnimatePresence>
             </div>
 
-            <div className="flex gap-1.5">
-              {STEPS.map((s, i) => (
-                <motion.span
-                  key={s.id}
-                  className="h-1 rounded-full bg-white"
-                  initial={false}
-                  animate={{ width: i === step ? 16 : 5, opacity: i === step ? 0.9 : 0.2 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                />
-              ))}
-            </div>
           </div>
         </div>
 

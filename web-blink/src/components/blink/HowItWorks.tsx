@@ -33,7 +33,7 @@ const BEATS = [
 
 type BeatId = (typeof BEATS)[number]["id"];
 
-const BEAT_MS = 1900;
+const BEAT_MS = 1600;
 
 /** Fixed stage geometry — the avatar's positions are derived from these. */
 const STAGE_H = 420;
@@ -56,7 +56,12 @@ const TRAITS = ["Confident", "Mysterious", "Considered"];
 
 export function HowItWorks({ onCTA }: { onCTA: () => void }) {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const inView = useInView(sectionRef, { amount: 0.45 });
+  const inView = useInView(sectionRef, {
+    // Fire as the section approaches, not once it is a third of the way up the
+    // screen — otherwise the user scrolls into an animation that hasn't begun.
+    amount: 0.15,
+    margin: "0px 0px 150px 0px",
+  });
   const reduceMotion = useReducedMotion();
   const [beat, setBeat] = useState(0);
 
@@ -132,17 +137,6 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
               </AnimatePresence>
             </div>
 
-            <div className="flex gap-1.5">
-              {BEATS.map((b, i) => (
-                <motion.span
-                  key={b.id}
-                  className="h-1 rounded-full bg-white"
-                  initial={false}
-                  animate={{ width: i === beat ? 18 : 5, opacity: i === beat ? 0.9 : 0.2 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                />
-              ))}
-            </div>
           </div>
         </div>
 

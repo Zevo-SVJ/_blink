@@ -145,45 +145,6 @@
   }
 }
 
-/* Continuous horizontal stream — infinite, seamless, GPU-only */
-@keyframes blink-stream {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-  to {
-    transform: translate3d(-50%, 0, 0);
-  }
-}
-
-.stream-track {
-  display: flex;
-  width: max-content;
-  animation: blink-stream var(--stream-duration, 60s) linear infinite;
-  will-change: transform;
-}
-
-/* Never pause the testimonial stream automatically */
-.stream-pausable .stream-track {
-  animation-play-state: running;
-}
-
-.stream-mask {
-  mask-image: linear-gradient(
-    90deg,
-    transparent,
-    black 8%,
-    black 92%,
-    transparent
-  );
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    transparent,
-    black 8%,
-    black 92%,
-    transparent
-  );
-}
-
 /* Soft floating motion for logo / result marks */
 @keyframes blink-float-slow {
   0%,
@@ -245,7 +206,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stream-track,
   .animate-blink-float,
   .animate-blink-breathe,
   .animate-cta-shine {
