@@ -58,6 +58,10 @@ const STATS: ProfileStats = {
 };
 
 export default function DevGallery() {
+  const publicRead =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).has("public");
+
   // Deliberately mixed: two elite, three earned, one locked — the state a
   // real profile is actually in, and the only way to see the grades compared.
   const badges = buildBadges(
@@ -84,8 +88,10 @@ export default function DevGallery() {
     false,
   );
 
+  // `has-app-tabbar` mirrors the app shell, so bottom-fixed UI is offset above
+  // the tab bar here exactly as it is in the real app.
   return (
-    <div className="relative min-h-screen overflow-x-hidden pb-24">
+    <div className="has-app-tabbar relative min-h-screen overflow-x-hidden pb-24">
       <PageBackground />
 
       <div className="mx-auto w-full max-w-2xl space-y-14 px-4 pt-10 sm:px-6">
@@ -146,19 +152,25 @@ export default function DevGallery() {
             stats={STATS}
             rank={7}
             recommendations={SAMPLE_ANALYSIS.recommendations}
+            identity={{ category: "larp", strongestSignal: "Visual Identity" }}
           />
         </Block>
 
-        <Block id="analysis-own" title="Analysis — own profile">
-          <AnalysisResult result={SAMPLE_ANALYSIS as Analysis} />
-        </Block>
-
-        <Block id="analysis-other" title="Analysis — someone else">
-          <AnalysisResult
-            result={{ ...SAMPLE_ANALYSIS, ownership: "other" } as Analysis}
-            standing={{ rank: 42, total: 1280 }}
-          />
-        </Block>
+        {/* One analysis at a time: the section bar is fixed, so rendering both
+            reads would stack two bars and neither could be inspected. Add
+            `?public=1` to see the third-party read instead. */}
+        {publicRead ? (
+          <Block id="analysis-other" title="Analysis — someone else">
+            <AnalysisResult
+              result={{ ...SAMPLE_ANALYSIS, ownership: "other" } as Analysis}
+              standing={{ rank: 42, total: 1280 }}
+            />
+          </Block>
+        ) : (
+          <Block id="analysis-own" title="Analysis — own profile">
+            <AnalysisResult result={SAMPLE_ANALYSIS as Analysis} />
+          </Block>
+        )}
       </div>
 
       <TabBar />

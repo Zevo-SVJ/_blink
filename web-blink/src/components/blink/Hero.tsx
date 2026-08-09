@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { CTAButton } from "@/components/blink/CTAButton";
+import { ProfileStream } from "@/components/blink/ProfileStream";
 import { BRAND } from "@/lib/brand";
 
 /**
@@ -42,23 +43,27 @@ const LENSES = [
 export function Hero({ onCTA }: { onCTA: () => void }) {
   const reduceMotion = useReducedMotion();
 
+  // One short group fade, not a chain. A 40ms stagger over six children still
+  // meant the last element landed ~500ms after the first, and the hero read as
+  // "loading". Everything now moves together and is settled inside ~220ms; the
+  // text is in the DOM from first paint either way, so nothing is gated on it.
   const group = reduceMotion
     ? {}
     : {
         initial: "hidden" as const,
         animate: "shown" as const,
-        variants: { hidden: {}, shown: { transition: { staggerChildren: 0.04 } } },
+        variants: { hidden: {}, shown: { transition: { staggerChildren: 0.015 } } },
       };
 
   const item = reduceMotion
     ? {}
     : {
         variants: {
-          hidden: { opacity: 0, y: 12 },
+          hidden: { opacity: 0, y: 6 },
           shown: {
             opacity: 1,
             y: 0,
-            transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as const },
+            transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] as const },
           },
         },
       };
@@ -107,6 +112,17 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
         <motion.div {...item} className="mt-9 flex justify-center sm:mt-11">
           <MechanismPreview />
         </motion.div>
+      </motion.div>
+
+      {/* Full-bleed, so the stream runs off both edges rather than sitting in
+          the hero's column like another card. */}
+      <motion.div
+        initial={reduceMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.15 }}
+        className="absolute inset-x-0 bottom-8 z-0 sm:bottom-10"
+      >
+        <ProfileStream />
       </motion.div>
     </section>
   );

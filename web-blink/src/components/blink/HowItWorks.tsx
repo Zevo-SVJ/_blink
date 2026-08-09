@@ -1,18 +1,31 @@
 /**
  * Blink — "How it works".
  *
- * A single continuous take with cause and effect, not a slideshow and not an
- * animation sitting inside a bordered box. The screenshot itself is the
- * surface: it floats on the page with its own depth, gets scanned, and the
- * scan *causes* markers to land on the parts being read. Those markers then
- * become the signal chips, and the avatar becomes the score ring.
+ * The section has one job: make it obvious, without reading a word of prose,
+ * that **the same profile produces different readings depending on who is
+ * looking**. That is the whole product, and the previous version never said
+ * it — it showed a screenshot being scanned and resolving into a single score,
+ * which describes an algorithm rather than a reason to care.
  *
- * Every element persists across phases and transforms. Nothing cross-fades
- * into a replacement, which is what made the previous version read as slides.
+ * So the composition is deliberately literal: one screenshot, pinned at the
+ * top and never replaced, with the reading underneath it changing. Nothing
+ * about the profile moves. Everything about the interpretation does.
  *
- * Phases overlap deliberately: `phase` is an index, but each element decides
- * its own state from it, so the screenshot is already receding while the
- * signals are still arriving.
+ * Three rules this file exists to hold:
+ *
+ *  - **It starts on arrival.** The observer reaches nearly half a viewport
+ *    below the fold and the first beat is 900ms, so the scan is already
+ *    running by the time the section is on screen. No entrance chain.
+ *  - **It never stops.** After the intro the lenses cycle indefinitely. A
+ *    section that plays once and freezes reads as a screenshot of a product
+ *    rather than a product.
+ *  - **No decoration.** No glow, no highlight plate, no floating square behind
+ *    anything — every element on screen is the profile, the reading, or the
+ *    control that switches between them.
+ *
+ * This section absorbed the standalone "Perceptions" block that used to follow
+ * it. Two sections making the same point in a row was the page repeating
+ * itself.
  */
 
 import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
@@ -20,470 +33,227 @@ import { useEffect, useRef, useState } from "react";
 
 import { CTAButton } from "@/components/blink/CTAButton";
 import { Reveal } from "@/components/blink/Reveal";
+import { PERCEPTIONS } from "@/lib/blink-data";
+import { cn } from "@/lib/utils";
 
-const PHASES = [
-  { id: "enter", caption: "Upload a screenshot", ms: 1250 },
-  { id: "scan", caption: "Blink reads the whole profile", ms: 1700 },
-  { id: "identify", caption: "It marks what people notice first", ms: 1600 },
-  { id: "signals", caption: "Those become perception signals", ms: 1700 },
-  { id: "result", caption: "And that's your first impression", ms: 2100 },
-] as const;
+/** How long the intro scan runs before the first reading appears. */
+const INTRO_MS = 900;
 
-type Phase = (typeof PHASES)[number]["id"];
-
-/**
- * What the scan marks, in card-local pixels.
- *
- * These are *regions*, not points: the previous version dropped a dotted pin in
- * the middle of each area, which collided with the avatar and told you nothing
- * about how much of the profile was being read. A framed region plus a short
- * label on the nearest free side reads as annotation, and needs no dot.
- */
-const MARKERS = [
-  { id: "avatar", label: "Photo", left: 8, top: 6, w: 44, h: 44, side: "left" },
-  { id: "bio", label: "Bio", left: 46, top: 9, w: 114, h: 26, side: "right" },
-  { id: "grid", label: "Grid", left: 3, top: 44, w: 162, h: 152, side: "right" },
-] as const;
-
-const SIGNALS = ["Visual identity", "Aesthetic", "Confidence", "Mystery"];
-const TRAITS = ["Confident", "Considered"];
-
-const CARD_W = 168;
-const CARD_H = 232;
+/** How long each reading holds. Long enough to read the quote, no longer. */
+const LENS_MS = 2600;
 
 const ease = [0.22, 1, 0.36, 1] as const;
+const spring = { type: "spring" as const, stiffness: 300, damping: 30 };
+
+/** Chip labels — the full titles are far too long for a six-up row. */
+const SHORT: Record<string, string> = {
+  crush: "crush",
+  stranger: "stranger",
+  friends: "friends",
+  recruiter: "recruiter",
+  "green-flag": "green flag",
+  "red-flag": "red flag",
+};
 
 export function HowItWorks({ onCTA }: { onCTA: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
-  // Starts well before the section is fully on screen.
-  const inView = useInView(ref, { amount: 0.1, margin: "0px 0px 250px 0px" });
+  const inView = useInView(ref, { amount: 0, margin: "0px 0px 45% 0px", once: true });
   const reduceMotion = useReducedMotion();
-  const [index, setIndex] = useState(0);
 
+  const [scanning, setScanning] = useState(true);
+  const [lens, setLens] = useState(0);
+  const [interacted, setInteracted] = useState(false);
+
+  // Intro → first reading.
   useEffect(() => {
     if (!inView) return;
     if (reduceMotion) {
-      setIndex(PHASES.length - 1);
+      setScanning(false);
       return;
     }
-    const timer = window.setTimeout(
-      () => setIndex((i) => (i + 1) % PHASES.length),
-      PHASES[index].ms,
-    );
+    const timer = window.setTimeout(() => setScanning(false), INTRO_MS);
     return () => window.clearTimeout(timer);
-  }, [inView, reduceMotion, index]);
+  }, [inView, reduceMotion]);
 
-  const phase: Phase = PHASES[index].id;
-  const at = (p: Phase) => PHASES.findIndex((x) => x.id === p);
-  const past = (p: Phase) => index >= at(p);
+  // The cycle. Stops only if the reader takes over by tapping a lens.
+  useEffect(() => {
+    if (scanning || interacted || reduceMotion) return;
+    const timer = window.setInterval(
+      () => setLens((i) => (i + 1) % PERCEPTIONS.length),
+      LENS_MS,
+    );
+    return () => window.clearInterval(timer);
+  }, [scanning, interacted, reduceMotion]);
 
-  // The screenshot recedes once its job is done; the result takes over.
-  const collapsing = past("signals");
-  const showResult = past("result");
+  const current = PERCEPTIONS[lens];
 
   return (
     <section id="how-it-works" ref={ref} className="relative px-4 py-20 sm:px-6 sm:py-28">
       <div className="mx-auto max-w-3xl">
         <Reveal className="text-center">
           <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-blink-sky/70">
-            Step one
+            How it works
           </p>
           <h2 className="mt-3 text-[1.75rem] font-extrabold tracking-tight text-white sm:text-4xl">
-            How it works
+            One profile. Six different readings.
           </h2>
           <p className="mx-auto mt-3 max-w-md text-[0.95rem] leading-relaxed text-white/50 sm:mt-4 sm:text-base">
-            One screenshot becomes a perception. Here&rsquo;s the whole thing.
+            Upload one screenshot. Blink reads it the way a person would — then shows you
+            what each kind of person walks away with.
           </p>
         </Reveal>
 
-        {/* No frame. The elements float on the page and carry their own depth. */}
-        <div className="relative mx-auto mt-10 h-[330px] w-full max-w-[340px] sm:mt-14 sm:h-[360px]">
-          <div className="absolute inset-0 flex items-center justify-center">
-            {/* Glow that tracks the action, giving the composition a centre. */}
+        <div className="mx-auto mt-10 w-full max-w-[26rem] sm:mt-14">
+          {/* The subject. Pinned, and never replaced — that persistence is the
+              entire argument the section is making. */}
+          <div className="flex flex-col items-center">
+            <ProfileCard scanning={scanning} reduceMotion={!!reduceMotion} />
+
             <motion.div
               aria-hidden
-              className="pointer-events-none absolute rounded-full bg-blink-sky/[0.09] blur-3xl"
-              animate={{
-                width: collapsing ? 210 : 150,
-                height: collapsing ? 210 : 150,
-                opacity: phase === "enter" ? 0.5 : 1,
-              }}
-              transition={{ duration: 0.7, ease }}
+              className="mt-3 w-px bg-gradient-to-b from-blink-sky/40 to-transparent"
+              initial={{ height: 0 }}
+              animate={{ height: scanning ? 0 : 22 }}
+              transition={{ duration: 0.3, ease }}
             />
+          </div>
 
-            {/* The screenshot. One element for the whole sequence. */}
-            <motion.div
-              className="absolute overflow-hidden rounded-2xl bg-white/[0.06] shadow-[0_30px_66px_-30px_rgba(0,0,0,1)] ring-1 ring-white/10"
-              style={{ width: CARD_W, height: CARD_H }}
-              initial={false}
-              animate={
-                collapsing
-                  ? { opacity: 0, scale: 0.82, y: -6, filter: "blur(6px)" }
-                  : {
-                      opacity: 1,
-                      scale: phase === "enter" ? 0.94 : 1,
-                      y: 0,
-                      filter: "blur(0px)",
-                    }
-              }
-              transition={{ duration: 0.62, ease }}
-            >
-              <ProfileContent phase={phase} />
-              <ScanBeam active={phase === "scan" || phase === "identify"} />
-            </motion.div>
+          {/* The reading. Everything here swaps; nothing above it does. */}
+          <div className="mt-3 min-h-[12rem]">
+            <AnimatePresence mode="popLayout">
+              {!scanning && (
+                <motion.div
+                  key={current.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={spring}
+                  className="text-center"
+                >
+                  <p className="flex items-center justify-center gap-2 text-[1.15rem] font-extrabold tracking-tight text-white sm:text-[1.35rem]">
+                    <span aria-hidden>{current.emoji}</span>
+                    {current.title}
+                  </p>
 
-            {/* Markers land on the parts being read — the scan's consequence.
-                Positioned in the card's own coordinate space. */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute"
-              style={{ width: CARD_W, height: CARD_H }}
-            >
-              {MARKERS.map((m, i) => (
-                <Marker
-                  key={m.id}
-                  marker={m}
-                  visible={past("identify") && !collapsing}
-                  delay={i * 0.13}
-                />
-              ))}
-            </div>
+                  <div className="mt-3.5 flex flex-wrap justify-center gap-1.5">
+                    {current.traits.map((trait, i) => (
+                      <motion.span
+                        key={trait}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ ...spring, delay: 0.06 + i * 0.05 }}
+                        className={cn(
+                          "rounded-full px-3 py-1 text-xs font-bold",
+                          i === 0
+                            ? "bg-blink-sky text-blink-navy"
+                            : "bg-white/[0.07] text-white/70",
+                        )}
+                      >
+                        {trait}
+                      </motion.span>
+                    ))}
+                  </div>
 
-            {/* The avatar persists: card → centre → inside the score ring. */}
-            <motion.div
-              className="absolute rounded-full bg-[linear-gradient(140deg,hsl(var(--blink-sky)),hsl(var(--blink-sky-bright)))]"
-              initial={false}
-              animate={{
-                width: collapsing ? 74 : 34,
-                height: collapsing ? 74 : 34,
-                x: collapsing ? 0 : -CARD_W / 2 + 30,
-                y: collapsing ? 0 : -CARD_H / 2 + 28,
-              }}
-              transition={{ duration: 0.62, ease }}
-            />
+                  <p className="mx-auto mt-4 max-w-sm text-[0.9rem] leading-relaxed text-white/55">
+                    &ldquo;{current.quote}&rdquo;
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-            <SignalRing active={past("signals")} settled={showResult} />
-            <ScoreRingReveal active={showResult} />
+          {/* The lenses, doubling as a progress indicator and a way in. */}
+          <div className="mt-5 flex flex-wrap justify-center gap-1.5">
+            {PERCEPTIONS.map((p, i) => {
+              const isActive = i === lens && !scanning;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setInteracted(true);
+                    setScanning(false);
+                    setLens(i);
+                  }}
+                  aria-pressed={isActive}
+                  className={cn(
+                    "relative flex min-h-[36px] items-center gap-1 rounded-full px-2.5 text-[0.7rem] font-semibold transition-colors min-[380px]:px-3 min-[380px]:text-xs",
+                    isActive ? "text-blink-navy" : "text-white/45 hover:text-white/80",
+                  )}
+                >
+                  {isActive && (
+                    <motion.span
+                      layoutId="hiw-lens-pill"
+                      className="absolute inset-0 rounded-full bg-blink-sky"
+                      transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                    />
+                  )}
+                  <span className="relative" aria-hidden>
+                    {p.emoji}
+                  </span>
+                  <span className="relative">{SHORT[p.id] ?? p.id}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="mt-5 h-6 text-center">
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={phase}
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              transition={{ duration: 0.22 }}
-              className="text-sm font-medium text-white/60"
-            >
-              {PHASES[index].caption}
-            </motion.p>
-          </AnimatePresence>
-        </div>
-
-        <Reveal delay={0.05} className="mt-9 flex justify-center">
-          <CTAButton label="I want to see mine" onClick={onCTA} />
+        <Reveal delay={0.05} className="mt-10 flex justify-center">
+          <CTAButton label="See mine" onClick={onCTA} />
         </Reveal>
       </div>
     </section>
   );
 }
 
-/** The profile inside the card. Detail sharpens as Blink reads it. */
-function ProfileContent({ phase }: { phase: Phase }) {
-  const read = phase !== "enter";
-
+/**
+ * The profile being read.
+ *
+ * Abstracted to shapes rather than a stock screenshot: a fabricated Instagram
+ * profile with an invented face would be the one dishonest thing on the page,
+ * and shapes make the point just as well.
+ */
+function ProfileCard({
+  scanning,
+  reduceMotion,
+}: {
+  scanning: boolean;
+  reduceMotion: boolean;
+}) {
   return (
-    <>
-      <div className="flex items-center gap-2 p-3 pl-[46px]">
-        <span className="flex flex-1 flex-col gap-1.5">
-          <motion.span
-            className="block h-1.5 rounded-full bg-white/25"
-            initial={false}
-            animate={{ width: read ? "70%" : "45%" }}
-            transition={{ duration: 0.5, ease }}
-          />
-          <motion.span
-            className="block h-1 rounded-full bg-white/12"
-            initial={false}
-            animate={{ width: read ? "90%" : "60%" }}
-            transition={{ duration: 0.5, ease, delay: 0.05 }}
-          />
+    <motion.div
+      className="relative overflow-hidden rounded-2xl bg-white/[0.05] shadow-[0_24px_54px_-28px_rgba(0,0,0,1)] ring-1 ring-white/10"
+      initial={false}
+      animate={{ width: scanning ? 132 : 96, height: scanning ? 176 : 128 }}
+      transition={{ duration: 0.5, ease }}
+    >
+      <div className="flex items-center gap-1.5 p-2">
+        <span className="h-5 w-5 shrink-0 rounded-full bg-[linear-gradient(140deg,hsl(var(--blink-sky)),hsl(var(--blink-sky-bright)))]" />
+        <span className="flex flex-1 flex-col gap-1">
+          <span className="block h-1 w-full rounded-full bg-white/25" />
+          <span className="block h-1 w-2/3 rounded-full bg-white/[0.12]" />
         </span>
       </div>
-
-      <div className="grid grid-cols-3 gap-[3px] px-[3px]">
+      <div className="grid grid-cols-3 gap-[2px] px-[2px]">
         {Array.from({ length: 9 }).map((_, i) => (
-          <motion.span
-            key={i}
-            className="aspect-square bg-white/[0.08]"
-            initial={false}
-            animate={{ opacity: read ? 0.35 + (i % 3) * 0.2 : 0.2 }}
-            transition={{ duration: 0.4, ease, delay: read ? i * 0.025 : 0 }}
-          />
+          <span key={i} className="aspect-square bg-white/[0.07]" />
         ))}
       </div>
-    </>
-  );
-}
 
-/** The scan itself — a single pass that repeats while reading. */
-function ScanBeam({ active }: { active: boolean }) {
-  return (
-    <AnimatePresence>
-      {active && (
+      {/* The read itself. Runs during the intro, then retires. */}
+      {scanning && !reduceMotion && (
         <motion.span
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 h-16"
-          initial={{ top: "-20%", opacity: 0 }}
-          animate={{ top: "105%", opacity: [0, 1, 1, 0] }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+          className="pointer-events-none absolute inset-x-0 h-10"
+          initial={{ top: "-20%" }}
+          animate={{ top: "110%" }}
+          transition={{ duration: 0.85, repeat: Infinity, ease: "easeInOut" }}
           style={{
             background:
               "linear-gradient(to bottom, transparent, rgba(175,224,249,0.3), transparent)",
           }}
         />
       )}
-    </AnimatePresence>
-  );
-}
-
-/**
- * A framed region of the profile, with its name on the nearest free side.
- *
- * The frame animates in from slightly oversized, so it reads as something
- * closing onto the region rather than a label appearing next to it.
- */
-function Marker({
-  marker,
-  visible,
-  delay,
-}: {
-  marker: (typeof MARKERS)[number];
-  visible: boolean;
-  delay: number;
-}) {
-  const onLeft = marker.side === "left";
-  const spring = { type: "spring" as const, stiffness: 380, damping: 28, delay };
-
-  return (
-    <AnimatePresence>
-      {visible && (
-        <>
-          <motion.span
-            className="absolute rounded-[9px] ring-[1.5px] ring-blink-sky/70"
-            style={{
-              left: marker.left,
-              top: marker.top,
-              width: marker.w,
-              height: marker.h,
-              boxShadow: "0 0 16px -6px hsl(var(--blink-sky) / 0.5) inset",
-            }}
-            initial={{ opacity: 0, scale: 1.35 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.2, transition: { duration: 0.2 } }}
-            transition={spring}
-          />
-
-          {/* A hairline leader instead of a dot. */}
-          <motion.span
-            className="absolute h-px bg-blink-sky/45"
-            style={{
-              top: marker.top + marker.h / 2,
-              [onLeft ? "right" : "left"]: onLeft
-                ? CARD_W - marker.left
-                : marker.left + marker.w,
-              width: 9,
-            }}
-            initial={{ opacity: 0, scaleX: 0 }}
-            animate={{ opacity: 1, scaleX: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.15 } }}
-            transition={{ ...spring, delay: delay + 0.08 }}
-          />
-
-          <motion.span
-            className="absolute -translate-y-1/2 whitespace-nowrap rounded-full bg-blink-navy px-2 py-[3px] text-[9px] font-bold uppercase tracking-[0.06em] text-blink-sky ring-1 ring-blink-sky/30"
-            style={{
-              top: marker.top + marker.h / 2,
-              [onLeft ? "right" : "left"]: onLeft
-                ? CARD_W - marker.left + 11
-                : marker.left + marker.w + 11,
-            }}
-            initial={{ opacity: 0, x: onLeft ? 8 : -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, transition: { duration: 0.15 } }}
-            transition={{ ...spring, delay: delay + 0.1 }}
-          >
-            {marker.label}
-          </motion.span>
-        </>
-      )}
-    </AnimatePresence>
-  );
-}
-
-/**
- * Signals fan out from the centre, then collapse back into it as the score
- * resolves — which is the actual claim: these readings *become* your result.
- *
- * **Why this is not polar coordinates.** The previous version placed all four
- * chips on one radius, measured to each chip's *centre*. A chip is far wider
- * than it is tall, so the two side chips ended up with roughly half the
- * breathing room of the top and bottom ones — "Aesthetic" in particular sat
- * almost against the ring. Each chip is now anchored by its *inner edge* at a
- * constant clearance, so the gap around the centre is even in all four
- * directions no matter how long a label is.
- *
- * The widest labels take the top and bottom slots, where horizontal space is
- * free; the sides get the short ones, which is what keeps the whole thing
- * inside 320px.
- *
- * They must not linger once the score is up. Held around the ring they
- * overlapped the trait chips below it at every mobile width.
- */
-
-/** Gap between the centre object's edge and the nearest edge of any chip. */
-const SIGNAL_CLEARANCE = 68;
-
-type Place = "top" | "right" | "bottom" | "left";
-
-const SIGNAL_PLACES: Array<{ label: string; place: Place }> = [
-  { label: SIGNALS[0], place: "top" },
-  { label: SIGNALS[1], place: "right" },
-  { label: SIGNALS[2], place: "bottom" },
-  { label: SIGNALS[3], place: "left" },
-];
-
-/** Anchor a chip by the edge that faces the centre. */
-function placeStyle(place: Place): React.CSSProperties {
-  const c = SIGNAL_CLEARANCE;
-  switch (place) {
-    case "top":
-      return { bottom: c, left: 0, transform: "translateX(-50%)" };
-    case "bottom":
-      return { top: c, left: 0, transform: "translateX(-50%)" };
-    case "right":
-      return { left: c, top: 0, transform: "translateY(-50%)" };
-    case "left":
-      return { right: c, top: 0, transform: "translateY(-50%)" };
-  }
-}
-
-/** Entry offset, so each chip still reads as fanning out of the centre. */
-function fanFrom(place: Place): { x: number; y: number } {
-  switch (place) {
-    case "top":
-      return { x: 0, y: 34 };
-    case "bottom":
-      return { x: 0, y: -34 };
-    case "right":
-      return { x: -34, y: 0 };
-    case "left":
-      return { x: 34, y: 0 };
-  }
-}
-
-function SignalRing({ active, settled }: { active: boolean; settled: boolean }) {
-  return (
-    <AnimatePresence>
-      {active && (
-        /* A zero-size box parked at the exact centre by the flex parent, so
-           every offset below is measured from the middle of the composition. */
-        <div className="pointer-events-none absolute h-0 w-0" aria-hidden={false}>
-          {SIGNAL_PLACES.map(({ label, place }, i) => {
-            const from = fanFrom(place);
-            return (
-              <span key={label} className="absolute" style={placeStyle(place)}>
-                <motion.span
-                  className="block whitespace-nowrap rounded-full bg-white/[0.07] px-2.5 py-1 text-[10px] font-semibold text-white/75 ring-1 ring-white/10 backdrop-blur-sm"
-                  initial={{ opacity: 0, scale: 0.6, ...from }}
-                  animate={
-                    settled
-                      ? { opacity: 0, scale: 0.4, ...from }
-                      : { opacity: 1, scale: 1, x: 0, y: 0 }
-                  }
-                  exit={{ opacity: 0, scale: 0.7, transition: { duration: 0.2 } }}
-                  transition={
-                    settled
-                      ? { duration: 0.45, ease, delay: i * 0.05 }
-                      : { type: "spring", stiffness: 260, damping: 26, delay: i * 0.07 }
-                  }
-                >
-                  {label}
-                </motion.span>
-              </span>
-            );
-          })}
-        </div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-/** The score ring closing around the avatar, plus the read-out. */
-function ScoreRingReveal({ active }: { active: boolean }) {
-  const R = 52;
-  const c = 2 * Math.PI * R;
-
-  return (
-    <AnimatePresence>
-      {active && (
-        <motion.div
-          className="absolute flex flex-col items-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0, transition: { duration: 0.2 } }}
-        >
-          <svg
-            className="absolute -rotate-90"
-            width={(R + 5) * 2}
-            height={(R + 5) * 2}
-            style={{ left: -(R + 5), top: -(R + 5) }}
-            aria-hidden
-          >
-            <circle cx={R + 5} cy={R + 5} r={R} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth={4} />
-            <motion.circle
-              cx={R + 5}
-              cy={R + 5}
-              r={R}
-              fill="none"
-              stroke="hsl(var(--blink-sky))"
-              strokeWidth={4}
-              strokeLinecap="round"
-              strokeDasharray={c}
-              initial={{ strokeDashoffset: c }}
-              animate={{ strokeDashoffset: c * 0.13 }}
-              transition={{ duration: 0.8, ease }}
-            />
-          </svg>
-
-          <div className="absolute flex w-max flex-col items-center" style={{ top: R + 16 }}>
-            <motion.p
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, ease, delay: 0.25 }}
-              className="text-2xl font-extrabold tabular-nums text-white"
-            >
-              8.7
-            </motion.p>
-            <div className="mt-2 flex gap-1.5">
-              {TRAITS.map((t, i) => (
-                <motion.span
-                  key={t}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.32, ease, delay: 0.35 + i * 0.07 }}
-                  className="rounded-full bg-blink-sky px-2.5 py-1 text-[10px] font-bold text-blink-navy"
-                >
-                  {t}
-                </motion.span>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    </motion.div>
   );
 }

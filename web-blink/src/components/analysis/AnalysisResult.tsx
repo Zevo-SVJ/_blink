@@ -19,9 +19,10 @@
  *  - **Everything else** sits behind a segmented control: Perception, Signals,
  *    and (own reads only) Actions. Nothing was deleted; each pane is now a
  *    short read instead of the third of a very long one.
- *  - A **compact summary sticks** to the top once the verdict scrolls away, so
- *    the score and the segment you're in are always visible. That is the
- *    "where am I" answer.
+ *  - A **section bar is fixed to the bottom of the viewport**, carrying the
+ *    score, the first impression and the segments — so "where am I" and "what
+ *    else is here" are answerable at any scroll position. See `Segments` for
+ *    why it is fixed rather than sticky.
  *
  * ## Privacy
  *
@@ -38,7 +39,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Info } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { ScoreRing } from "@/components/blink/ScoreRing";
 import type { AnalysisResult as Analysis, Perspective } from "@/lib/analysis";
@@ -203,102 +204,35 @@ interface Segment {
 /**
  * The segmented control plus its pane.
  *
- * The control sticks under the app header once the verdict has scrolled past,
- * which is what keeps "where am I" answerable in a long read. It measures its
- * own resting position rather than assuming one, so it works on both the live
- * flow and the Library detail route.
+ * **Why the bar is fixed, not sticky.** It was `sticky top-64` and it did not
+ * stick: both surfaces that render this — the analysis flow and the Library
+ * detail route — sit inside an ancestor with `overflow-x: hidden`, which makes
+ * that ancestor the scroll container. The bar dutifully stuck to a box that
+ * never scrolls, so it slid away with the page and the user lost their
+ * navigation the moment they started reading. Removing the overflow guard
+ * would reintroduce horizontal scrolling, so the bar is fixed to the viewport
+ * instead, where no ancestor can take it away.
+ *
+ * It clears the app tab bar via `--blink-app-nav`, which the shell publishes
+ * and which is zero everywhere else — so the same component is correct on
+ * `/analyze` (no tab bar) and in the Library (tab bar present).
  */
 function Segments({
   segments,
   summary,
 }: {
   segments: Segment[];
-  /** Compact score + impression, revealed inside the bar once it is stuck. */
+  /** Compact score + impression, shown in the bar. */
   summary: { score: number; impression: string };
 }) {
   const [active, setActive] = useState(segments[0]?.id);
-  const [stuck, setStuck] = useState(false);
-  const sentinel = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
-
-  useEffect(() => {
-    const el = sentinel.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setStuck(!entry.isIntersecting),
-      // The header is ~64px tall; trip once the sentinel passes under it.
-      { rootMargin: "-72px 0px 0px 0px", threshold: 0 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   const current = segments.find((s) => s.id === active) ?? segments[0];
 
   return (
     <div className="mx-auto mt-10 w-full max-w-md">
-      <div ref={sentinel} aria-hidden />
-
-      <div className="sticky top-[64px] z-30 -mx-4 px-4 pb-2 pt-2 sm:-mx-6 sm:px-6">
-        {/* The blur plate only appears when the bar is actually stuck, so it
-            doesn't sit as a grey band over the page at rest. */}
-        <motion.div
-          aria-hidden
-          className="absolute inset-0 bg-blink-navy/80 backdrop-blur-xl"
-          animate={{ opacity: stuck ? 1 : 0 }}
-          transition={{ duration: 0.2 }}
-        />
-
-        <AnimatePresence>
-          {stuck && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="relative overflow-hidden"
-            >
-              <div className="flex items-center gap-2.5 pb-2">
-                <span className="text-sm font-extrabold tabular-nums text-blink-sky">
-                  {summary.score}
-                </span>
-                <span className="min-w-0 truncate text-xs font-semibold text-white/50">
-                  {summary.impression}
-                </span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="relative flex gap-1 rounded-2xl bg-white/[0.05] p-1 ring-1 ring-white/[0.07]">
-          {segments.map((segment) => {
-            const isActive = segment.id === current?.id;
-            return (
-              <button
-                key={segment.id}
-                type="button"
-                onClick={() => setActive(segment.id)}
-                aria-current={isActive ? "true" : undefined}
-                className={cn(
-                  "relative min-h-[40px] flex-1 rounded-xl px-2 text-[0.8rem] font-bold transition-colors",
-                  isActive ? "text-blink-navy" : "text-white/55 hover:text-white",
-                )}
-              >
-                {isActive && (
-                  <motion.span
-                    layoutId="analysis-segment"
-                    className="absolute inset-0 rounded-xl bg-blink-sky"
-                    transition={{ type: "spring", stiffness: 420, damping: 36 }}
-                  />
-                )}
-                <span className="relative">{segment.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mt-5 text-left">
+      <div className="text-left">
         <AnimatePresence mode="wait">
           <motion.div
             key={current?.id}
@@ -311,6 +245,55 @@ function Segments({
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* Room for the bar, so the last line of a pane is never underneath it. */}
+      <div aria-hidden className="h-28" />
+
+      <nav
+        aria-label="Analysis sections"
+        className="fixed inset-x-0 z-40 px-4"
+        style={{
+          bottom: "calc(var(--blink-app-nav, 0px) + max(env(safe-area-inset-bottom), 0.75rem))",
+        }}
+      >
+        <div className="mx-auto max-w-md rounded-2xl bg-blink-navy-2/85 p-1.5 shadow-[0_16px_50px_-12px_rgba(0,0,0,0.8)] ring-1 ring-white/[0.09] backdrop-blur-2xl">
+          <div className="flex items-center gap-2 px-2 pb-1.5 pt-0.5">
+            <span className="text-sm font-extrabold tabular-nums text-blink-sky">
+              {summary.score}
+            </span>
+            <span className="min-w-0 truncate text-[0.7rem] font-semibold text-white/45">
+              {summary.impression}
+            </span>
+          </div>
+
+          <div className="flex gap-1">
+            {segments.map((segment) => {
+              const isActive = segment.id === current?.id;
+              return (
+                <button
+                  key={segment.id}
+                  type="button"
+                  onClick={() => setActive(segment.id)}
+                  aria-current={isActive ? "true" : undefined}
+                  className={cn(
+                    "relative min-h-[44px] flex-1 rounded-xl px-2 text-[0.8rem] font-bold transition-colors",
+                    isActive ? "text-blink-navy" : "text-white/55 hover:text-white",
+                  )}
+                >
+                  {isActive && (
+                    <motion.span
+                      layoutId="analysis-segment"
+                      className="absolute inset-0 rounded-xl bg-blink-sky"
+                      transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                    />
+                  )}
+                  <span className="relative">{segment.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </nav>
     </div>
   );
 }
@@ -675,6 +658,21 @@ function SignalBar({ signal }: { signal: { label: string; score: number; descrip
 
 const PERSPECTIVE_ORDER: Perspective["id"][] = ["crush", "stranger", "friends", "recruiter"];
 
+/** A tint per lens, so a shared crop is recognisably one perspective. */
+const LENS_TINT: Record<Perspective["id"], string> = {
+  crush: "rgba(244, 114, 182, 0.16)",
+  stranger: "rgba(175, 224, 249, 0.14)",
+  friends: "rgba(52, 211, 153, 0.13)",
+  recruiter: "rgba(251, 191, 36, 0.12)",
+};
+
+const LENS_KICKER: Record<Perspective["id"], string> = {
+  crush: "The one you actually wanted",
+  stranger: "Three seconds, cold",
+  friends: "People who know you",
+  recruiter: "Someone checking you out",
+};
+
 function PerspectiveSelector({
   perspectives,
   voice,
@@ -724,29 +722,62 @@ function PerspectiveSelector({
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           className="mt-5"
         >
-          <p className="text-[1.05rem] font-extrabold leading-snug tracking-tight text-white">
-            {voice.perspectiveTitle(selected)}
-          </p>
+          {/*
+            This one *is* a card, deliberately, while the rest of the result is
+            not. "How your crush sees you" is the line people screenshot and
+            send to a friend, and a screenshot needs an edge — a crop of
+            unbounded text on a dark page is not a thing anyone sends. The lens
+            tint gives each perspective its own identity in the crop, so a
+            shared crush result is recognisably different from a shared
+            recruiter one.
+          */}
+          <div
+            className="relative overflow-hidden rounded-3xl p-5 ring-1 ring-white/[0.09]"
+            style={{
+              background: `linear-gradient(155deg, ${LENS_TINT[selected]} 0%, rgba(255,255,255,0.03) 60%)`,
+            }}
+          >
+            <span
+              aria-hidden
+              className="pointer-events-none absolute -right-3 -top-3 select-none text-[5.5rem] leading-none opacity-[0.13]"
+            >
+              {current.emoji}
+            </span>
 
-          {current.traits.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {current.traits.map((trait) => (
-                <span
-                  key={trait}
-                  className="rounded-full bg-white/[0.08] px-3 py-1 text-xs font-semibold text-white/80"
-                >
-                  {trait}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {current.summary && (
-            <p className="mt-3.5 text-[0.95rem] leading-relaxed text-white/75">
-              {current.summary}
+            <p className="relative text-[0.62rem] font-bold uppercase tracking-[0.16em] text-white/40">
+              {LENS_KICKER[selected]}
             </p>
-          )}
+            <p className="relative mt-1.5 text-[1.3rem] font-extrabold leading-tight tracking-tight text-white">
+              {voice.perspectiveTitle(selected)}
+            </p>
 
+            {current.traits.length > 0 && (
+              <div className="relative mt-4 flex flex-wrap gap-1.5">
+                {current.traits.map((trait, i) => (
+                  <span
+                    key={trait}
+                    className={cn(
+                      "rounded-full px-3 py-1.5 text-[0.8rem] font-bold",
+                      i === 0
+                        ? "bg-blink-sky text-blink-navy"
+                        : "bg-white/[0.1] text-white/85",
+                    )}
+                  >
+                    {trait}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {current.summary && (
+              <p className="relative mt-4 text-[1rem] font-medium leading-relaxed text-white/90">
+                {current.summary}
+              </p>
+            )}
+          </div>
+
+          {/* The reasoning sits outside the card — it's for the reader, not for
+              the screenshot. */}
           {current.why && (
             <div className="mt-5">
               <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-white/40">

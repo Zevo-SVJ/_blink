@@ -62,7 +62,7 @@ export function AppShell({
   if (!user) return null;
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
+    <div className="has-app-tabbar relative min-h-screen overflow-x-hidden">
       <PageBackground />
 
       <TopNav />

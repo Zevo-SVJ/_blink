@@ -74,46 +74,73 @@ export const PERCEPTIONS: Perception[] = [
   },
 ];
 
+/**
+ * A reaction to Blink, as it would appear in a feed.
+ *
+ * The identity fields are deliberately loose. An earlier version stored one
+ * string shaped `"mia.s., 21"` and rendered it as `@mia.s., 21`, so every
+ * reaction had the same silhouette — which is exactly what a generated
+ * testimonial wall looks like. Handle and age are separate now, age is
+ * optional, and the handles use the range of formats people actually pick.
+ */
 export interface Testimonial {
   id: string;
+  /** Rendered after an `@`. Lowercase, social-media style. */
   handle: string;
+  /** Shown beside the handle when present. Plenty of accounts don't. */
+  age?: number;
   initial: string;
   text: string;
   likes?: number;
+  /** Hue for the avatar gradient, so the row reads as different people. */
   hue: number;
 }
 
+/**
+ * Thirty-four reactions, all distinct.
+ *
+ * The marquee shows several at once and loops forever, so repetition is the
+ * failure mode: two similar lines passing together is what makes a stream read
+ * as filler. They vary in length (three words to a full sentence), in register
+ * (delighted, defensive, sceptical, deadpan), and in what they react to — the
+ * score, the crush lens, the red flag, the leaderboard, running it on someone
+ * else.
+ */
 export const TESTIMONIALS: Testimonial[] = [
-  { id: "1", handle: "mia.s., 21", initial: "M", text: "nah this is actually accurate 😭", likes: 1243, hue: 200 },
-  { id: "2", handle: "jordxn, 23", initial: "J", text: "bro HOW did it know 💀", likes: 892, hue: 20 },
-  { id: "3", handle: "sof, 22", initial: "S", text: "ok the crush one is crazy", likes: 567, hue: 320 },
-  { id: "4", handle: "dre, 20", initial: "D", text: "waitttt", likes: 210, hue: 160 },
-  { id: "5", handle: "leah, 24", initial: "L", text: "mine said mysterious and my gf said thats literally just me being shy 😭", likes: 1456, hue: 260 },
-  { id: "6", handle: "nate, 22", initial: "N", text: "8.7 is crazy generous lmao", likes: 743, hue: 40 },
-  { id: "7", handle: "ella, 19", initial: "E", text: "this actually made me change my pfp", likes: 1120, hue: 300 },
-  { id: "8", handle: "ryan, 25", initial: "R", text: "nah run yours rn", likes: 430, hue: 180 },
-  { id: "9", handle: "tasha, 21", initial: "T", text: "the recruiter perspective hit different... i need to fix my bio", likes: 987, hue: 340 },
-  { id: "10", handle: "josh, 20", initial: "J", text: "i thought it would be cringe but its weirdly motivating", likes: 654, hue: 80 },
-  { id: "11", handle: "ava, 22", initial: "A", text: "lowkey changed how i post", likes: 521, hue: 240 },
-  { id: "12", handle: "marc, 24", initial: "M", text: "sent this to my friends and now they wont stop roasting me", likes: 1102, hue: 120 },
-  { id: "13", handle: "ken, 23", initial: "K", text: "my red flag was 'too curated' ... fair", likes: 789, hue: 60 },
-  { id: "14", handle: "zoe, 20", initial: "Z", text: "why is the stranger one always right??", likes: 1345, hue: 280 },
-  { id: "15", handle: "dylan, 22", initial: "D", text: "bruh", likes: 67, hue: 10 },
-  { id: "16", handle: "chloe, 19", initial: "C", text: "i got 8.4 and ive never been more confident in my life", likes: 920, hue: 220 },
-  { id: "17", handle: "lucas, 25", initial: "L", text: "gonna pretend i didnt see my crush perspective ty", likes: 1567, hue: 50 },
-  { id: "18", handle: "hannah, 21", initial: "H", text: "the green flag thing was actually sweet 🥹", likes: 1104, hue: 330 },
-  { id: "19", handle: "eli, 20", initial: "E", text: "no way it caught that", likes: 340, hue: 140 },
-  { id: "20", handle: "ruby, 23", initial: "R", text: "skeptical at first ngl but its lowkey valid", likes: 876, hue: 20 },
-  { id: "21", handle: "sam, 21", initial: "S", text: "ran my ex for research purposes", likes: 2040, hue: 200 },
-  { id: "22", handle: "ivy, 22", initial: "I", text: "blink is just publicly acceptable astrology", likes: 1890, hue: 90 },
-  { id: "23", handle: "noah, 24", initial: "N", text: "my friends said mine was too accurate to be funny", likes: 632, hue: 170 },
-  { id: "24", handle: "maya, 19", initial: "M", text: "8.2?? id take that to my therapist", likes: 412, hue: 310 },
-  { id: "25", handle: "carter, 23", initial: "C", text: "way more useful than any ig analytics tool", likes: 703, hue: 70 },
-  { id: "26", handle: "piper, 20", initial: "P", text: "downloaded this app before i even finished reading", likes: 555, hue: 250 },
-  { id: "27", handle: "jake, 22", initial: "J", text: "now i cant stop analyzing everyone elses profile", likes: 999, hue: 30 },
-  { id: "28", handle: "lily, 21", initial: "L", text: "the 'stranger' test is lowkey brutal but fair", likes: 844, hue: 350 },
-  { id: "29", handle: "ben, 25", initial: "B", text: "how did it know i was mysterious im literally an open book", likes: 1203, hue: 110 },
-  { id: "30", handle: "nina, 22", initial: "N", text: "this is the only thing that has made me update my highlights in 2 years", likes: 1301, hue: 190 },
+  { id: "1", handle: "mia.s", age: 21, initial: "M", text: "nah this is actually accurate 😭", likes: 1243, hue: 200 },
+  { id: "2", handle: "jordxn", age: 23, initial: "J", text: "bro HOW did it know 💀", likes: 892, hue: 20 },
+  { id: "3", handle: "sof", age: 22, initial: "S", text: "ok the crush one is crazy", likes: 567, hue: 320 },
+  { id: "4", handle: "notdre", initial: "D", text: "waitttt", likes: 210, hue: 160 },
+  { id: "5", handle: "leah.jpg", age: 24, initial: "L", text: "mine said mysterious and my gf said thats literally just me being shy 😭", likes: 1456, hue: 260 },
+  { id: "6", handle: "nate_wtf", age: 22, initial: "N", text: "8.7 is crazy generous lmao", likes: 743, hue: 40 },
+  { id: "7", handle: "ellaaa", age: 19, initial: "E", text: "this actually made me change my pfp", likes: 1120, hue: 300 },
+  { id: "8", handle: "ry", initial: "R", text: "nah run yours rn", likes: 430, hue: 180 },
+  { id: "9", handle: "tashaaa.b", age: 21, initial: "T", text: "the recruiter perspective hit different... i need to fix my bio", likes: 987, hue: 340 },
+  { id: "10", handle: "josh4x", age: 20, initial: "J", text: "i thought it would be cringe but its weirdly motivating", likes: 654, hue: 80 },
+  { id: "11", handle: "ava", initial: "A", text: "lowkey changed how i post", likes: 521, hue: 240 },
+  { id: "12", handle: "marc.exe", age: 24, initial: "M", text: "sent this to my friends and now they wont stop roasting me", likes: 1102, hue: 120 },
+  { id: "13", handle: "kenny.h", age: 23, initial: "K", text: "my red flag was 'too curated' ... fair", likes: 789, hue: 60 },
+  { id: "14", handle: "zoeee", age: 20, initial: "Z", text: "why is the stranger one always right??", likes: 1345, hue: 280 },
+  { id: "15", handle: "dyl", initial: "D", text: "bruh", likes: 67, hue: 10 },
+  { id: "16", handle: "chlo.e", age: 19, initial: "C", text: "i got 8.4 and ive never been more confident in my life", likes: 920, hue: 220 },
+  { id: "17", handle: "lucasm", age: 25, initial: "L", text: "gonna pretend i didnt see my crush perspective ty", likes: 1567, hue: 50 },
+  { id: "18", handle: "hannahhh", age: 21, initial: "H", text: "the green flag thing was actually sweet 🥹", likes: 1104, hue: 330 },
+  { id: "19", handle: "eli._", initial: "E", text: "no way it caught that", likes: 340, hue: 140 },
+  { id: "20", handle: "rubyy", age: 23, initial: "R", text: "skeptical at first ngl but its lowkey valid", likes: 876, hue: 20 },
+  { id: "21", handle: "sam.b", age: 21, initial: "S", text: "ran my ex for research purposes", likes: 2040, hue: 200 },
+  { id: "22", handle: "ivy", age: 22, initial: "I", text: "blink is just publicly acceptable astrology", likes: 1890, hue: 90 },
+  { id: "23", handle: "noah.k", age: 24, initial: "N", text: "my friends said mine was too accurate to be funny", likes: 632, hue: 170 },
+  { id: "24", handle: "mayaaa", age: 19, initial: "M", text: "8.2?? id take that to my therapist", likes: 412, hue: 310 },
+  { id: "25", handle: "carter_", age: 23, initial: "C", text: "way more useful than any ig analytics tool", likes: 703, hue: 70 },
+  { id: "26", handle: "piper.mp3", age: 20, initial: "P", text: "opened this before i even finished reading the page", likes: 555, hue: 250 },
+  { id: "27", handle: "jakey", age: 22, initial: "J", text: "now i cant stop analyzing everyone elses profile", likes: 999, hue: 30 },
+  { id: "28", handle: "lilyxo", age: 21, initial: "L", text: "the 'stranger' test is lowkey brutal but fair", likes: 844, hue: 350 },
+  { id: "29", handle: "benj", age: 25, initial: "B", text: "how did it know i was mysterious im literally an open book", likes: 1203, hue: 110 },
+  { id: "30", handle: "nina.raw", age: 22, initial: "N", text: "the only thing thats made me update my highlights in 2 years", likes: 1301, hue: 190 },
+  { id: "31", handle: "omar", initial: "O", text: "i have 300 followers and im above someone with 90k. im never recovering", likes: 1720, hue: 145 },
+  { id: "32", handle: "prii.ya", age: 20, initial: "P", text: "showed my mum. she agreed with the red flag. devastating", likes: 1388, hue: 295 },
+  { id: "33", handle: "t0m", initial: "T", text: "genuinely thought it was gonna say something nice", likes: 611, hue: 15 },
+  { id: "34", handle: "yasmin.k", age: 24, initial: "Y", text: "did not expect a screenshot to read me like that", likes: 1045, hue: 265 },
 ];
 
 export interface FAQ {

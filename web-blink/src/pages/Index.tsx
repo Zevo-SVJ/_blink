@@ -10,7 +10,6 @@ import { HowItWorks } from "@/components/blink/HowItWorks";
 import { LeaderboardShowcase } from "@/components/blink/LeaderboardShowcase";
 import { Navbar } from "@/components/blink/Navbar";
 import { PageBackground } from "@/components/blink/PageBackground";
-import { PerceptionShowcase } from "@/components/blink/PerceptionShowcase";
 import { Testimonials } from "@/components/blink/Testimonials";
 
 const Index = () => {
@@ -29,7 +28,6 @@ const Index = () => {
         <main>
           <Hero onCTA={handleCTA} />
           <HowItWorks onCTA={handleCTA} />
-          <PerceptionShowcase onCTA={handleCTA} />
           <LeaderboardShowcase onCTA={handleCTA} />
           <Testimonials onCTA={handleCTA} />
           <FAQSection />

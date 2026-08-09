@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 
 const publicLinks = [
   { label: "How it works", href: "#how-it-works" },
-  { label: "Perceptions", href: "#perceptions" },
   { label: "Leaderboard", href: "#leaderboard" },
   { label: "Reviews", href: "#reactions" },
   { label: "FAQ", href: "#faq" },
@@ -62,31 +61,35 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
             ))}
           </div>
 
-          <div className="hidden items-center gap-4 md:flex">
-            {user && (
-              <button
-                type="button"
-                onClick={() => navigate("/app")}
-                className="text-sm font-semibold text-white/70 transition-colors hover:text-white"
-              >
-                My Blink
-              </button>
-            )}
-            <CTAButton
-              label={user ? "Analyze a profile" : "See my first impression"}
-              onClick={handleCTA}
-            />
+          <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
+            {/* The returning-user door. Secondary by weight, but present on
+                every width — someone who already has an account should never
+                have to hunt through a marketing page to get back in. */}
+            <button
+              type="button"
+              onClick={() => (user ? navigate("/app") : onCTA())}
+              className="min-h-[40px] rounded-full px-3 text-sm font-semibold text-white/65 transition-colors hover:text-white sm:px-4"
+            >
+              {user ? "Open Blink" : "Log in"}
+            </button>
+
+            <div className="hidden md:block">
+              <CTAButton
+                label={user ? "Analyze a profile" : "See my first impression"}
+                onClick={handleCTA}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-white/80 transition-colors hover:text-white md:hidden"
+              aria-label="Open menu"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
           </div>
 
-          {/* Mobile hamburger */}
-          <button
-            type="button"
-            onClick={() => setMenuOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-white/80 transition-colors hover:text-white md:hidden"
-            aria-label="Open menu"
-          >
-            <Menu className="h-6 w-6" />
-          </button>
         </nav>
       </header>
 
@@ -142,8 +145,7 @@ function MobileMenu({
     : [
         { label: "Home", href: "#" },
         { label: "How it works", href: "#how-it-works" },
-        { label: "Perceptions", href: "#perceptions" },
-        { label: "Leaderboard", href: "#leaderboard" },
+              { label: "Leaderboard", href: "#leaderboard" },
         { label: "Reviews", href: "#reactions" },
         { label: "FAQ", href: "#faq" },
       ];

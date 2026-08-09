@@ -1,41 +1,36 @@
 /**
- * Blink — social proof as a swipeable deck.
+ * Blink — social proof as a moving stream.
  *
- * A wall of testimonials reads as filler; a deck you flick through reads as
- * people reacting one after another. The physics now live in `SwipeDeck`,
- * shared with the climb actions inside the app, so Blink's signature
- * interaction feels the same everywhere.
+ * Two rows drifting in opposite directions, never stopping, no controls. The
+ * deck that lived here read as one person's opinion at a time and required a
+ * gesture to see a second; a stream reads as volume, which is the thing social
+ * proof is actually for. Nothing here is interactive, so there is no state to
+ * get stuck in and nothing to discover.
  *
- * This surface keeps its arrows: on a marketing page a visitor may never think
- * to try dragging, and the count doubles as proof that there are more of these
- * than fit on screen. Inside the app the same deck ships without them.
+ * Splitting the thirty-four reactions across two rows rather than looping one
+ * long row matters: opposite directions mean two cards never travel together
+ * for long, so the eye can't latch onto a repeating pattern.
  */
 
-import { ChevronLeft, ChevronRight, Heart } from "lucide-react";
-import { useState } from "react";
+import { Heart } from "lucide-react";
 
 import { CTAButton } from "@/components/blink/CTAButton";
+import { Marquee } from "@/components/blink/Marquee";
 import { Reveal } from "@/components/blink/Reveal";
-import { SwipeDeck } from "@/components/blink/SwipeDeck";
-import { TESTIMONIALS } from "@/lib/blink-data";
+import { TESTIMONIALS, type Testimonial } from "@/lib/blink-data";
 
-/** The strongest, most varied reactions — surprise, self-roast, one sceptic. */
-const DECK_IDS = ["1", "22", "17", "2", "30", "3", "21", "13", "20", "5"];
-
-const DECK = DECK_IDS.map((id) => TESTIMONIALS.find((t) => t.id === id)).filter(
-  (t): t is (typeof TESTIMONIALS)[number] => Boolean(t),
-);
+/** Interleaved rather than split down the middle, so neither row is all shorts. */
+const ROW_A = TESTIMONIALS.filter((_, i) => i % 2 === 0);
+const ROW_B = TESTIMONIALS.filter((_, i) => i % 2 === 1);
 
 function formatLikes(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(n);
 }
 
 export function Testimonials({ onCTA }: { onCTA: () => void }) {
-  const [, setIndex] = useState(0);
-
   return (
-    <section id="reactions" className="relative px-4 py-20 sm:px-6 sm:py-28">
-      <div className="mx-auto max-w-3xl">
+    <section id="reactions" className="relative py-20 sm:py-28">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <Reveal className="text-center">
           <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-blink-sky/70">
             Reactions
@@ -44,80 +39,44 @@ export function Testimonials({ onCTA }: { onCTA: () => void }) {
             People can&rsquo;t stop comparing scores.
           </h2>
           <p className="mx-auto mt-3 max-w-md text-[0.95rem] leading-relaxed text-white/50 sm:mt-4 sm:text-base">
-            Swipe through what people said after running their own profile.
+            What people said after running their own profile.
           </p>
         </Reveal>
+      </div>
 
-        <Reveal delay={0.05} className="mt-10 sm:mt-12">
-          <SwipeDeck
-            items={DECK}
-            height={196}
-            className="mx-auto w-full max-w-[336px]"
-            cardClassName="p-5"
-            onIndexChange={setIndex}
-            renderCard={(card, isFront) => (
-              <ReactionCard card={card} isFront={isFront} />
-            )}
-            footer={({ index, total, go }) => (
-              <div className="mt-10 flex items-center justify-center gap-3">
-                <DeckButton label="Previous reaction" onClick={() => go(-1)}>
-                  <ChevronLeft className="h-4 w-4" />
-                </DeckButton>
-                <span className="text-[0.7rem] font-semibold tabular-nums text-white/30">
-                  {index + 1} / {total}
-                </span>
-                <DeckButton label="Next reaction" onClick={() => go(1)}>
-                  <ChevronRight className="h-4 w-4" />
-                </DeckButton>
-              </div>
-            )}
-          />
-        </Reveal>
+      {/* Full-bleed: the stream should run off both edges of the screen. */}
+      <div className="mt-10 space-y-3 sm:mt-12">
+        <Marquee
+          items={ROW_A}
+          keyFor={(t) => t.id}
+          renderItem={(t) => <ReactionCard card={t} />}
+          speed={30}
+        />
+        <Marquee
+          items={ROW_B}
+          keyFor={(t) => t.id}
+          renderItem={(t) => <ReactionCard card={t} />}
+          speed={24}
+          direction={-1}
+        />
+      </div>
 
-        <Reveal delay={0.05} className="mt-12 flex flex-col items-center gap-4">
-          <p className="text-center text-sm font-medium text-white/45">
-            Find out what your Instagram says about you
-          </p>
-          <CTAButton label="See my first impression" onClick={onCTA} size="lg" />
-        </Reveal>
+      <div className="mx-auto mt-12 flex max-w-3xl flex-col items-center gap-4 px-4 sm:px-6">
+        <p className="text-center text-sm font-medium text-white/45">
+          Find out what your Instagram says about you
+        </p>
+        <CTAButton label="See my first impression" onClick={onCTA} size="lg" />
       </div>
     </section>
   );
 }
 
-function DeckButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
+function ReactionCard({ card }: { card: Testimonial }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.06] text-white/60 ring-1 ring-white/10 transition-colors hover:bg-white/[0.12] hover:text-white"
-    >
-      {children}
-    </button>
-  );
-}
-
-function ReactionCard({
-  card,
-  isFront,
-}: {
-  card: (typeof TESTIMONIALS)[number];
-  isFront: boolean;
-}) {
-  return (
-    <div className="relative h-full">
+    <figure className="flex h-[7.5rem] w-[15.5rem] flex-col rounded-2xl bg-blink-navy-2/70 p-4 ring-1 ring-white/[0.07] sm:w-[17rem]">
       <div className="flex items-center gap-2.5">
         <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
           style={{
             background: `linear-gradient(140deg, hsl(${card.hue} 60% 44%), hsl(${card.hue} 70% 28%))`,
           }}
@@ -125,25 +84,24 @@ function ReactionCard({
         >
           {card.initial}
         </span>
-        <span className="min-w-0 truncate text-[0.8rem] font-semibold text-white/55">
+        <figcaption className="min-w-0 truncate text-[0.75rem] font-semibold text-white/50">
           @{card.handle}
-        </span>
+          {card.age !== undefined && (
+            <span className="text-white/30"> · {card.age}</span>
+          )}
+        </figcaption>
       </div>
 
-      <p className="mt-4 text-[1.05rem] font-medium leading-snug text-white">{card.text}</p>
+      <blockquote className="mt-3 line-clamp-3 text-[0.9rem] font-medium leading-snug text-white">
+        {card.text}
+      </blockquote>
 
       {card.likes !== undefined && (
-        <p className="absolute bottom-0 left-0 flex items-center gap-1.5 text-xs font-semibold text-white/35">
-          <Heart className="h-3.5 w-3.5 fill-current text-rose-400/70" aria-hidden />
+        <p className="mt-auto flex items-center gap-1.5 pt-2 text-[0.7rem] font-semibold text-white/30">
+          <Heart className="h-3 w-3 fill-current text-rose-400/60" aria-hidden />
           {formatLikes(card.likes)}
         </p>
       )}
-
-      {isFront && (
-        <p className="absolute bottom-0 right-0 text-[0.65rem] font-semibold text-white/20">
-          swipe
-        </p>
-      )}
-    </div>
+    </figure>
   );
 }

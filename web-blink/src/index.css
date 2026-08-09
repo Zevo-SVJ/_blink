@@ -108,6 +108,19 @@
 }
 
 @layer utilities {
+  /* Published by the app shell so bottom-fixed UI (the analysis section bar)
+     can sit above the tab bar without having to detect it. Zero outside the
+     shell, and zero on desktop where the tab bar isn't rendered. */
+  .has-app-tabbar {
+    --blink-app-nav: calc(4.75rem + env(safe-area-inset-bottom));
+  }
+
+  @media (min-width: 768px) {
+    .has-app-tabbar {
+      --blink-app-nav: 0px;
+    }
+  }
+
   /* Horizontal pill strips scroll by gesture; a visible bar just adds noise
      and steals height on desktop. */
   .scrollbar-none {

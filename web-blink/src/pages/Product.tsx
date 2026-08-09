@@ -51,7 +51,7 @@ import {
 import { getMockMode, mockAnalyze } from "@/lib/dev-mock";
 import { fetchMyStanding, fetchScoreStanding } from "@/lib/leaderboard";
 import { getVoice, type Voice } from "@/lib/ownership";
-import { pdpAnchor, type PdpAnchor } from "@/lib/pdp";
+import { pdpAnchor } from "@/lib/pdp";
 import { computeBlinkScore, type ProfileStats } from "@/lib/ranking";
 import { resizeForUpload } from "@/lib/resize";
 import { cn } from "@/lib/utils";
@@ -658,15 +658,27 @@ function PreviewScreen({
 // Analysing
 // ---------------------------------------------------------------------------
 
-/** Where the profile picture sits, in on-screen pixels relative to stage centre. */
+/**
+ * The profile picture's geometry, in the *displayed* screenshot's own
+ * coordinate space — which is the space a clip-path on that element uses.
+ *
+ * Measured from the rendered element rather than precomputed, and re-measured
+ * on resize, so the zoom lands on the avatar at every viewport and for every
+ * screenshot shape.
+ */
 interface PdpTarget {
-  offsetX: number;
-  offsetY: number;
-  /** Displayed diameter of the avatar, in pixels. */
-  diameter: number;
-  anchor: PdpAnchor;
-  /** Aspect ratio of the screenshot, for the circular crop. */
-  aspect: number;
+  /** Avatar centre, in CSS pixels from the screenshot's top-left. */
+  localX: number;
+  localY: number;
+  /** Avatar radius, in CSS pixels. */
+  localRadius: number;
+  /** Radius that still covers the whole screenshot — the clip's resting size. */
+  coverRadius: number;
+  /** Scale that renders the avatar at exactly `CIRCLE_SIZE`. */
+  scale: number;
+  /** Translation that brings the avatar to the stage centre under that scale. */
+  x: number;
+  y: number;
 }
 
 /** Exported for the layout regression test in `analysis-layout.browser.test.tsx`. */
@@ -687,7 +699,6 @@ export function AnalysisScreen({
   const [messageIdx, setMessageIdx] = useState(0);
   const [scanY, setScanY] = useState(0);
   const [transformed, setTransformed] = useState(false);
-  const [screenshotGone, setScreenshotGone] = useState(false);
   const [signalsVisible, setSignalsVisible] = useState(false);
   const [target, setTarget] = useState<PdpTarget | null>(null);
 
@@ -706,31 +717,57 @@ export function AnalysisScreen({
    */
   const measureTarget = useCallback((): PdpTarget | null => {
     const img = imgRef.current;
-    const stage = stageRef.current;
-    if (!img || !stage || !img.naturalWidth) return null;
+    if (!img || !img.naturalWidth) return null;
 
-    const imgRect = img.getBoundingClientRect();
-    const stageRect = stage.getBoundingClientRect();
-    if (imgRect.width === 0) return null;
+    const rect = img.getBoundingClientRect();
+    if (rect.width === 0) return null;
 
     const anchor = pdpAnchor(img.naturalWidth, img.naturalHeight);
 
-    const pdpX = imgRect.left + anchor.cx * imgRect.width;
-    const pdpY = imgRect.top + anchor.cy * imgRect.height;
+    const localX = anchor.cx * rect.width;
+    const localY = anchor.cy * rect.height;
+    const localRadius = Math.max(12, anchor.r * rect.width);
+
+    // Scale so the avatar ends up exactly `CIRCLE_SIZE` across, then translate
+    // by the negated, scaled offset of the avatar from the element's centre —
+    // Framer composes translate before scale about the transform origin, so
+    // that lands the avatar precisely on the stage centre.
+    const scale = CIRCLE_SIZE / (2 * localRadius);
 
     return {
-      offsetX: pdpX - (stageRect.left + stageRect.width / 2),
-      offsetY: pdpY - (stageRect.top + stageRect.height / 2),
-      diameter: Math.max(24, anchor.r * 2 * imgRect.width),
-      anchor,
-      aspect: img.naturalWidth / img.naturalHeight,
+      localX,
+      localY,
+      localRadius,
+      coverRadius: Math.hypot(rect.width, rect.height),
+      scale,
+      x: -(localX - rect.width / 2) * scale,
+      y: -(localY - rect.height / 2) * scale,
     };
   }, []);
 
+  // Measure once the bitmap has laid out, and again whenever the element
+  // resizes. Without the re-measure a rotation or a resized window would zoom
+  // to where the avatar used to be.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return;
+
+    const update = () => setTarget(measureTarget());
+    update();
+
+    if (!img.complete) img.addEventListener("load", update);
+    const observer = new ResizeObserver(update);
+    observer.observe(img);
+    return () => {
+      img.removeEventListener("load", update);
+      observer.disconnect();
+    };
+  }, [measureTarget, previewUrl]);
+
   const beginTransform = useCallback(() => {
-    setTarget(measureTarget());
+    setTarget((current) => current ?? measureTarget());
     setTransformed(true);
-    window.setTimeout(() => setSignalsVisible(true), 900);
+    window.setTimeout(() => setSignalsVisible(true), 950);
   }, [measureTarget]);
 
   /**
@@ -825,6 +862,20 @@ export function AnalysisScreen({
     setSignalsVisible(true);
   }, [hasResult, progress, messages.length, beginTransform, cancelStages]);
 
+  // Both endpoints of the clip are expressed in pixels around the same centre,
+  // so the animation is a plain radius interpolation. Mixing a `%` resting
+  // value with a `px` target makes Framer fall back to a hard cut.
+  const clipPath = target
+    ? transformed
+      ? `circle(${target.localRadius}px at ${target.localX}px ${target.localY}px)`
+      : `circle(${target.coverRadius}px at ${target.localX}px ${target.localY}px)`
+    : "circle(150% at 50% 50%)";
+
+  const camera =
+    transformed && target
+      ? { scale: target.scale, x: target.x, y: target.y }
+      : { scale: 1, x: 0, y: 0 };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -842,28 +893,40 @@ export function AnalysisScreen({
         className="relative flex w-full items-center justify-center"
         style={{ height: STAGE_HEIGHT }}
       >
-        <div
-          className={cn(
-            "pointer-events-none absolute rounded-full bg-blink-sky/[0.07] blur-2xl transition-all duration-1000",
-            transformed ? "h-[220px] w-[220px]" : "h-full w-full max-w-[320px]",
-          )}
-          aria-hidden
-        />
-
+        {/* Viewport for the camera. Mid-zoom the screenshot is several times
+            the stage's size, so it needs somewhere to be cut off; the ring and
+            labels live outside this box and are never clipped by it. */}
+        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
         {/* Screenshot.
             `min-w-0` matters: a flex item's default `min-width: auto` is its
             content size, which overrides `max-width` and lets a wide capture
-            burst out of the stage. Zeroing it lets the max-width cap win. */}
+            burst out of the stage. Zeroing it lets the max-width cap win.
+
+            This element is the camera. It scales and translates so the profile
+            picture lands dead centre at exactly `CIRCLE_SIZE`, while a
+            clip-path closes from the whole frame down to a circle around that
+            same point. Because the clip is applied in the element's own
+            coordinate space, it rides the transform — so the zoom and the
+            framing stay locked together, and the circle you end up looking at
+            *is* the screenshot rather than a second element faded in on top
+            of it. That is what was missing before: the old version cross-faded
+            to a separate cropped div, which reads as a cut, not a move. */}
         <motion.div
           className="relative flex min-w-0 max-h-full max-w-full items-center justify-center"
-          animate={transformed ? { opacity: 0, scale: 0.94 } : { opacity: 1, scale: 1 }}
-          transition={{ duration: 0.65, ease: [0.4, 0, 0.2, 1] }}
-          // Dropped from the tree once faded, so no ghost of the frame's
-          // border or shadow can survive behind the circle.
-          onAnimationComplete={() => transformed && setScreenshotGone(true)}
-          style={{ pointerEvents: "none", display: screenshotGone ? "none" : undefined }}
+          animate={camera}
+          transition={{ duration: 1.15, ease: [0.32, 0.72, 0, 1] }}
+          style={{ pointerEvents: "none" }}
         >
-          <div className="relative max-w-full overflow-hidden rounded-2xl border border-blink-sky/25 shadow-[0_0_40px_-12px_rgba(175,224,249,0.2)]">
+          {/* Corner rounding is a static class, never animated. Animating
+              `borderRadius` towards a pill on a tall element intersects the
+              clip circle with a stadium, and what you see mid-zoom is a blob
+              rather than a circle. The clip already does all the shaping. */}
+          <motion.div
+            className="relative max-w-full overflow-hidden rounded-2xl"
+            animate={{ clipPath }}
+            transition={{ duration: 1.15, ease: [0.32, 0.72, 0, 1] }}
+            style={{ clipPath }}
+          >
             <img
               ref={imgRef}
               src={previewUrl}
@@ -896,12 +959,15 @@ export function AnalysisScreen({
                 />
               </div>
             )}
-          </div>
+          </motion.div>
         </motion.div>
+        </div>
 
+        {/* Ring, ripples and labels, drawn around the point the camera lands
+            on — the centre of the stage. */}
         {transformed && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <TransformedCircle previewUrl={previewUrl} signalsVisible={signalsVisible} target={target} />
+            <ScannerOverlay signalsVisible={signalsVisible} />
           </div>
         )}
       </div>
@@ -960,39 +1026,14 @@ const SIGNAL_LABELS = [
 ];
 
 /**
- * The circle lifts off the profile picture inside the screenshot and carries it
- * to the centre.
+ * What is drawn *around* the profile picture once the camera has landed on it.
  *
- * It is always a `CIRCLE_SIZE` element that animates `scale` and `x`/`y`, never
- * width/height — transform-only keeps it on the compositor, and it keeps the
- * background crop maths constant while the circle is moving.
+ * There is no avatar in here. The screenshot itself is the circle by this
+ * point — see the camera note on the stage — so a second cropped copy would
+ * only be a chance for the two to disagree by a pixel. This is the ring, the
+ * reflection sweep that reads as "being read", and the perception labels.
  */
-function TransformedCircle({
-  previewUrl,
-  signalsVisible,
-  target,
-}: {
-  previewUrl: string;
-  signalsVisible: boolean;
-  target: PdpTarget | null;
-}) {
-  // Crop the screenshot so the circle shows the avatar itself, not a circular
-  // window onto the whole screenshot.
-  const crop = (() => {
-    if (!target) return { backgroundSize: "cover", backgroundPosition: "center" };
-    const { anchor, aspect } = target;
-    const bgW = CIRCLE_SIZE / (2 * anchor.r);
-    const bgH = bgW / aspect;
-    return {
-      backgroundSize: `${bgW}px ${bgH}px`,
-      backgroundPosition: `${-(anchor.cx * bgW - CIRCLE_SIZE / 2)}px ${-(anchor.cy * bgH - CIRCLE_SIZE / 2)}px`,
-    };
-  })();
-
-  const from = target
-    ? { x: target.offsetX, y: target.offsetY, scale: target.diameter / CIRCLE_SIZE }
-    : { x: 0, y: 0, scale: 0.55 };
-
+function ScannerOverlay({ signalsVisible }: { signalsVisible: boolean }) {
   return (
     <div className="relative flex h-[300px] w-[300px] items-center justify-center sm:h-[340px] sm:w-[340px]">
       {/* Ripples. Each is exactly the circle's size, so scale 1 sits on its rim
@@ -1015,32 +1056,36 @@ function TransformedCircle({
         />
       ))}
 
-      {/* Ring, settling a beat after the avatar. */}
+      {/* The lock-on ring, closing as the camera settles. */}
       <motion.div
-        className="absolute rounded-full border border-blink-sky/25"
+        className="absolute rounded-full ring-1 ring-blink-sky/45"
         style={{ width: CIRCLE_SIZE + 16, height: CIRCLE_SIZE + 16 }}
-        initial={{ opacity: 0, x: from.x, y: from.y, scale: from.scale }}
-        animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-        transition={{ duration: 0.85, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ opacity: 0, scale: 1.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.95, ease: [0.32, 0.72, 0, 1] }}
         aria-hidden
       />
 
-      {/* The avatar. */}
+      {/* Reflection sweep across the locked profile picture. */}
       <motion.div
-        className="absolute overflow-hidden rounded-full bg-blink-navy-2 ring-2 ring-blink-sky/40"
-        style={{
-          width: CIRCLE_SIZE,
-          height: CIRCLE_SIZE,
-          backgroundImage: `url(${previewUrl})`,
-          backgroundRepeat: "no-repeat",
-          ...crop,
-        }}
-        initial={{ opacity: 0, x: from.x, y: from.y, scale: from.scale }}
-        animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-        transition={{ type: "spring", stiffness: 150, damping: 22, mass: 0.9 }}
-        role="img"
-        aria-label="The profile picture being analyzed"
-      />
+        className="absolute overflow-hidden rounded-full"
+        style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.85 }}
+        aria-hidden
+      >
+        <motion.div
+          className="absolute inset-y-0 w-1/2"
+          style={{
+            background:
+              "linear-gradient(100deg, transparent, rgba(175,224,249,0.32), transparent)",
+          }}
+          initial={{ left: "-60%" }}
+          animate={{ left: "130%" }}
+          transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 0.9, ease: "easeInOut" }}
+        />
+      </motion.div>
 
       {/* Perception signals fanning out. */}
       {signalsVisible &&
@@ -1052,7 +1097,7 @@ function TransformedCircle({
           return (
             <motion.div
               key={label}
-              className="absolute flex items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 backdrop-blur-sm"
+              className="absolute flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white/[0.06] px-3 py-1.5 ring-1 ring-white/10 backdrop-blur-sm"
               initial={{ opacity: 0, x: 0, y: 0, scale: 0.6 }}
               animate={{
                 opacity: 1,
@@ -1062,7 +1107,6 @@ function TransformedCircle({
               }}
               transition={{ type: "spring", stiffness: 280, damping: 26, delay: i * 0.09 }}
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-blink-sky-bright" />
               <span className="text-[10px] font-bold text-white/90 sm:text-xs">{label}</span>
             </motion.div>
           );
@@ -1121,6 +1165,12 @@ function ResultScreen({
               stats={stats}
               rank={shareRank}
               recommendations={result.recommendations}
+              // What Blink just decided about this profile, so the identity
+              // path can name it instead of giving generic advice.
+              identity={{
+                category: result.category?.category ?? null,
+                strongestSignal: result.strongestSignals?.[0] ?? null,
+              }}
             />
           ) : undefined
         }

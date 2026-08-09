@@ -16,6 +16,11 @@
  * marked optional and never sort to the front — someone happy with their
  * profile has to be able to see, immediately, that they still have real routes
  * up. That constraint is why this section exists at all.
+ *
+ * Every card carries what to try, why it helps, and what it explicitly does
+ * not ask you to change. The third line is not padding: without it, a card
+ * about identity still reads as "so you want me to become someone else", which
+ * is the exact reaction the section exists to prevent.
  */
 
 import { motion } from "framer-motion";
@@ -23,7 +28,12 @@ import { TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { DeckProgress, DeckStatus, SwipeDeck, SwipeHint } from "@/components/blink/SwipeDeck";
-import { climbHeadline, getClimbPaths, type ClimbPath } from "@/lib/climb";
+import {
+  climbHeadline,
+  getClimbPaths,
+  type ClimbIdentity,
+  type ClimbPath,
+} from "@/lib/climb";
 import type { ProfileStats } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
 
@@ -32,9 +42,12 @@ interface ActionCard {
   /** Small label above the title, naming what kind of move this is. */
   kind: string;
   title: string;
-  body: string;
-  /** Second paragraph — why it moves the score. Optional. */
+  /** What to actually do. */
+  whatToTry: string;
+  /** Why it moves the score. */
   why: string | null;
+  /** What this card explicitly is not asking for. */
+  notNeeded: string | null;
   /** Typical range, or null when it depends entirely on the profile. */
   impact: string | null;
   /** Requires changing how the profile looks. Always flagged, never first. */
@@ -46,10 +59,11 @@ interface ActionCard {
 function pathCard(path: ClimbPath): ActionCard {
   return {
     id: `path-${path.id}`,
-    kind: path.priority ? "Start here" : "Any profile",
+    kind: path.priority ? "Start here" : path.kind,
     title: path.title,
-    body: path.action,
+    whatToTry: path.whatToTry,
     why: path.why,
+    notNeeded: path.notNeeded,
     impact: path.impact,
     optional: path.redesign,
     priority: path.priority,
@@ -59,10 +73,12 @@ function pathCard(path: ClimbPath): ActionCard {
 function recommendationCard(text: string, i: number): ActionCard {
   return {
     id: `rec-${i}`,
-    kind: "Specific to your profile",
+    kind: "Read off your screenshot",
     title: text,
-    body: "Blink read this off your last screenshot. Make the change, upload a new one, and it counts.",
+    whatToTry:
+      "Blink saw this on your last upload. Make the change, upload a new screenshot, and it counts towards your rank.",
     why: null,
+    notNeeded: null,
     impact: null,
     optional: false,
     priority: false,
@@ -74,24 +90,27 @@ export function ClimbSection({
   rank,
   /** The model's profile-specific recommendations, if any. */
   recommendations = [],
+  /** What Blink already believes about this profile, for the identity path. */
+  identity,
   onAnalyze,
 }: {
   stats: ProfileStats;
   rank: number | null;
   recommendations?: string[];
+  identity?: ClimbIdentity;
   onAnalyze?: () => void;
 }) {
   const [seen, setSeen] = useState(false);
 
   const cards = useMemo(() => {
-    const paths = getClimbPaths(stats);
+    const paths = getClimbPaths(stats, identity);
     // `getClimbPaths` already sorts priority first and optional last; keeping
     // that order and slotting the recommendations behind the priority items
     // means the first card is always this user's actual next step.
     const priority = paths.filter((p) => p.priority).map(pathCard);
     const rest = paths.filter((p) => !p.priority).map(pathCard);
     return [...priority, ...recommendations.map(recommendationCard), ...rest];
-  }, [stats, recommendations]);
+  }, [stats, recommendations, identity]);
 
   return (
     <section>
@@ -167,10 +186,22 @@ function ActionCardBody({ card }: { card: ActionCard }) {
         {card.title}
       </p>
 
-      <p className="mt-2 text-[0.8rem] leading-relaxed text-white/65">{card.body}</p>
+      <p className="mt-2 text-[0.8rem] leading-relaxed text-white/70">{card.whatToTry}</p>
 
       {card.why && (
-        <p className="mt-2 text-[0.75rem] leading-relaxed text-white/40">{card.why}</p>
+        <p className="mt-2.5 text-[0.75rem] leading-relaxed text-white/40">
+          <span className="font-bold text-white/55">Why this helps. </span>
+          {card.why}
+        </p>
+      )}
+
+      {/* The reassurance is the point of the whole section, so it is never
+          collapsed away or left to the reader to infer. */}
+      {card.notNeeded && (
+        <p className="mt-2 text-[0.75rem] leading-relaxed text-emerald-300/60">
+          <span className="font-bold">You don&rsquo;t need to change. </span>
+          {card.notNeeded}
+        </p>
       )}
 
       {card.impact && (

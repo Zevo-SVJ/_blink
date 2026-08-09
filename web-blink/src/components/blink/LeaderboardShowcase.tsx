@@ -6,15 +6,20 @@
  * lit while the others recede. Framer's `layout` does the actual reordering,
  * so the climb the user watches is the climb the product performs.
  *
- * Two things this sequence has to get right:
+ * Three things this sequence has to get right:
  *
  *  - **It starts before you arrive.** The observer reaches most of a viewport
  *    below the fold, so by the time the section is on screen the story is
  *    already moving. Waiting for the section to be centred meant scrolling
  *    onto a still board and then watching nothing for a beat.
- *  - **It ends.** The run is ~5s and then rests on its final state. Looping
- *    forever pulls the eye back to a section the reader has finished with, and
- *    a reader who scrolls back should find the conclusion, not step one.
+ *  - **Each beat is readable.** Four beats at 1.2-1.5s each meant the caption
+ *    changed before you had finished it. There are now three, each holding
+ *    long enough to read, with the score-and-climb story landing in about
+ *    3.5s and the category act following it.
+ *  - **It never freezes.** The scripted run ends, but the board doesn't: it
+ *    keeps drifting afterwards — scores tick, positions below you trade
+ *    places. A leaderboard that stops dead is a screenshot, and the whole
+ *    point of the section is that this thing is alive and you are in it.
  *
  * The conclusion is the point of the whole section: you are not competing in
  * one enormous meaningless board. Global filters down to a category, the two
@@ -47,6 +52,7 @@ const INITIAL_ROWS: Row[] = [
   { id: "a", score: 913, category: "Creator" },
   { id: "b", score: 871, category: "Artist" },
   { id: "c", score: 838, category: "Larp" },
+  { id: "d", score: 802, category: "Larp" },
   { id: "you", score: 781, isYou: true, category: "Larp" },
 ];
 
@@ -57,13 +63,17 @@ const IMPROVED_SCORE = 889;
 const CATEGORY_PILLS = ["Larp", "Creator", "Fashion", "Fitness"];
 
 const STEPS = [
-  { id: "board", caption: "Every profile gets a score.", ms: 1050 },
-  { id: "verify", caption: "Change something real, upload a new screenshot.", ms: 1300 },
-  { id: "climb", caption: "Verified improvements move you up.", ms: 1450 },
-  { id: "categories", caption: "And you're not only ranked against everyone.", ms: 1400 },
-  // Terminal: no duration, the sequence rests here.
-  { id: "larp", caption: "Larp is a category. So is yours.", ms: null },
+  { id: "board", caption: "Every profile gets a score.", ms: 1500 },
+  // Verification and the climb are one beat: the sweep and the reorder are the
+  // same event, and splitting them gave each half too little time to read.
+  { id: "climb", caption: "Improve something real, and you move.", ms: 2100 },
+  { id: "categories", caption: "Not everyone competes in the same lane.", ms: 1900 },
+  // Terminal for the *script*. The board keeps drifting after this.
+  { id: "larp", caption: "Larp is a lane. So is yours.", ms: null },
 ] as const;
+
+/** How often the resting board nudges itself. Slow enough to ignore. */
+const IDLE_MS = 2600;
 
 type StepId = (typeof STEPS)[number]["id"];
 
@@ -95,14 +105,41 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
 
   const climbed = past("climb");
   const narrowed = past("larp");
+  const settled = STEPS[index].ms === null;
+
+  /**
+   * Drift applied to the other profiles once the script has finished.
+   *
+   * Keyed by row id and always kept below the user's score, so the ending —
+   * you are first in your lane — stays true while the board around you moves.
+   */
+  const [drift, setDrift] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!settled || reduceMotion) return;
+    const timer = window.setInterval(() => {
+      setDrift((current) => {
+        const others = INITIAL_ROWS.filter((r) => !r.isYou);
+        const pick = others[Math.floor(Math.random() * others.length)];
+        const delta = Math.floor(Math.random() * 9) - 4;
+        const next = (current[pick.id] ?? 0) + delta;
+        // Cap so nobody drifts past the user, and so scores stay plausible.
+        const ceiling = IMPROVED_SCORE - pick.score - 1;
+        return { ...current, [pick.id]: Math.max(-40, Math.min(ceiling, next)) };
+      });
+    }, IDLE_MS);
+    return () => window.clearInterval(timer);
+  }, [settled, reduceMotion]);
 
   const rows = useMemo(() => {
     const scored = INITIAL_ROWS.map((r) =>
-      r.isYou && climbed ? { ...r, score: IMPROVED_SCORE } : r,
+      r.isYou
+        ? { ...r, score: climbed ? IMPROVED_SCORE : r.score }
+        : { ...r, score: r.score + (drift[r.id] ?? 0) },
     );
     const visible = narrowed ? scored.filter((r) => r.category === "Larp") : scored;
     return visible.sort((a, b) => b.score - a.score);
-  }, [climbed, narrowed]);
+  }, [climbed, narrowed, drift]);
 
   return (
     <section id="leaderboard" ref={ref} className="relative px-4 py-20 sm:px-6 sm:py-28">
@@ -131,9 +168,9 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
                   key={row.id}
                   row={row}
                   rank={i + 1}
-                  verifying={!!row.isYou && STEPS[index].id === "verify"}
+                  verifying={!!row.isYou && STEPS[index].id === "climb"}
                   climbed={climbed}
-                  showMomentum={past("climb") && !!row.isYou && !narrowed}
+                  showMomentum={past("climb") && !!row.isYou}
                   showCrown={i === 0 && past("categories")}
                   showCategory={past("categories")}
                 />

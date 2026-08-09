@@ -197,15 +197,50 @@ describe("climb paths", () => {
     }
   });
 
-  it("never suggests changing the profile picture", () => {
+  it("never tells anyone to change their profile picture", () => {
     const stats = computeProfileStats([entry()]);
-    const text = getClimbPaths(stats)
-      .map((p) => `${p.title} ${p.action} ${p.why}`)
-      .join(" ")
-      .toLowerCase();
-    expect(text).not.toContain("profile picture");
-    expect(text).not.toContain("pdp");
-    expect(text).not.toContain("avatar");
+    for (const path of getClimbPaths(stats)) {
+      const asked = `${path.title} ${path.whatToTry} ${path.why}`.toLowerCase();
+      expect(asked).not.toContain("profile picture");
+      expect(asked).not.toContain("pdp");
+      expect(asked).not.toContain("avatar");
+    }
+  });
+
+  it("gives every path a why and a reassurance, not just an instruction", () => {
+    const stats = computeProfileStats([entry(), entry({ score: 650 })]);
+    for (const path of getClimbPaths(stats)) {
+      expect(path.whatToTry.length).toBeGreaterThan(40);
+      expect(path.why.length).toBeGreaterThan(40);
+      expect(path.notNeeded.length).toBeGreaterThan(10);
+    }
+  });
+
+  it("names the category it already sees rather than giving generic advice", () => {
+    const stats = computeProfileStats([entry(), entry({ score: 650 })]);
+    const identity = getClimbPaths(stats, {
+      category: "larp",
+      strongestSignal: "Mystery",
+    }).find((p) => p.id === "identity")!;
+
+    expect(identity.title).toContain("Larp");
+    expect(identity.whatToTry).toContain("Larp");
+    expect(identity.why).toContain("Mystery");
+
+    // Without an identity it must still say something useful, not a blank.
+    const generic = getClimbPaths(stats).find((p) => p.id === "identity")!;
+    expect(generic.title.length).toBeGreaterThan(10);
+    expect(generic.whatToTry).not.toContain("null");
+  });
+
+  it("leads with identity when nothing needs fixing", () => {
+    // Two verified analyses, improving, so no housekeeping path is urgent.
+    const stats = computeProfileStats([
+      entry({ score: 700 }),
+      entry({ score: 650 }),
+      entry({ score: 600 }),
+    ]);
+    expect(getClimbPaths(stats)[0].id).toBe("identity");
   });
 
   it("prioritises re-verifying for someone who has never done it", () => {
