@@ -90,7 +90,12 @@ Rules:
 - Prefer 2-3 sharp recommendations over 5 generic ones.
 
 STEP 4 — CATEGORY
-Assign the archetype that best matches the identity the profile projects, or null. Never force one. Common values: "creator", "artist", "entrepreneur", "minimalist", "fitness", "travel", "business", "student", "larp".
+Assign the archetype that best matches the identity the profile projects, or null. Never force one.
+
+Use exactly one of these values (lowercase), or null:
+"larp", "entrepreneur", "creator", "artist", "athlete", "music", "fashion", "business", "fitness", "lifestyle", "travel", "gaming", "photography", "minimalist", "student", "personal"
+
+Pick the archetype the profile is *organised around*, not one it merely touches. A musician who travels is "music". Someone with no clear organising idea is "personal", or null if even that is a stretch.
 
 LARP — Blink's specific definition, do not improvise it:
 Larp describes a genuinely wealthy or high-status person whose profile deliberately communicates a mysterious, understated, status-heavy identity. The whole point is status that is signalled without being explained.

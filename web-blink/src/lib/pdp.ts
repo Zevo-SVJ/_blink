@@ -1,258 +1,86 @@
 /**
- * Blink — profile picture (PDP) detection.
+ * Blink — where the Instagram profile picture sits.
  *
- * The analysis animation collapses the uploaded screenshot into a circle that
- * should land on the Instagram avatar. Hard-coding a coordinate makes it miss
- * on every screenshot that isn't the exact shape it was tuned for, so we
- * actually look for the avatar instead.
+ * This is deliberately a *layout* constant, not image analysis.
  *
- * Approach: the avatar is a strong circular edge in the upper-left of a
- * profile header. We downscale, run a Sobel pass, and let edge pixels vote for
- * circle centres along their gradient direction (a Hough circle transform
- * restricted to plausible avatar positions and radii). The best peak wins if
- * it is convincing enough; otherwise we fall back to an aspect-aware estimate
- * of where the avatar sits, which still lands in the right area.
+ * An earlier version ran a Hough circle transform over the upload to find the
+ * avatar. It was accurate on clean captures, but a real screenshot is full of
+ * circles — highlight bubbles, faces in the grid, story rings, app icons — and
+ * when it locked onto one of those the animation zoomed into an arbitrary part
+ * of the picture. A confident wrong answer is far worse here than a fixed
+ * approximate one: it makes the product look broken.
  *
- * All coordinates are returned as fractions so the caller can map them onto
- * the *displayed* element regardless of how the image is scaled.
+ * Instagram's profile header is laid out proportionally to viewport width, so
+ * the avatar's position is predictable without looking at pixels at all. We
+ * take that fixed proportion and use a generous radius, so the circle always
+ * frames the header region containing the avatar. Slightly loose framing reads
+ * as intentional; landing on a random post thumbnail does not.
  */
 
-export interface PdpDetection {
+export interface PdpAnchor {
   /** Centre X as a fraction (0-1) of image width. */
   cx: number;
   /** Centre Y as a fraction (0-1) of image height. */
   cy: number;
   /** Radius as a fraction of image width. */
   r: number;
-  /** 0-1. Below `MIN_CONFIDENCE` the heuristic is used instead. */
-  confidence: number;
-  method: "detected" | "heuristic";
 }
 
-/** Width the image is downscaled to before analysis. */
-const WORK_WIDTH = 300;
-
 /**
- * Sample every Nth pixel when voting.
+ * Mobile app layout, as fractions of screenshot *width*.
  *
- * This is the difference between ~1s and ~120ms of main-thread work. An avatar
- * rim contributes hundreds of edge pixels, so using a quarter of them still
- * produces an unambiguous peak — measured accuracy is unchanged at stride 2.
+ * Instagram sizes the header in width-proportional units, so a full-screen
+ * capture at any device height puts the avatar at the same fraction of width
+ * from the top. `r` is wider than the avatar itself to absorb the variation
+ * between iOS/Android, app versions, and captures that include a status bar.
  */
-const SAMPLE_STRIDE = 2;
+const MOBILE = { cx: 0.19, cyOfWidth: 0.26, r: 0.155 };
 
 /**
- * The avatar always sits in the left part of a profile header. The vertical
- * window is generous because a tightly cropped header puts the avatar much
- * further down the frame than a full-screen capture does.
+ * Web layout. The header is anchored to a centred column, so the avatar sits
+ * proportionally further left and is smaller relative to the full width.
  */
-const SEARCH_X = 0.55;
-const SEARCH_Y = 0.8;
+const DESKTOP = { cx: 0.17, cyOfHeight: 0.3, r: 0.1 };
 
-/** Plausible avatar radii, as a fraction of screenshot width. */
-const MIN_R_FRAC = 0.05;
-const MAX_R_FRAC = 0.17;
-const RADIUS_STEPS = 10;
-
-/** Sobel magnitude above which a pixel is treated as an edge. */
-const EDGE_THRESHOLD = 48;
-
-/** Peak score below this is not trustworthy enough to animate to. */
-const MIN_CONFIDENCE = 0.34;
-
-/**
- * Where the avatar sits when detection fails.
- *
- * Instagram lays the header out in units proportional to the *width* of the
- * viewport, so the avatar's distance from the top is a function of width, not
- * height. Deriving `cy` that way keeps the estimate honest across a tall
- * full-screen capture and a tightly cropped header, where a fixed fraction of
- * height would be badly wrong for one of them.
- */
-export function heuristicPdp(width: number, height: number): PdpDetection {
-  const r = 0.115;
-  const cyPx = 0.225 * width;
-  return {
-    cx: 0.17,
-    cy: clamp(cyPx / Math.max(height, 1), 0.06, 0.42),
-    r,
-    confidence: 0,
-    method: "heuristic",
-  };
-}
+/** Treat anything at least this wide relative to its height as a web capture. */
+const DESKTOP_ASPECT = 1.15;
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
 }
 
 /**
- * Locate the profile picture in a screenshot.
+ * The region the analysis animation focuses on.
  *
- * Never rejects: when detection is not confident the aspect-aware heuristic is
- * returned, so callers always get a usable target.
+ * Always returns a circle fully inside the image and in its upper-left region.
+ * Pure and synchronous — the same screenshot always produces the same anchor,
+ * so the animation can never surprise the user.
  */
-export async function detectPdp(source: Blob | string): Promise<PdpDetection> {
-  try {
-    const img = await loadImage(source);
-    const detected = analyze(img);
-    if (detected) return detected;
-    return heuristicPdp(img.naturalWidth, img.naturalHeight);
-  } catch {
-    // Canvas unavailable, image decode failed, tainted canvas — the animation
-    // must still run, so fall back to a square-ish default.
-    return heuristicPdp(1, 2);
-  }
-}
+export function pdpAnchor(naturalWidth: number, naturalHeight: number): PdpAnchor {
+  const w = Math.max(1, naturalWidth);
+  const h = Math.max(1, naturalHeight);
+  const aspect = w / h;
 
-function loadImage(source: Blob | string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = typeof source === "string" ? source : URL.createObjectURL(source);
-    const revoke = () => {
-      if (typeof source !== "string") URL.revokeObjectURL(url);
-    };
-    img.onload = () => {
-      revoke();
-      resolve(img);
-    };
-    img.onerror = () => {
-      revoke();
-      reject(new Error("PDP_IMAGE_DECODE_FAILED"));
-    };
-    img.src = url;
-  });
-}
+  const isDesktop = aspect >= DESKTOP_ASPECT;
 
-function analyze(img: HTMLImageElement): PdpDetection | null {
-  const naturalW = img.naturalWidth;
-  const naturalH = img.naturalHeight;
-  if (!naturalW || !naturalH) return null;
+  // The radius is a fraction of width, so on a very wide, short image it can
+  // exceed the image's own height. Shrink it to whatever actually fits on both
+  // axes — a smaller circle still reads as intentional, whereas an oversized
+  // one would clamp to an out-of-frame centre and look broken.
+  const r = Math.min(isDesktop ? DESKTOP.r : MOBILE.r, 0.5, (0.5 * h) / w);
 
-  const scale = Math.min(1, WORK_WIDTH / naturalW);
-  const w = Math.max(1, Math.round(naturalW * scale));
-  const h = Math.max(1, Math.round(naturalH * scale));
+  const cx = isDesktop ? DESKTOP.cx : MOBILE.cx;
+  // Mobile derives Y from width (that is how the header scales); a wide web
+  // capture is short enough that a fraction of height is the better anchor.
+  const cyRaw = isDesktop ? DESKTOP.cyOfHeight : (MOBILE.cyOfWidth * w) / h;
 
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return null;
-  ctx.drawImage(img, 0, 0, w, h);
-
-  let pixels: Uint8ClampedArray;
-  try {
-    pixels = ctx.getImageData(0, 0, w, h).data;
-  } catch {
-    return null; // Cross-origin taint.
-  }
-
-  // Grayscale.
-  const gray = new Float32Array(w * h);
-  for (let i = 0, p = 0; i < gray.length; i++, p += 4) {
-    gray[i] = 0.299 * pixels[p] + 0.587 * pixels[p + 1] + 0.114 * pixels[p + 2];
-  }
-
-  // Search window — the avatar is always upper-left.
-  const maxX = Math.min(w, Math.round(w * SEARCH_X));
-  const maxY = Math.min(h, Math.round(h * SEARCH_Y));
-
-  const radii: number[] = [];
-  const minR = Math.max(4, MIN_R_FRAC * w);
-  const maxR = MAX_R_FRAC * w;
-  for (let s = 0; s < RADIUS_STEPS; s++) {
-    radii.push(minR + ((maxR - minR) * s) / (RADIUS_STEPS - 1));
-  }
-
-  // One accumulator per radius, over the search window.
-  const accs = radii.map(() => new Float32Array(maxX * maxY));
-
-  // Sobel, voting along the gradient normal. An avatar edge points at the
-  // avatar's centre, so votes from around the rim pile up on one cell.
-  const yLimit = Math.min(h - 1, maxY + Math.round(maxR));
-  const xLimit = Math.min(w - 1, maxX + Math.round(maxR));
-
-  for (let y = 1; y < yLimit; y += SAMPLE_STRIDE) {
-    for (let x = 1; x < xLimit; x += SAMPLE_STRIDE) {
-      const i = y * w + x;
-      const gx =
-        -gray[i - w - 1] - 2 * gray[i - 1] - gray[i + w - 1] +
-        gray[i - w + 1] + 2 * gray[i + 1] + gray[i + w + 1];
-      const gy =
-        -gray[i - w - 1] - 2 * gray[i - w] - gray[i - w + 1] +
-        gray[i + w - 1] + 2 * gray[i + w] + gray[i + w + 1];
-
-      const mag = Math.hypot(gx, gy);
-      if (mag < EDGE_THRESHOLD) continue;
-
-      const ux = gx / mag;
-      const uy = gy / mag;
-
-      for (let ri = 0; ri < radii.length; ri++) {
-        const r = radii[ri];
-        // Vote both ways: we do not know if the avatar is lighter or darker
-        // than what surrounds it.
-        for (const sign of [-1, 1]) {
-          const cx = Math.round(x + sign * ux * r);
-          const cy = Math.round(y + sign * uy * r);
-          if (cx < 0 || cx >= maxX || cy < 0 || cy >= maxY) continue;
-          accs[ri][cy * maxX + cx] += mag;
-        }
-      }
-    }
-  }
-
-  // Best peak per radius, normalised by circumference so large radii don't win
-  // by default.
-  const perRadius = radii.map((r, ri) => {
-    const acc = accs[ri];
-    // Divided by stride² because sampling contributes proportionally fewer
-    // votes — this keeps `score` on the same scale as a full-density pass, so
-    // the confidence threshold below stays meaningful.
-    const norm = (2 * Math.PI * r * 255) / (SAMPLE_STRIDE * SAMPLE_STRIDE);
-    let peak = { score: 0, cx: 0, cy: 0, r };
-    for (let cy = 0; cy < maxY; cy++) {
-      for (let cx = 0; cx < maxX; cx++) {
-        const score = acc[cy * maxX + cx] / norm;
-        if (score > peak.score) peak = { score, cx, cy, r };
-      }
-    }
-    return peak;
-  });
-
-  const strongest = perRadius.reduce((a, b) => (b.score > a.score ? b : a));
-  if (strongest.score <= 0) return null;
-
-  /**
-   * Prefer the outermost strong circle.
-   *
-   * An avatar is concentric with whatever it contains — a face, a logo — and
-   * those inner features often have far more contrast than the avatar's own
-   * rim, which frequently sits light-grey against white. Taking the raw peak
-   * therefore locks onto the face and crops roughly 2× too tight. Among all
-   * radii that are nearly as convincing as the best, we take the largest, which
-   * lands on the avatar boundary itself.
-   */
-  const OUTER_TOLERANCE = 0.78;
-  const best =
-    perRadius
-      .filter((p) => p.score >= strongest.score * OUTER_TOLERANCE)
-      .reduce((a, b) => (b.r > a.r ? b : a), strongest);
-
-  // A perfect circle scores ~1. Real avatars land well below that because the
-  // rim is partly low-contrast, so scale before thresholding. Confidence
-  // reflects the strongest evidence found, not the radius we settled on.
-  const confidence = clamp(strongest.score / 0.55, 0, 1);
-  if (confidence < MIN_CONFIDENCE) return null;
-
-  // The avatar cannot be flush against the edge; a peak that is means we
-  // locked onto the image border rather than the avatar.
-  if (best.cx < best.r * 0.5 || best.cy < best.r * 0.5) return null;
+  // Keep the circle wholly inside the frame. `rY` is the radius expressed in
+  // height units, since the radius is defined against width.
+  const rY = (r * w) / h;
 
   return {
-    cx: best.cx / w,
-    cy: best.cy / h,
-    r: best.r / w,
-    confidence,
-    method: "detected",
+    cx: clamp(cx, r, 1 - r),
+    cy: clamp(cyRaw, rY, 1 - rY),
+    r,
   };
 }

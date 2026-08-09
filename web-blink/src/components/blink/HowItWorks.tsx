@@ -1,15 +1,21 @@
 /**
  * Blink — "How it works", as one continuous motion sequence.
  *
- * Four beats — upload → profile → analysis → result — played as a single
- * take rather than four separate slides. The avatar carries a shared
- * `layoutId` the whole way through, so Framer Motion tweens the *same element*
- * from the screenshot's profile picture, out into the analysis circle, and
- * finally into the score ring. That continuity is the whole point: it shows
- * the product's actual mechanic instead of illustrating it four times.
+ * Four beats — upload → profile → analysis → result — played as a single take.
  *
- * Paced fast enough to feel effortless, slow enough to read. Honours reduced
- * motion by holding on the result rather than looping.
+ * The avatar is ONE element that never unmounts and never changes parent. An
+ * earlier version shared a `layoutId` between a card that was exiting and a
+ * centred copy that was entering; both existed for a frame, Framer resolved the
+ * shared layout against the wrong node, and the circle visibly flew right and
+ * snapped back (measured: a 114px jump in a single frame).
+ *
+ * So: the avatar lives at the top of the stage, permanently centred on the X
+ * axis, and only its `y` and size are animated. Everything else fades around
+ * it. There is no horizontal travel to get wrong, and no second element that
+ * could win a layout race.
+ *
+ * Geometry is in fixed pixels against a fixed-height stage, so the avatar's
+ * resting position inside the card is exact rather than measured at runtime.
  */
 
 import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
@@ -17,7 +23,6 @@ import { useEffect, useRef, useState } from "react";
 
 import { CTAButton } from "@/components/blink/CTAButton";
 import { Reveal } from "@/components/blink/Reveal";
-import { cn } from "@/lib/utils";
 
 const BEATS = [
   { id: "upload", caption: "Upload a screenshot" },
@@ -30,8 +35,21 @@ type BeatId = (typeof BEATS)[number]["id"];
 
 const BEAT_MS = 1900;
 
-/** One spring for the whole sequence, so every transition feels related. */
-const spring = { type: "spring" as const, stiffness: 240, damping: 28, mass: 0.9 };
+/** Fixed stage geometry — the avatar's positions are derived from these. */
+const STAGE_H = 420;
+const CARD_H = 250;
+const CARD_W = 216;
+/** Distance from the card's top edge to the avatar's centre. */
+const CARD_AVATAR_INSET = 48;
+
+/** Avatar resting offsets from the stage centre, per beat. */
+const CARD_Y = -(CARD_H / 2) + CARD_AVATAR_INSET;
+const CENTRE_Y = -12;
+
+const AVATAR_SMALL = 54;
+const AVATAR_LARGE = 92;
+
+const spring = { type: "spring" as const, stiffness: 260, damping: 30, mass: 0.9 };
 
 const SIGNALS = ["Visual identity", "Aesthetic", "Confidence", "Status"];
 const TRAITS = ["Confident", "Mysterious", "Considered"];
@@ -44,31 +62,23 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
 
   useEffect(() => {
     if (!inView) return;
-    // Reduced motion: show the finished state, don't cycle.
     if (reduceMotion) {
       setBeat(BEATS.length - 1);
       return;
     }
-    const timer = window.setInterval(
-      () => setBeat((b) => (b + 1) % BEATS.length),
-      BEAT_MS,
-    );
+    const timer = window.setInterval(() => setBeat((b) => (b + 1) % BEATS.length), BEAT_MS);
     return () => window.clearInterval(timer);
   }, [inView, reduceMotion]);
 
-  // Restart from the top each time the section is re-entered.
   useEffect(() => {
     if (!inView && !reduceMotion) setBeat(0);
   }, [inView, reduceMotion]);
 
   const current: BeatId = BEATS[beat].id;
+  const onCard = current === "upload" || current === "profile";
 
   return (
-    <section
-      id="how-it-works"
-      ref={sectionRef}
-      className="relative px-4 py-20 sm:px-6 sm:py-28"
-    >
+    <section id="how-it-works" ref={sectionRef} className="relative px-4 py-20 sm:px-6 sm:py-28">
       <div className="mx-auto max-w-3xl">
         <Reveal className="text-center">
           <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
@@ -79,12 +89,33 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
           </p>
         </Reveal>
 
-        <div className="relative mx-auto mt-14 w-full max-w-[380px] sm:mt-16">
-          <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[2rem] border border-white/[0.07] bg-white/[0.02]">
-            <Stage beat={current} />
+        <div className="mx-auto mt-14 w-full max-w-[380px] sm:mt-16">
+          <div
+            className="relative w-full overflow-hidden rounded-[2rem] border border-white/[0.07] bg-white/[0.02]"
+            style={{ height: STAGE_H }}
+          >
+            {/* Everything is positioned from this centre point. */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <ProfileCard beat={current} />
+              <AnalysisSignals active={current === "analysis"} />
+              <ResultRing active={current === "result"} />
+
+              {/* The single avatar. Centred on X for every beat, so the only
+                  thing that can animate is its height and size. */}
+              <motion.div
+                data-avatar
+                className="absolute rounded-full bg-[linear-gradient(140deg,hsl(var(--blink-sky))_0%,hsl(var(--blink-sky-bright))_100%)]"
+                initial={false}
+                animate={{
+                  y: onCard ? CARD_Y : CENTRE_Y,
+                  width: onCard ? AVATAR_SMALL : AVATAR_LARGE,
+                  height: onCard ? AVATAR_SMALL : AVATAR_LARGE,
+                }}
+                transition={spring}
+              />
+            </div>
           </div>
 
-          {/* Caption + progress, outside the stage so it never crowds it. */}
           <div className="mt-6 flex flex-col items-center gap-4">
             <div className="h-6 text-center">
               <AnimatePresence mode="wait">
@@ -93,7 +124,7 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.28 }}
+                  transition={{ duration: 0.26 }}
                   className="text-sm font-medium text-white/60"
                 >
                   {BEATS[beat].caption}
@@ -124,91 +155,99 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// The stage — one element tree, four arrangements
-// ---------------------------------------------------------------------------
 
-function Stage({ beat }: { beat: BeatId }) {
-  const showCard = beat === "upload" || beat === "profile";
+/** The screenshot being uploaded, then read. Leaves room for the avatar. */
+function ProfileCard({ beat }: { beat: BeatId }) {
+  const visible = beat === "upload" || beat === "profile";
+  const reading = beat === "profile";
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center p-6">
-      {/* The profile card. Present for the first two beats, then it hands the
-          avatar over to the analysis circle and leaves. */}
-      <AnimatePresence>
-        {showCard && (
-          <motion.div
-            key="card"
-            initial={{ opacity: 0, y: 28, scale: 0.94 }}
-            animate={{
-              opacity: 1,
-              y: 0,
-              scale: beat === "upload" ? 0.94 : 1,
-            }}
-            exit={{ opacity: 0, scale: 1.04, transition: { duration: 0.4 } }}
-            transition={spring}
-            className="w-full max-w-[220px] overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.04]"
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          key="card"
+          initial={{ opacity: 0, y: 26, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: beat === "upload" ? 0.97 : 1 }}
+          exit={{ opacity: 0, scale: 1.06, transition: { duration: 0.35 } }}
+          transition={spring}
+          className="absolute overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.04]"
+          style={{ width: CARD_W, height: CARD_H }}
+        >
+          {/* Name lines sit under the avatar's resting slot. */}
+          <div
+            className="flex flex-col items-center gap-1.5"
+            style={{ paddingTop: CARD_AVATAR_INSET + AVATAR_SMALL / 2 + 12 }}
           >
-            <div className="flex items-center gap-3 p-3.5">
-              <AvatarMark size={44} />
-              <div className="min-w-0 flex-1">
-                <motion.div
-                  className="h-2 rounded-full bg-white/25"
-                  initial={{ width: "40%" }}
-                  animate={{ width: beat === "profile" ? "62%" : "40%" }}
-                  transition={spring}
-                />
-                <motion.div
-                  className="mt-1.5 h-1.5 rounded-full bg-white/12"
-                  initial={{ width: "60%" }}
-                  animate={{ width: beat === "profile" ? "84%" : "60%" }}
-                  transition={{ ...spring, delay: 0.05 }}
-                />
-              </div>
-            </div>
+            <motion.div
+              className="h-2 rounded-full bg-white/25"
+              initial={false}
+              animate={{ width: reading ? 76 : 52 }}
+              transition={spring}
+            />
+            <motion.div
+              className="h-1.5 rounded-full bg-white/12"
+              initial={false}
+              animate={{ width: reading ? 104 : 70 }}
+              transition={{ ...spring, delay: 0.04 }}
+            />
+          </div>
 
-            <div className="grid grid-cols-3 gap-[3px] px-[3px] pb-[3px]">
-              {Array.from({ length: 9 }).map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="aspect-square bg-white/[0.07]"
-                  initial={{ opacity: 0.25 }}
-                  animate={{ opacity: beat === "profile" ? 0.3 + (i % 3) * 0.16 : 0.25 }}
-                  transition={{ ...spring, delay: beat === "profile" ? i * 0.025 : 0 }}
-                />
-              ))}
-            </div>
+          <div className="mt-3.5 grid grid-cols-3 gap-[3px] px-[3px]">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <motion.div
+                key={i}
+                className="aspect-square bg-white/[0.07]"
+                initial={false}
+                animate={{ opacity: reading ? 0.32 + (i % 3) * 0.18 : 0.22 }}
+                transition={{ ...spring, delay: reading ? i * 0.03 : 0 }}
+              />
+            ))}
+          </div>
 
-            {/* Scan pass, only while Blink is "reading" the profile. */}
-            <AnimatePresence>
-              {beat === "profile" && (
-                <motion.div
-                  className="pointer-events-none absolute inset-x-0 h-16"
-                  initial={{ top: "-10%", opacity: 0 }}
-                  animate={{ top: "100%", opacity: [0, 1, 1, 0] }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 1.5, ease: "easeInOut" }}
-                  style={{
-                    background:
-                      "linear-gradient(to bottom, transparent, rgba(175,224,249,0.16), transparent)",
-                  }}
-                />
-              )}
-            </AnimatePresence>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          <AnimatePresence>
+            {reading && (
+              <motion.div
+                className="pointer-events-none absolute inset-x-0 h-16"
+                initial={{ top: "-12%", opacity: 0 }}
+                animate={{ top: "100%", opacity: [0, 1, 1, 0] }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.5, ease: "easeInOut" }}
+                style={{
+                  background:
+                    "linear-gradient(to bottom, transparent, rgba(175,224,249,0.18), transparent)",
+                }}
+              />
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 
-      {/* Analysis: the avatar has travelled to the centre and signals fan out. */}
-      {beat === "analysis" && (
-        <div className="relative flex items-center justify-center">
-          <AvatarMark size={92} />
-
-          {/* Ripples leave the avatar's own edge, so nothing pops into being. */}
+/** Ripples and orbiting signal labels around the centred avatar. */
+function AnalysisSignals({ active }: { active: boolean }) {
+  return (
+    <AnimatePresence>
+      {active && (
+        <motion.div
+          key="signals"
+          className="absolute"
+          style={{ y: CENTRE_Y }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0, transition: { duration: 0.25 } }}
+        >
           {[0, 1].map((i) => (
             <motion.span
               key={i}
               className="absolute rounded-full border border-blink-sky/30"
-              style={{ width: 92, height: 92 }}
+              style={{
+                width: AVATAR_LARGE,
+                height: AVATAR_LARGE,
+                left: -AVATAR_LARGE / 2,
+                top: -AVATAR_LARGE / 2,
+              }}
               initial={{ opacity: 0, scale: 1 }}
               animate={{ opacity: [0, 0.4, 0], scale: [1, 1.5, 1.95] }}
               transition={{ duration: 2.2, repeat: Infinity, ease: "easeOut", delay: i * 0.9 }}
@@ -217,11 +256,12 @@ function Stage({ beat }: { beat: BeatId }) {
 
           {SIGNALS.map((label, i) => {
             const angle = (i * 360) / SIGNALS.length - 90;
-            const r = 104;
+            const r = 108;
             return (
               <motion.span
                 key={label}
                 className="absolute whitespace-nowrap rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-semibold text-white/80 backdrop-blur-sm"
+                style={{ translateX: "-50%", translateY: "-50%" }}
                 initial={{ opacity: 0, x: 0, y: 0, scale: 0.7 }}
                 animate={{
                   opacity: 1,
@@ -229,95 +269,89 @@ function Stage({ beat }: { beat: BeatId }) {
                   y: Math.sin((angle * Math.PI) / 180) * r,
                   scale: 1,
                 }}
-                transition={{ ...spring, delay: 0.12 + i * 0.07 }}
+                transition={{ ...spring, delay: 0.1 + i * 0.06 }}
               >
                 {label}
               </motion.span>
             );
           })}
-        </div>
+        </motion.div>
       )}
-
-      {/* Result: the same mark, now ringed by the score. */}
-      {beat === "result" && (
-        <div className="flex flex-col items-center">
-          <div className="relative flex items-center justify-center">
-            <AvatarMark size={92} />
-            <svg
-              className="absolute -rotate-90"
-              width={124}
-              height={124}
-              aria-hidden
-            >
-              <circle
-                cx={62}
-                cy={62}
-                r={56}
-                fill="none"
-                stroke="rgba(255,255,255,0.08)"
-                strokeWidth={5}
-              />
-              <motion.circle
-                cx={62}
-                cy={62}
-                r={56}
-                fill="none"
-                stroke="hsl(var(--blink-sky))"
-                strokeWidth={5}
-                strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 56}
-                initial={{ strokeDashoffset: 2 * Math.PI * 56 }}
-                animate={{ strokeDashoffset: 2 * Math.PI * 56 * (1 - 0.87) }}
-                transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-              />
-            </svg>
-          </div>
-
-          <motion.p
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...spring, delay: 0.35 }}
-            className="mt-6 text-3xl font-extrabold tabular-nums tracking-tight text-white"
-          >
-            8.7
-          </motion.p>
-
-          <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-            {TRAITS.map((trait, i) => (
-              <motion.span
-                key={trait}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...spring, delay: 0.45 + i * 0.07 }}
-                className="rounded-full bg-white/[0.08] px-2.5 py-1 text-[11px] font-semibold text-white/80"
-              >
-                {trait}
-              </motion.span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    </AnimatePresence>
   );
 }
 
-/**
- * The profile picture.
- *
- * One `layoutId` across every beat is what makes this a single sequence —
- * Framer Motion tweens this element between the card, the analysis centre and
- * the score ring instead of cross-fading three separate circles.
- */
-function AvatarMark({ size }: { size: number }) {
+/** The score ring closing around the avatar, plus the read-out. */
+function ResultRing({ active }: { active: boolean }) {
+  const R = 60;
+  const circumference = 2 * Math.PI * R;
+
   return (
-    <motion.div
-      layoutId="how-it-works-avatar"
-      transition={spring}
-      className={cn(
-        "shrink-0 overflow-hidden rounded-full",
-        "bg-[linear-gradient(140deg,hsl(var(--blink-sky))_0%,hsl(var(--blink-sky-bright))_100%)]",
+    <AnimatePresence>
+      {active && (
+        <motion.div
+          key="result"
+          className="absolute flex flex-col items-center"
+          style={{ y: CENTRE_Y }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0, transition: { duration: 0.25 } }}
+        >
+          <svg
+            className="absolute -rotate-90"
+            width={(R + 4) * 2}
+            height={(R + 4) * 2}
+            style={{ left: -(R + 4), top: -(R + 4) }}
+            aria-hidden
+          >
+            <circle
+              cx={R + 4}
+              cy={R + 4}
+              r={R}
+              fill="none"
+              stroke="rgba(255,255,255,0.08)"
+              strokeWidth={5}
+            />
+            <motion.circle
+              cx={R + 4}
+              cy={R + 4}
+              r={R}
+              fill="none"
+              stroke="hsl(var(--blink-sky))"
+              strokeWidth={5}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              initial={{ strokeDashoffset: circumference }}
+              animate={{ strokeDashoffset: circumference * (1 - 0.87) }}
+              transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
+            />
+          </svg>
+
+          <div className="absolute flex flex-col items-center" style={{ top: R + 22 }}>
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...spring, delay: 0.3 }}
+              className="text-3xl font-extrabold tabular-nums tracking-tight text-white"
+            >
+              8.7
+            </motion.p>
+            <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+              {TRAITS.map((trait, i) => (
+                <motion.span
+                  key={trait}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...spring, delay: 0.4 + i * 0.06 }}
+                  className="rounded-full bg-white/[0.08] px-2.5 py-1 text-[11px] font-semibold text-white/80"
+                >
+                  {trait}
+                </motion.span>
+              ))}
+            </div>
+          </div>
+        </motion.div>
       )}
-      style={{ width: size, height: size }}
-    />
+    </AnimatePresence>
   );
 }

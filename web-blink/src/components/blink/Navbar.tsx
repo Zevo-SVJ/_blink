@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const publicLinks = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Perceptions", href: "#perceptions" },
+  { label: "Leaderboard", href: "#leaderboard" },
   { label: "Reviews", href: "#reactions" },
   { label: "FAQ", href: "#faq" },
 ];
@@ -142,6 +143,7 @@ function MobileMenu({
         { label: "Home", href: "#" },
         { label: "How it works", href: "#how-it-works" },
         { label: "Perceptions", href: "#perceptions" },
+        { label: "Leaderboard", href: "#leaderboard" },
         { label: "Reviews", href: "#reactions" },
         { label: "FAQ", href: "#faq" },
       ];

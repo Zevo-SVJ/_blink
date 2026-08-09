@@ -1,22 +1,27 @@
 /**
  * Blink — leaderboards.
  *
- * The board ranks how well a profile is optimized. Follower count, reach and
- * fame are not inputs to the Blink Score and are not stored, so they cannot
- * buy a position here — a small account with a coherent profile outranks a
- * large one with a muddled profile whenever its score says so. That claim is
- * stated on the page because it is the whole premise.
+ * Ordered by Blink Score alone. Follower count, reach and verification are not
+ * columns in this system, so they cannot buy a position: a small account with a
+ * coherent profile sits above a celebrity with a muddled one whenever its score
+ * says so.
+ *
+ * There is no seed data anywhere in this file. An empty board renders a launch
+ * state explaining how standings fill up — inventing plausible-looking rivals
+ * would make the one number users are trying to beat a fiction.
  */
 
 import { motion } from "framer-motion";
-import { Crown, Info, Trophy, Users } from "lucide-react";
+import { Crown, Info, Rocket, Trophy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { AppShell } from "@/components/app/AppShell";
 import { EmptyState, ErrorState, SkeletonList } from "@/components/app/states";
-import { MovementIndicator } from "@/components/app/stats";
-import { formatRank } from "@/lib/app-nav";
 import { useAuth } from "@/hooks/useAuth";
+import { formatRank } from "@/lib/app-nav";
+import { categoryBlurb, categoryLabel, orderCategories } from "@/lib/categories";
+import { countryName, flagEmoji } from "@/lib/countries";
 import {
   fetchCategories,
   fetchLeaderboard,
@@ -58,7 +63,7 @@ export default function Ranks() {
       user ? fetchMyStanding(user.id) : Promise.resolve({ status: "ok" as const, data: null }),
     ]);
 
-    // The standings themselves are the page — a failure there is a real error.
+    // The standings are the page — a failure there is a real error.
     if (entriesRes.status === "error") {
       setLoad({ state: "error", message: entriesRes.message });
       return;
@@ -80,11 +85,7 @@ export default function Ranks() {
   }, [refresh]);
 
   return (
-    <AppShell
-      title="Ranks"
-      subtitle="Ranked by how optimized a profile is. Not by followers."
-      wide
-    >
+    <AppShell title="Ranks" subtitle="Ranked by how optimized a profile is. Not by followers." wide>
       <BoardTabs
         board={board}
         onChange={(next) => {
@@ -109,7 +110,7 @@ export default function Ranks() {
         <div className="mt-6 space-y-6">
           {board === "category" && (
             <CategoryPicker
-              categories={load.data.categories}
+              present={load.data.categories}
               selected={category}
               onSelect={setCategory}
             />
@@ -135,13 +136,7 @@ export default function Ranks() {
 
 // ---------------------------------------------------------------------------
 
-function BoardTabs({
-  board,
-  onChange,
-}: {
-  board: Board;
-  onChange: (board: Board) => void;
-}) {
+function BoardTabs({ board, onChange }: { board: Board; onChange: (b: Board) => void }) {
   const tabs: Array<{ id: Board; label: string }> = [
     { id: "global", label: "Global" },
     { id: "category", label: "Categories" },
@@ -177,34 +172,35 @@ function BoardTabs({
   );
 }
 
+/** Full archetype list, with the ones that actually have profiles listed first. */
 function CategoryPicker({
-  categories,
+  present,
   selected,
   onSelect,
 }: {
-  categories: string[];
+  present: string[];
   selected: string | null;
   onSelect: (category: string | null) => void;
 }) {
-  if (categories.length === 0) {
-    return (
-      <p className="text-sm text-white/40">
-        No categories yet. They appear once profiles are analyzed and classified.
-      </p>
-    );
-  }
+  const ordered = orderCategories(present);
+  const presentSet = new Set(present.map((c) => c.toLowerCase()));
+  const blurb = categoryBlurb(selected);
 
   return (
-    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-      <CategoryChip label="All" active={selected === null} onClick={() => onSelect(null)} />
-      {categories.map((c) => (
-        <CategoryChip
-          key={c}
-          label={c}
-          active={selected === c}
-          onClick={() => onSelect(c)}
-        />
-      ))}
+    <div>
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        <CategoryChip label="All" active={selected === null} onClick={() => onSelect(null)} />
+        {ordered.map((c) => (
+          <CategoryChip
+            key={c.id}
+            label={c.label}
+            active={selected === c.id}
+            dim={!presentSet.has(c.id)}
+            onClick={() => onSelect(c.id)}
+          />
+        ))}
+      </div>
+      {blurb && <p className="mt-3 px-1 text-xs leading-relaxed text-white/40">{blurb}</p>}
     </div>
   );
 }
@@ -212,10 +208,12 @@ function CategoryPicker({
 function CategoryChip({
   label,
   active,
+  dim = false,
   onClick,
 }: {
   label: string;
   active: boolean;
+  dim?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -223,10 +221,12 @@ function CategoryChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold capitalize transition-colors",
+        "shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition-colors",
         active
           ? "bg-blink-sky text-blink-navy"
-          : "border border-white/10 text-white/60 hover:text-white",
+          : dim
+            ? "border border-white/[0.07] text-white/35 hover:text-white/60"
+            : "border border-white/10 text-white/70 hover:text-white",
       )}
     >
       {label}
@@ -247,20 +247,12 @@ function StandingsBoard({
   byCategory: boolean;
   currentUserId?: string;
 }) {
-  if (entries.length === 0) {
-    return (
-      <EmptyState
-        icon={Users}
-        title="No ranked profiles yet"
-        description="Standings appear once people analyze their own profile and choose to go public. Be the first."
-      />
-    );
-  }
+  if (entries.length === 0) return <LaunchState byCategory={byCategory} />;
 
   const inList = me ? entries.some((e) => e.id === me.id) : false;
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       {entries.map((entry, i) => (
         <RankRow
           key={entry.id}
@@ -271,22 +263,22 @@ function StandingsBoard({
         />
       ))}
 
-      {/* Your own position, when you're outside the visible page. */}
       {me && !inList && (
         <>
           <p className="pt-2 text-center text-xs font-semibold text-white/30">Your position</p>
-          <RankRow
-            entry={me}
-            position={byCategory ? me.categoryRank : me.rank}
-            index={0}
-            isMe
-          />
+          <RankRow entry={me} position={byCategory ? me.categoryRank : me.rank} index={0} isMe />
         </>
       )}
     </div>
   );
 }
 
+/**
+ * Leaderboard row.
+ *
+ * Reads left to right as: where they sit, who they are, how they're moving,
+ * what they scored.
+ */
 function RankRow({
   entry,
   position,
@@ -299,58 +291,174 @@ function RankRow({
   isMe: boolean;
 }) {
   const tier = getTier(entry.score);
-  const name = entry.displayName ?? (entry.handle ? `@${entry.handle}` : "Anonymous");
+  const name = entry.handle ? `@${entry.handle}` : (entry.displayName ?? "Anonymous");
+  const secondary = entry.handle ? entry.displayName : null;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      layout
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 320, damping: 32, delay: Math.min(index * 0.03, 0.3) }}
+      transition={{ type: "spring", stiffness: 320, damping: 32, delay: Math.min(index * 0.03, 0.25) }}
       className={cn(
-        "flex items-center gap-3 rounded-2xl border p-3.5 sm:gap-4 sm:p-4",
-        isMe
-          ? "border-blink-sky/35 bg-blink-sky/[0.07]"
-          : "border-white/[0.07] bg-white/[0.03]",
+        "flex items-center gap-3 rounded-2xl border p-3",
+        isMe ? "border-blink-sky/35 bg-blink-sky/[0.07]" : "border-white/[0.07] bg-white/[0.03]",
       )}
     >
       <span
         className={cn(
-          "w-10 shrink-0 text-center text-sm font-extrabold tabular-nums sm:w-12 sm:text-base",
-          position <= 3 ? "text-blink-sky" : "text-white/45",
+          "w-7 shrink-0 text-center text-sm font-extrabold tabular-nums sm:w-9",
+          position <= 3 ? "text-blink-sky" : "text-white/40",
         )}
       >
         {formatRank(position)}
       </span>
 
+      <RowAvatar url={entry.avatarUrl} name={name} />
+
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-2 truncate text-sm font-bold text-white">
+        <p className="flex items-center gap-1.5 truncate text-sm font-bold text-white">
           <span className="truncate">{name}</span>
+          {entry.country && (
+            <span
+              className="shrink-0"
+              title={countryName(entry.country) ?? entry.country}
+              aria-label={countryName(entry.country) ?? entry.country}
+            >
+              {flagEmoji(entry.country)}
+            </span>
+          )}
           {isMe && (
-            <span className="shrink-0 rounded-full bg-blink-sky px-2 py-0.5 text-[0.6rem] font-bold text-blink-navy">
+            <span className="shrink-0 rounded-full bg-blink-sky px-1.5 py-0.5 text-[0.58rem] font-bold text-blink-navy">
               You
             </span>
           )}
         </p>
         <p className="mt-0.5 truncate text-xs text-white/40">
+          {secondary ? `${secondary} · ` : ""}
           {tier.label}
-          {entry.category && <span className="capitalize"> · {entry.category}</span>}
-          {entry.streak > 0 && <span> · {entry.streak}w streak</span>}
+          {entry.category ? ` · ${categoryLabel(entry.category)}` : ""}
         </p>
       </div>
 
-      <div className="hidden shrink-0 text-right sm:block">
-        <MovementIndicator movement={entry.movement} />
-        <p className="mt-0.5 text-[0.65rem] text-white/25">peak {entry.peakScore}</p>
-      </div>
+      <Movement movement={entry.movement} />
 
-      <span className="w-12 shrink-0 text-right text-base font-extrabold tabular-nums text-white sm:w-14 sm:text-lg">
+      <span className="w-11 shrink-0 text-right text-base font-extrabold tabular-nums text-white sm:w-14 sm:text-lg">
         {entry.score}
       </span>
     </motion.div>
   );
 }
 
+function RowAvatar({ url, name }: { url: string | null; name: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (url && !failed) {
+    return (
+      <img
+        src={url}
+        alt=""
+        width={36}
+        height={36}
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="h-9 w-9 shrink-0 rounded-full object-cover"
+      />
+    );
+  }
+
+  return (
+    <div
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-xs font-bold text-white/50"
+      aria-hidden
+    >
+      {name.replace(/^@/, "").charAt(0).toUpperCase() || "?"}
+    </div>
+  );
+}
+
+/** ↑ / ↓ / — places moved since the last rank snapshot. */
+function Movement({ movement }: { movement: number | null }) {
+  if (movement === null) {
+    return (
+      <span className="w-8 shrink-0 text-center text-xs text-white/20" title="No movement recorded yet">
+        —
+      </span>
+    );
+  }
+  if (movement === 0) {
+    return (
+      <span className="w-8 shrink-0 text-center text-xs text-white/30" title="Held position">
+        —
+      </span>
+    );
+  }
+
+  const up = movement > 0;
+  // A jump of several places is the signal worth surfacing loudly.
+  const surging = Math.abs(movement) >= 3;
+
+  return (
+    <span
+      className={cn(
+        "flex w-8 shrink-0 items-center justify-center gap-0.5 rounded-full py-0.5 text-xs font-bold tabular-nums",
+        up ? "text-emerald-300" : "text-amber-300",
+        surging && (up ? "bg-emerald-400/12" : "bg-amber-400/12"),
+      )}
+      title={`${up ? "Up" : "Down"} ${Math.abs(movement)} ${
+        Math.abs(movement) === 1 ? "place" : "places"
+      } since the last snapshot`}
+    >
+      {up ? "↑" : "↓"}
+      {Math.abs(movement)}
+    </span>
+  );
+}
+
 // ---------------------------------------------------------------------------
+
+/** Shown instead of a board when nobody is ranked yet. */
+function LaunchState({ byCategory }: { byCategory: boolean }) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="rounded-3xl border border-white/[0.07] bg-white/[0.03] p-7 text-center">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blink-sky/15">
+        <Rocket className="h-6 w-6 text-blink-sky" />
+      </div>
+      <p className="mt-4 text-base font-bold text-white">
+        {byCategory ? "Nobody ranked here yet" : "The board is still filling up"}
+      </p>
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-white/50">
+        Blink only ranks real, verified profiles — so the board starts empty rather than
+        with placeholder names.
+      </p>
+
+      <ol className="mx-auto mt-5 max-w-xs space-y-2.5 text-left">
+        {[
+          "Analyze your own profile to get a Blink Score.",
+          "Turn on leaderboard visibility in your profile.",
+          "Improve, re-upload, and climb as changes are verified.",
+        ].map((step, i) => (
+          <li key={i} className="flex gap-3">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blink-sky/20 text-[0.65rem] font-bold text-blink-sky">
+              {i + 1}
+            </span>
+            <span className="text-xs leading-relaxed text-white/60">{step}</span>
+          </li>
+        ))}
+      </ol>
+
+      <button
+        type="button"
+        onClick={() => navigate("/analyze")}
+        className="mt-6 rounded-2xl bg-blink-sky px-6 py-3 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.02]"
+      >
+        Analyze your profile
+      </button>
+    </div>
+  );
+}
 
 function WinnersBoard({ winners }: { winners: WeeklyWinner[] }) {
   if (winners.length === 0) {
@@ -363,7 +471,6 @@ function WinnersBoard({ winners }: { winners: WeeklyWinner[] }) {
     );
   }
 
-  // Newest week first; the overall winner (null category) leads its group.
   const weeks = Array.from(new Set(winners.map((w) => w.weekStart)));
 
   return (
@@ -377,14 +484,9 @@ function WinnersBoard({ winners }: { winners: WeeklyWinner[] }) {
           <section key={week}>
             <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-white/40">
               Week of{" "}
-              {new Date(week).toLocaleDateString(undefined, {
-                month: "short",
-                day: "numeric",
-              })}
+              {new Date(week).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
             </h3>
-
             {overall && <WinnerCard winner={overall} overall />}
-
             {categoryWinners.length > 0 && (
               <div className="mt-2.5 space-y-2.5">
                 {categoryWinners.map((w) => (
@@ -400,15 +502,13 @@ function WinnersBoard({ winners }: { winners: WeeklyWinner[] }) {
 }
 
 function WinnerCard({ winner, overall = false }: { winner: WeeklyWinner; overall?: boolean }) {
-  const name = winner.displayName ?? (winner.handle ? `@${winner.handle}` : "Anonymous");
+  const name = winner.handle ? `@${winner.handle}` : (winner.displayName ?? "Anonymous");
 
   return (
     <div
       className={cn(
         "flex items-center gap-4 rounded-2xl border p-4",
-        overall
-          ? "border-blink-sky/30 bg-blink-sky/[0.07]"
-          : "border-white/[0.07] bg-white/[0.03]",
+        overall ? "border-blink-sky/30 bg-blink-sky/[0.07]" : "border-white/[0.07] bg-white/[0.03]",
       )}
     >
       <div
@@ -422,8 +522,8 @@ function WinnerCard({ winner, overall = false }: { winner: WeeklyWinner; overall
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-bold text-white">{name}</p>
-        <p className="mt-0.5 text-xs capitalize text-white/40">
-          {overall ? "Overall winner" : `${winner.category} winner`}
+        <p className="mt-0.5 text-xs text-white/40">
+          {overall ? "Overall winner" : `${categoryLabel(winner.category)} winner`}
         </p>
       </div>
 

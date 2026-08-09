@@ -17,6 +17,7 @@ import {
   fetchSavedAnalyses,
   type SavedAnalysis,
 } from "@/lib/analysis";
+import { categoryLabel } from "@/lib/categories";
 import { getVoice } from "@/lib/ownership";
 import { computeBlinkScore, getTier } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
@@ -179,63 +180,54 @@ function AnalysisRow({
 }) {
   const voice = getVoice(analysis.ownership, analysis.result.subjectGender);
   const score = computeBlinkScore(analysis.result).total;
-  const tier = getTier(score);
+  const category = categoryLabel(analysis.result.category?.category);
+  const handle = analysis.result.handle;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 320, damping: 32, delay: Math.min(index * 0.04, 0.3) }}
-      className="flex items-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.03] transition-colors hover:bg-white/[0.06]"
+      className="flex items-center gap-1 rounded-2xl border border-white/[0.07] bg-white/[0.03] transition-colors hover:bg-white/[0.06]"
     >
-      {/* The row itself is the button; delete sits outside it so the two
-          targets never nest. */}
+      {/* The row is the button; delete sits outside it so targets never nest. */}
       <button
         type="button"
         onClick={onOpen}
-        className="min-w-0 flex-1 rounded-2xl p-4 text-left"
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl p-3.5 text-left"
       >
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              "rounded-full px-2.5 py-0.5 text-[0.65rem] font-bold",
-              voice.isOwn
-                ? "bg-blink-sky/20 text-blink-sky"
-                : "bg-white/[0.08] text-white/55",
-            )}
-          >
-            {voice.isOwn ? "Your profile" : voice.Subject}
-          </span>
-          {analysis.result.handle && (
-            <span className="truncate text-xs font-medium text-white/35">
-              @{analysis.result.handle}
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-2 truncate text-sm font-bold text-white">
+            <span className="truncate">
+              {handle ? `@${handle}` : analysis.result.firstImpression}
             </span>
-          )}
+            {!voice.isOwn && (
+              <span className="shrink-0 rounded-full bg-white/[0.08] px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-white/45">
+                Public
+              </span>
+            )}
+          </p>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-white/40">
+            {category && <span>{category}</span>}
+            {category && <span aria-hidden className="text-white/20">·</span>}
+            <span>
+              {new Date(analysis.createdAt).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </span>
+          </p>
         </div>
 
-        <p className="mt-1.5 truncate text-sm font-bold text-white">
-          {analysis.result.firstImpression}
-        </p>
-        <p className="mt-0.5 text-xs text-white/35">
-          {tier.label} ·{" "}
-          {new Date(analysis.createdAt).toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </p>
+        <span className="shrink-0 text-lg font-extrabold tabular-nums text-white">{score}</span>
       </button>
-
-      <div className="shrink-0 text-right">
-        <p className="text-lg font-extrabold tabular-nums text-white">{score}</p>
-        <p className="text-[0.6rem] uppercase tracking-wider text-white/30">score</p>
-      </div>
 
       <button
         type="button"
         onClick={onDelete}
         disabled={deleting}
-        aria-label={`Delete analysis of ${analysis.result.handle ?? "this profile"}`}
+        aria-label={`Delete analysis of ${handle ?? "this profile"}`}
         className="mr-2 shrink-0 rounded-xl p-2 text-white/25 transition-colors hover:bg-white/[0.06] hover:text-red-400 disabled:opacity-40"
       >
         <Trash2 className="h-4 w-4" />

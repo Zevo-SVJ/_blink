@@ -47,7 +47,7 @@ import { BLINK_LOGO, BRAND } from "@/lib/brand";
 import { getMockMode, mockAnalyze } from "@/lib/dev-mock";
 import { fetchMyStanding, fetchScoreStanding } from "@/lib/leaderboard";
 import { getVoice, type Voice } from "@/lib/ownership";
-import { detectPdp, heuristicPdp, type PdpDetection } from "@/lib/pdp";
+import { pdpAnchor, type PdpAnchor } from "@/lib/pdp";
 import { computeBlinkScore } from "@/lib/ranking";
 import { resizeForUpload } from "@/lib/resize";
 import { cn } from "@/lib/utils";
@@ -658,7 +658,7 @@ interface PdpTarget {
   offsetY: number;
   /** Displayed diameter of the avatar, in pixels. */
   diameter: number;
-  pdp: PdpDetection;
+  anchor: PdpAnchor;
   /** Aspect ratio of the screenshot, for the circular crop. */
   aspect: number;
 }
@@ -687,23 +687,9 @@ export function AnalysisScreen({
 
   const stageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const pdpRef = useRef<PdpDetection | null>(null);
   const stageTimers = useRef<number[]>([]);
 
   const messages = getAnalysisMessages(ownership);
-
-  // Find the avatar in the uploaded file while the early stages play out, so
-  // the result is ready well before the transformation needs it.
-  useEffect(() => {
-    if (!file) return;
-    let cancelled = false;
-    detectPdp(file).then((pdp) => {
-      if (!cancelled) pdpRef.current = pdp;
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [file]);
 
   /**
    * Map the avatar's position in the *image* onto the *displayed* element.
@@ -721,16 +707,16 @@ export function AnalysisScreen({
     const stageRect = stage.getBoundingClientRect();
     if (imgRect.width === 0) return null;
 
-    const pdp = pdpRef.current ?? heuristicPdp(img.naturalWidth, img.naturalHeight);
+    const anchor = pdpAnchor(img.naturalWidth, img.naturalHeight);
 
-    const pdpX = imgRect.left + pdp.cx * imgRect.width;
-    const pdpY = imgRect.top + pdp.cy * imgRect.height;
+    const pdpX = imgRect.left + anchor.cx * imgRect.width;
+    const pdpY = imgRect.top + anchor.cy * imgRect.height;
 
     return {
       offsetX: pdpX - (stageRect.left + stageRect.width / 2),
       offsetY: pdpY - (stageRect.top + stageRect.height / 2),
-      diameter: Math.max(24, pdp.r * 2 * imgRect.width),
-      pdp,
+      diameter: Math.max(24, anchor.r * 2 * imgRect.width),
+      anchor,
       aspect: img.naturalWidth / img.naturalHeight,
     };
   }, []);
@@ -988,12 +974,12 @@ function TransformedCircle({
   // window onto the whole screenshot.
   const crop = (() => {
     if (!target) return { backgroundSize: "cover", backgroundPosition: "center" };
-    const { pdp, aspect } = target;
-    const bgW = CIRCLE_SIZE / (2 * pdp.r);
+    const { anchor, aspect } = target;
+    const bgW = CIRCLE_SIZE / (2 * anchor.r);
     const bgH = bgW / aspect;
     return {
       backgroundSize: `${bgW}px ${bgH}px`,
-      backgroundPosition: `${-(pdp.cx * bgW - CIRCLE_SIZE / 2)}px ${-(pdp.cy * bgH - CIRCLE_SIZE / 2)}px`,
+      backgroundPosition: `${-(anchor.cx * bgW - CIRCLE_SIZE / 2)}px ${-(anchor.cy * bgH - CIRCLE_SIZE / 2)}px`,
     };
   })();
 

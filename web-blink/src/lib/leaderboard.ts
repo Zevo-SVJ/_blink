@@ -15,6 +15,8 @@ export interface LeaderboardEntry {
   handle: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  /** ISO 3166-1 alpha-2, uppercase. */
+  country: string | null;
   score: number;
   peakScore: number;
   category: string | null;
@@ -31,6 +33,7 @@ interface LeaderboardRow {
   handle: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  country: string | null;
   score: number | null;
   peak_score: number | null;
   category: string | null;
@@ -38,10 +41,11 @@ interface LeaderboardRow {
   verified_count: number | null;
   rank: number | null;
   category_rank: number | null;
+  movement: number | null;
 }
 
 const SELECT =
-  "id, handle, display_name, avatar_url, score, peak_score, category, streak, verified_count, rank, category_rank";
+  "id, handle, display_name, avatar_url, country, score, peak_score, category, streak, verified_count, rank, category_rank, movement";
 
 const UNREACHABLE =
   "Blink can't load the leaderboard right now. Check your connection and try again.";
@@ -69,12 +73,13 @@ async function safe<T>(
   }
 }
 
-function mapEntry(row: LeaderboardRow, movement: number | null = null): LeaderboardEntry {
+function mapEntry(row: LeaderboardRow): LeaderboardEntry {
   return {
     id: row.id,
     handle: row.handle,
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
+    country: row.country,
     score: row.score ?? 0,
     peakScore: row.peak_score ?? 0,
     category: row.category,
@@ -82,7 +87,9 @@ function mapEntry(row: LeaderboardRow, movement: number | null = null): Leaderbo
     verifiedCount: row.verified_count ?? 0,
     rank: row.rank ?? 0,
     categoryRank: row.category_rank ?? 0,
-    movement,
+    // Null until the first rank snapshot exists — never defaulted to 0, which
+    // would read as "held position" when we simply don't know yet.
+    movement: row.movement,
   };
 }
 
