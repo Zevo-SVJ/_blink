@@ -31,7 +31,7 @@ export type DataResult<T> =
  * rejection read as a connection problem. Each of those has a different fix,
  * so each needs its own message.
  */
-function describeError(error: {
+export function describeError(error: {
   code?: string;
   message?: string;
   details?: string | null;
