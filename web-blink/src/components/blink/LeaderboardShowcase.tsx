@@ -6,7 +6,21 @@
  * lit while the others recede. Framer's `layout` does the actual reordering,
  * so the climb the user watches is the climb the product performs.
  *
- * Four rows, not ten — attention goes to the one moving.
+ * Two things this sequence has to get right:
+ *
+ *  - **It starts before you arrive.** The observer reaches most of a viewport
+ *    below the fold, so by the time the section is on screen the story is
+ *    already moving. Waiting for the section to be centred meant scrolling
+ *    onto a still board and then watching nothing for a beat.
+ *  - **It ends.** The run is ~5s and then rests on its final state. Looping
+ *    forever pulls the eye back to a section the reader has finished with, and
+ *    a reader who scrolls back should find the conclusion, not step one.
+ *
+ * The conclusion is the point of the whole section: you are not competing in
+ * one enormous meaningless board. Global filters down to a category, the two
+ * profiles that don't belong drop away, and the same person who was second
+ * overall is first in Larp — which is Blink's own category and the reason the
+ * category system exists.
  *
  * On invented data: rows are anonymous, with no handles, names or avatars,
  * because fabricating people would misrepresent a board that only ever
@@ -30,21 +44,25 @@ interface Row {
 }
 
 const INITIAL_ROWS: Row[] = [
-  { id: "a", score: 913, category: "Artist" },
-  { id: "b", score: 871, category: "Creator" },
+  { id: "a", score: 913, category: "Creator" },
+  { id: "b", score: 871, category: "Artist" },
   { id: "c", score: 838, category: "Larp" },
-  { id: "you", score: 781, isYou: true, category: "Minimalist" },
+  { id: "you", score: 781, isYou: true, category: "Larp" },
 ];
 
 /** Enough of a jump to pass two rows, so the movement is legible. */
 const IMPROVED_SCORE = 889;
 
+/** Shown when the board narrows. Larp leads because the ending lands on it. */
+const CATEGORY_PILLS = ["Larp", "Creator", "Fashion", "Fitness"];
+
 const STEPS = [
-  { id: "board", caption: "Every profile gets a score.", ms: 1250 },
-  { id: "verify", caption: "Change something real, upload a new screenshot.", ms: 1600 },
-  { id: "climb", caption: "Verified improvements move you up.", ms: 1800 },
-  { id: "momentum", caption: "Momentum shows who is climbing fastest.", ms: 1600 },
-  { id: "winners", caption: "Weekly winners, overall and by category.", ms: 1700 },
+  { id: "board", caption: "Every profile gets a score.", ms: 1050 },
+  { id: "verify", caption: "Change something real, upload a new screenshot.", ms: 1300 },
+  { id: "climb", caption: "Verified improvements move you up.", ms: 1450 },
+  { id: "categories", caption: "And you're not only ranked against everyone.", ms: 1400 },
+  // Terminal: no duration, the sequence rests here.
+  { id: "larp", caption: "Larp is a category. So is yours.", ms: null },
 ] as const;
 
 type StepId = (typeof STEPS)[number]["id"];
@@ -54,7 +72,8 @@ const spring = { type: "spring" as const, stiffness: 340, damping: 32 };
 
 export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { amount: 0.1, margin: "0px 0px 250px 0px" });
+  // Fires roughly a viewport early, so the story is underway on arrival.
+  const inView = useInView(ref, { amount: 0, margin: "0px 0px 65% 0px", once: true });
   const reduceMotion = useReducedMotion();
   const [index, setIndex] = useState(0);
 
@@ -64,24 +83,26 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
       setIndex(STEPS.length - 1);
       return;
     }
-    const timer = window.setTimeout(
-      () => setIndex((i) => (i + 1) % STEPS.length),
-      STEPS[index].ms,
-    );
+    const ms = STEPS[index].ms;
+    // Null duration marks the resting state — nothing schedules a restart.
+    if (ms === null) return;
+    const timer = window.setTimeout(() => setIndex((i) => i + 1), ms);
     return () => window.clearTimeout(timer);
   }, [inView, reduceMotion, index]);
 
-  const step: StepId = STEPS[index].id;
   const at = (s: StepId) => STEPS.findIndex((x) => x.id === s);
   const past = (s: StepId) => index >= at(s);
 
   const climbed = past("climb");
+  const narrowed = past("larp");
+
   const rows = useMemo(() => {
-    const next = INITIAL_ROWS.map((r) =>
+    const scored = INITIAL_ROWS.map((r) =>
       r.isYou && climbed ? { ...r, score: IMPROVED_SCORE } : r,
     );
-    return next.sort((a, b) => b.score - a.score);
-  }, [climbed]);
+    const visible = narrowed ? scored.filter((r) => r.category === "Larp") : scored;
+    return visible.sort((a, b) => b.score - a.score);
+  }, [climbed, narrowed]);
 
   return (
     <section id="leaderboard" ref={ref} className="relative px-4 py-20 sm:px-6 sm:py-28">
@@ -101,44 +122,32 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
 
         {/* No frame: the rows themselves are the object. */}
         <div className="mx-auto mt-10 w-full max-w-[360px] sm:mt-14">
-          <div className="flex items-center justify-between px-1 pb-2.5">
-            <span className="text-[0.6rem] font-bold uppercase tracking-[0.16em] text-white/30">
-              Global
-            </span>
-            <AnimatePresence>
-              {past("winners") && (
-                <motion.span
-                  initial={{ opacity: 0, x: 6 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="text-[0.6rem] font-bold uppercase tracking-[0.16em] text-blink-sky"
-                >
-                  This week
-                </motion.span>
-              )}
+          <BoardHeader narrowed={narrowed} showWeek={past("categories")} />
+
+          <div className="space-y-2">
+            <AnimatePresence initial={false} mode="popLayout">
+              {rows.map((row, i) => (
+                <BoardRow
+                  key={row.id}
+                  row={row}
+                  rank={i + 1}
+                  verifying={!!row.isYou && STEPS[index].id === "verify"}
+                  climbed={climbed}
+                  showMomentum={past("climb") && !!row.isYou && !narrowed}
+                  showCrown={i === 0 && past("categories")}
+                  showCategory={past("categories")}
+                />
+              ))}
             </AnimatePresence>
           </div>
 
-          <div className="space-y-2">
-            {rows.map((row, i) => (
-              <BoardRow
-                key={row.id}
-                row={row}
-                rank={i + 1}
-                step={step}
-                climbed={climbed}
-                showMomentum={past("momentum") && !!row.isYou}
-                showCrown={past("winners") && i === 0}
-                showCategory={past("winners")}
-              />
-            ))}
-          </div>
+          <CategoryStrip shown={past("categories")} selected={narrowed ? "Larp" : null} />
         </div>
 
         <div className="mt-5 h-10 text-center sm:h-6">
           <AnimatePresence mode="wait">
             <motion.p
-              key={step}
+              key={STEPS[index].id}
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
@@ -158,10 +167,98 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
   );
 }
 
+/** "Global" becomes "Larp" — the same board, narrowed. */
+function BoardHeader({ narrowed, showWeek }: { narrowed: boolean; showWeek: boolean }) {
+  return (
+    <div className="flex items-center justify-between px-1 pb-2.5">
+      <span className="relative block h-3 min-w-[3.5rem]">
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={narrowed ? "larp" : "global"}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.2 }}
+            className={cn(
+              "absolute inset-0 whitespace-nowrap text-[0.6rem] font-bold uppercase tracking-[0.16em]",
+              narrowed ? "text-blink-sky" : "text-white/30",
+            )}
+          >
+            {narrowed ? "Larp" : "Global"}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+
+      <AnimatePresence>
+        {showWeek && (
+          <motion.span
+            initial={{ opacity: 0, x: 6 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0 }}
+            className="text-[0.6rem] font-bold uppercase tracking-[0.16em] text-white/30"
+          >
+            This week
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * The category row, revealed under the board.
+ *
+ * It arrives as part of the same movement rather than as a caption: the pills
+ * slide up, then one of them takes the accent and the board above narrows to
+ * match. That ordering is what makes it read as cause and effect.
+ */
+function CategoryStrip({ shown, selected }: { shown: boolean; selected: string | null }) {
+  return (
+    <AnimatePresence>
+      {shown && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.35, ease }}
+          className="overflow-hidden"
+        >
+          <div className="flex items-center gap-1.5 overflow-hidden pt-4">
+            {CATEGORY_PILLS.map((label, i) => {
+              const active = label === selected;
+              return (
+                <motion.span
+                  key={label}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: active ? 1 : 0.45, y: 0 }}
+                  transition={{ ...spring, delay: 0.05 + i * 0.05 }}
+                  className={cn(
+                    "relative whitespace-nowrap rounded-full px-3 py-1.5 text-[0.68rem] font-bold transition-colors",
+                    active ? "text-blink-navy" : "text-white/60 ring-1 ring-white/10",
+                  )}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="showcase-category-pill"
+                      className="absolute inset-0 rounded-full bg-blink-sky"
+                      transition={spring}
+                    />
+                  )}
+                  <span className="relative">{label}</span>
+                </motion.span>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function BoardRow({
   row,
   rank,
-  step,
+  verifying,
   climbed,
   showMomentum,
   showCrown,
@@ -169,13 +266,12 @@ function BoardRow({
 }: {
   row: Row;
   rank: number;
-  step: StepId;
+  verifying: boolean;
   climbed: boolean;
   showMomentum: boolean;
   showCrown: boolean;
   showCategory: boolean;
 }) {
-  const verifying = row.isYou && step === "verify";
   // The moving row leads; the rest step back so the eye knows where to look.
   const focused = !!row.isYou;
 
@@ -183,10 +279,12 @@ function BoardRow({
     <motion.div
       layout
       transition={spring}
+      initial={{ opacity: 0, scale: 0.96 }}
       animate={{
         scale: focused ? 1 : 0.985,
         opacity: focused ? 1 : 0.62,
       }}
+      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.25 } }}
       className={cn(
         "relative flex items-center gap-3 overflow-hidden rounded-2xl px-3 py-2.5 ring-1",
         focused
@@ -223,7 +321,10 @@ function BoardRow({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-1 block text-[0.62rem] font-semibold text-white/35"
+              className={cn(
+                "mt-1 block text-[0.62rem] font-semibold",
+                row.category === "Larp" ? "text-blink-sky/80" : "text-white/35",
+              )}
             >
               {row.category}
             </motion.span>
@@ -283,7 +384,7 @@ function BoardRow({
             initial={{ left: "-35%", opacity: 0 }}
             animate={{ left: "100%", opacity: [0, 1, 1, 0] }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 1, ease: "easeInOut" }}
+            transition={{ duration: 0.9, ease: "easeInOut" }}
             style={{
               background:
                 "linear-gradient(90deg, transparent, rgba(175,224,249,0.3), transparent)",

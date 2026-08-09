@@ -9,9 +9,15 @@
  * There is no seed data anywhere in this file. An empty board renders a launch
  * state explaining how standings fill up — inventing plausible-looking rivals
  * would make the one number users are trying to beat a fiction.
+ *
+ * The board and its categories are **one surface**, not two tabs. Splitting
+ * them meant the first question a user has — "where do I rank?" — was answered
+ * by a global list, and finding your own category took a deliberate detour
+ * into what read as a database filter. Now the category strip sits directly
+ * above the standings and switching it re-ranks in place.
  */
 
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Crown, Info, Rocket, Trophy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -20,7 +26,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { EmptyState, ErrorState, SkeletonList } from "@/components/app/states";
 import { useAuth } from "@/hooks/useAuth";
 import { formatRank } from "@/lib/app-nav";
-import { availableCategories, categoryBlurb, categoryLabel } from "@/lib/categories";
+import { categoryBlurb, categoryLabel, pickerCategories } from "@/lib/categories";
 import { countryName, flagEmoji } from "@/lib/countries";
 import {
   fetchCategories,
@@ -33,7 +39,7 @@ import {
 import { getTier } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
 
-type Board = "global" | "category" | "winners";
+type Board = "standings" | "winners";
 
 interface BoardData {
   entries: LeaderboardEntry[];
@@ -49,7 +55,7 @@ type Load =
 
 export default function Ranks() {
   const { user } = useAuth();
-  const [board, setBoard] = useState<Board>("global");
+  const [board, setBoard] = useState<Board>("standings");
   const [category, setCategory] = useState<string | null>(null);
   const [load, setLoad] = useState<Load>({ state: "loading" });
 
@@ -57,7 +63,7 @@ export default function Ranks() {
     setLoad({ state: "loading" });
 
     const [entriesRes, categoriesRes, winnersRes, meRes] = await Promise.all([
-      fetchLeaderboard(board === "category" ? category : null),
+      fetchLeaderboard(category),
       fetchCategories(),
       fetchWeeklyWinners(),
       user ? fetchMyStanding(user.id) : Promise.resolve({ status: "ok" as const, data: null }),
@@ -78,21 +84,19 @@ export default function Ranks() {
         me: meRes.status === "ok" ? meRes.data : null,
       },
     });
-  }, [board, category, user]);
+  }, [category, user]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   return (
-    <AppShell title="Ranks" subtitle="Ranked by how optimized a profile is. Not by followers." wide>
-      <BoardTabs
-        board={board}
-        onChange={(next) => {
-          setBoard(next);
-          if (next !== "category") setCategory(null);
-        }}
-      />
+    <AppShell
+      title="Leaderboard"
+      subtitle="Ranked by how optimized a profile is. Not by followers."
+      wide
+    >
+      <BoardTabs board={board} onChange={setBoard} />
 
       {load.state === "loading" && (
         <div className="mt-6">
@@ -107,25 +111,24 @@ export default function Ranks() {
       )}
 
       {load.state === "ready" && (
-        <div className="mt-6 space-y-6">
-          {board === "category" && (
-            <CategoryPicker
-              present={load.data.categories}
-              selected={category}
-              onSelect={setCategory}
-            />
+        <div className="mt-5 space-y-5">
+          {board === "standings" && (
+            <>
+              <CategoryPicker
+                present={load.data.categories}
+                selected={category}
+                onSelect={setCategory}
+              />
+              <StandingsBoard
+                entries={load.data.entries}
+                me={load.data.me}
+                category={category}
+                currentUserId={user?.id}
+              />
+            </>
           )}
 
-          {board === "winners" ? (
-            <WinnersBoard winners={load.data.winners} />
-          ) : (
-            <StandingsBoard
-              entries={load.data.entries}
-              me={load.data.me}
-              byCategory={board === "category"}
-              currentUserId={user?.id}
-            />
-          )}
+          {board === "winners" && <WinnersBoard winners={load.data.winners} />}
 
           <FairnessNote />
         </div>
@@ -138,13 +141,12 @@ export default function Ranks() {
 
 function BoardTabs({ board, onChange }: { board: Board; onChange: (b: Board) => void }) {
   const tabs: Array<{ id: Board; label: string }> = [
-    { id: "global", label: "Global" },
-    { id: "category", label: "Categories" },
-    { id: "winners", label: "Winners" },
+    { id: "standings", label: "Standings" },
+    { id: "winners", label: "Weekly winners" },
   ];
 
   return (
-    <div className="flex gap-1 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-1">
+    <div className="flex gap-1 rounded-2xl bg-white/[0.05] p-1 ring-1 ring-white/[0.07]">
       {tabs.map((tab) => {
         const active = board === tab.id;
         return (
@@ -153,7 +155,7 @@ function BoardTabs({ board, onChange }: { board: Board; onChange: (b: Board) => 
             type="button"
             onClick={() => onChange(tab.id)}
             className={cn(
-              "relative flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+              "relative min-h-[44px] flex-1 rounded-xl px-3 text-sm font-semibold transition-colors",
               active ? "text-blink-navy" : "text-white/55 hover:text-white",
             )}
           >
@@ -172,7 +174,18 @@ function BoardTabs({ board, onChange }: { board: Board; onChange: (b: Board) => 
   );
 }
 
-/** Full archetype list, with the ones that actually have profiles listed first. */
+/**
+ * The category strip.
+ *
+ * Every canonical category is always offered — see `pickerCategories`. The
+ * strip scrolls horizontally on a phone rather than wrapping to three rows,
+ * and the active pill is a shared `layoutId` so switching reads as one object
+ * moving rather than two colours swapping.
+ *
+ * `present` still matters: a category nobody is ranked in yet is dimmed, so
+ * the strip tells you where the population is without hiding anywhere you
+ * might belong.
+ */
 function CategoryPicker({
   present,
   selected,
@@ -182,33 +195,51 @@ function CategoryPicker({
   selected: string | null;
   onSelect: (category: string | null) => void;
 }) {
-  // Only categories that actually have ranked profiles get a tab — an empty
-  // board is not worth inviting a tap.
-  const available = availableCategories(present);
+  const categories = pickerCategories(present);
+  const populated = new Set(present.map((c) => c.toLowerCase()));
   const blurb = categoryBlurb(selected);
-
-  if (available.length === 0) {
-    return (
-      <p className="px-1 text-sm text-white/40">
-        Categories appear once ranked profiles have been classified.
-      </p>
-    );
-  }
 
   return (
     <div>
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-        <CategoryChip label="All" active={selected === null} onClick={() => onSelect(null)} />
-        {available.map((c) => (
+      {/* Edge fades signal there is more to scroll without a scrollbar. */}
+      <div className="relative">
+        <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
           <CategoryChip
-            key={c.id}
-            label={c.label}
-            active={selected === c.id}
-            onClick={() => onSelect(c.id)}
+            label="All"
+            active={selected === null}
+            populated
+            onClick={() => onSelect(null)}
           />
-        ))}
+          {categories.map((c) => (
+            <CategoryChip
+              key={c.id}
+              label={c.label}
+              active={selected === c.id}
+              populated={populated.has(c.id)}
+              onClick={() => onSelect(c.id)}
+            />
+          ))}
+        </div>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-blink-navy to-transparent sm:hidden"
+        />
       </div>
-      {blurb && <p className="mt-3 px-1 text-xs leading-relaxed text-white/40">{blurb}</p>}
+
+      <AnimatePresence mode="wait">
+        {blurb && (
+          <motion.p
+            key={selected}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden text-xs leading-relaxed text-white/40"
+          >
+            <span className="block pt-3">{blurb}</span>
+          </motion.p>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -216,24 +247,36 @@ function CategoryPicker({
 function CategoryChip({
   label,
   active,
+  populated,
   onClick,
 }: {
   label: string;
   active: boolean;
+  populated: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        "shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition-colors",
+        "relative shrink-0 snap-start whitespace-nowrap rounded-full px-4 py-2.5 text-xs font-bold transition-colors",
         active
-          ? "bg-blink-sky text-blink-navy"
-          : "border border-white/10 text-white/70 hover:text-white",
+          ? "text-blink-navy"
+          : populated
+            ? "text-white/70 ring-1 ring-white/10 hover:text-white"
+            : "text-white/35 ring-1 ring-white/[0.06] hover:text-white/60",
       )}
     >
-      {label}
+      {active && (
+        <motion.span
+          layoutId="ranks-category-pill"
+          className="absolute inset-0 rounded-full bg-blink-sky"
+          transition={{ type: "spring", stiffness: 420, damping: 36 }}
+        />
+      )}
+      <span className="relative">{label}</span>
     </button>
   );
 }
@@ -243,16 +286,17 @@ function CategoryChip({
 function StandingsBoard({
   entries,
   me,
-  byCategory,
+  category,
   currentUserId,
 }: {
   entries: LeaderboardEntry[];
   me: LeaderboardEntry | null;
-  byCategory: boolean;
+  category: string | null;
   currentUserId?: string;
 }) {
   const navigate = useNavigate();
-  if (entries.length === 0) return <LaunchState byCategory={byCategory} />;
+  const byCategory = category !== null;
+  if (entries.length === 0) return <LaunchState category={category} />;
 
   const inList = me ? entries.some((e) => e.id === me.id) : false;
 
@@ -321,10 +365,10 @@ function RankRow({
       transition={{ type: "spring", stiffness: 320, damping: 32, delay: Math.min(index * 0.03, 0.25) }}
       aria-label={`Open ${entry.handle ? `@${entry.handle}` : "profile"}`}
       className={cn(
-        "flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors",
+        "flex min-h-[60px] w-full items-center gap-3 rounded-2xl p-3 text-left ring-1 transition-colors",
         isMe
-          ? "border-blink-sky/35 bg-blink-sky/[0.07] hover:bg-blink-sky/[0.11]"
-          : "border-white/[0.07] bg-white/[0.03] hover:bg-white/[0.06]",
+          ? "bg-blink-sky/[0.08] ring-blink-sky/35 hover:bg-blink-sky/[0.12]"
+          : "bg-white/[0.035] ring-white/[0.07] hover:bg-white/[0.06]",
       )}
     >
       <span
@@ -440,16 +484,17 @@ function Movement({ movement }: { movement: number | null }) {
 // ---------------------------------------------------------------------------
 
 /** Shown instead of a board when nobody is ranked yet. */
-function LaunchState({ byCategory }: { byCategory: boolean }) {
+function LaunchState({ category }: { category: string | null }) {
   const navigate = useNavigate();
+  const label = categoryLabel(category);
 
   return (
-    <div className="rounded-3xl border border-white/[0.07] bg-white/[0.03] p-7 text-center">
+    <div className="rounded-3xl bg-white/[0.035] p-7 text-center ring-1 ring-white/[0.07]">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blink-sky/15">
         <Rocket className="h-6 w-6 text-blink-sky" />
       </div>
       <p className="mt-4 text-base font-bold text-white">
-        {byCategory ? "Nobody ranked here yet" : "The board is still filling up"}
+        {label ? `Nobody is ranked in ${label} yet` : "The board is still filling up"}
       </p>
       <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-white/50">
         Blink only ranks real, verified profiles — so the board starts empty rather than
@@ -474,7 +519,7 @@ function LaunchState({ byCategory }: { byCategory: boolean }) {
       <button
         type="button"
         onClick={() => navigate("/analyze")}
-        className="mt-6 rounded-2xl bg-blink-sky px-6 py-3 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.02]"
+        className="mt-6 min-h-[48px] rounded-2xl bg-blink-sky px-6 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.02]"
       >
         Analyze your profile
       </button>
@@ -529,8 +574,8 @@ function WinnerCard({ winner, overall = false }: { winner: WeeklyWinner; overall
   return (
     <div
       className={cn(
-        "flex items-center gap-4 rounded-2xl border p-4",
-        overall ? "border-blink-sky/30 bg-blink-sky/[0.07]" : "border-white/[0.07] bg-white/[0.03]",
+        "flex items-center gap-4 rounded-2xl p-4 ring-1",
+        overall ? "bg-blink-sky/[0.08] ring-blink-sky/30" : "bg-white/[0.035] ring-white/[0.07]",
       )}
     >
       <div
@@ -561,7 +606,7 @@ function WinnerCard({ winner, overall = false }: { winner: WeeklyWinner; overall
 
 function FairnessNote() {
   return (
-    <div className="flex gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+    <div className="flex gap-3 rounded-2xl bg-white/[0.02] p-4 ring-1 ring-white/[0.06]">
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-white/30" />
       <p className="text-xs leading-relaxed text-white/40">
         Blink ranks profile optimization and perception — never follower count, reach or

@@ -2,7 +2,8 @@
  * Score, rank and momentum display primitives.
  *
  * Kept deliberately plain — one accent colour, no gradients or badges — so a
- * screen full of numbers still reads as calm.
+ * screen full of numbers still reads as calm. Surfaces use `ring-1` to match
+ * the rest of the app; see `states.tsx` for why.
  */
 
 import { motion } from "framer-motion";
@@ -100,7 +101,7 @@ export function StatTile({
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
+    <div className="rounded-2xl bg-white/[0.035] p-4 ring-1 ring-white/[0.07]">
       <p className="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-white/40">
         {label}
       </p>

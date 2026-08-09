@@ -83,9 +83,27 @@ export function categoryBlurb(id: string | null | undefined): string | null {
 /**
  * Categories to offer in the picker.
  *
- * Only those with ranked profiles are offered, in canonical order, plus any
- * unrecognised value that actually appears in the data. An empty board is not
- * worth a tab — showing one invites the user to click into nothing.
+ * Every canonical category is always offered, in canonical order, whether or
+ * not anyone is ranked in it yet. Hiding empty boards was the wrong call: a
+ * launch-stage product then showed exactly one tab, which told users the
+ * category system did not exist rather than that it was waiting for them.
+ * An empty board with its own launch state is far more informative.
+ *
+ * Values the model produced that aren't canonical are appended, so data never
+ * disappears from the UI.
+ */
+export function pickerCategories(present: string[] = []): CategoryDef[] {
+  const extra = Array.from(new Set(present.map((c) => c.toLowerCase())))
+    .filter((c) => !BY_ID.has(c))
+    .map((c) => ({ id: c, label: categoryLabel(c)!, blurb: "" }));
+  return [...CATEGORIES, ...extra];
+}
+
+/**
+ * Only the categories that currently hold ranked profiles.
+ *
+ * Still used where an empty board would be actively misleading rather than
+ * merely quiet — nothing in the picker path.
  */
 export function availableCategories(present: string[]): CategoryDef[] {
   const presentSet = new Set(present.map((c) => c.toLowerCase()));

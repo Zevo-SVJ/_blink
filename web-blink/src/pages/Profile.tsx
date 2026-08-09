@@ -9,7 +9,7 @@
  * plus the private "how to climb" section.
  */
 
-import { Pencil, Sparkles, X } from "lucide-react";
+import { Pencil, Settings as SettingsIcon, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -27,13 +27,25 @@ import {
   type BlinkProfile,
   type FullProfile,
 } from "@/lib/blink-profile";
+import { fetchSavedAnalyses } from "@/lib/analysis";
 import { fetchMyStanding, type LeaderboardEntry } from "@/lib/leaderboard";
 import { Onboarding } from "@/pages/Onboarding";
+
+/** First impression and traits from the newest own-profile analysis. */
+interface Perception {
+  firstImpression: string | null;
+  traits: string[];
+}
 
 type Load =
   | { state: "loading" }
   | { state: "error"; message: string }
-  | { state: "ready"; data: FullProfile; standing: LeaderboardEntry | null };
+  | {
+      state: "ready";
+      data: FullProfile;
+      standing: LeaderboardEntry | null;
+      perception: Perception | null;
+    };
 
 export default function Profile() {
   const { user, isLoading: authLoading } = useAuth();
@@ -51,7 +63,24 @@ export default function Profile() {
       setLoad({ state: "error", message: full.message });
       return;
     }
-    setLoad({ state: "ready", data: full.data, standing });
+
+    // Best-effort: the page is still complete without it, so a failure here
+    // must not take down the profile.
+    let perception: Perception | null = null;
+    try {
+      const saved = await fetchSavedAnalyses();
+      const mine = saved.find((a) => a.result.ownership === "own");
+      if (mine) {
+        perception = {
+          firstImpression: mine.result.firstImpression || null,
+          traits: mine.result.traits ?? [],
+        };
+      }
+    } catch {
+      perception = null;
+    }
+
+    setLoad({ state: "ready", data: full.data, standing, perception });
   }, [user]);
 
   useEffect(() => {
@@ -80,14 +109,26 @@ export default function Profile() {
       center={load.state === "ready" && load.data.stats.verifiedCount === 0}
       action={
         load.state === "ready" ? (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-2 text-xs font-bold text-white/80 transition-colors hover:bg-white/[0.1]"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            Edit
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-white/[0.06] px-3.5 text-xs font-bold text-white/80 ring-1 ring-white/10 transition-colors hover:bg-white/[0.11]"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Edit
+            </button>
+            {/* Settings lost its tab so the bar could carry Analyze; this is
+                now its only entry point, so it has to be here. */}
+            <button
+              type="button"
+              onClick={() => navigate("/settings")}
+              aria-label="Settings"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.06] text-white/70 ring-1 ring-white/10 transition-colors hover:bg-white/[0.11] hover:text-white"
+            >
+              <SettingsIcon className="h-4 w-4" />
+            </button>
+          </div>
         ) : undefined
       }
     >
@@ -102,6 +143,7 @@ export default function Profile() {
           <ProfileBody
             data={load.data}
             standing={load.standing}
+            perception={load.perception}
             onAnalyze={() => navigate("/analyze")}
           />
           <EditSheet
@@ -123,10 +165,12 @@ export default function Profile() {
 function ProfileBody({
   data,
   standing,
+  perception,
   onAnalyze,
 }: {
   data: FullProfile;
   standing: LeaderboardEntry | null;
+  perception: Perception | null;
   onAnalyze: () => void;
 }) {
   const { stats, profile } = data;
@@ -163,10 +207,11 @@ function ProfileBody({
     standing,
     bestRank: stats.bestRank,
     momentumDelta: stats.momentum.delta,
+    perception,
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-10">
       <PublicProfileCard view={view} isMe />
       <ClimbSection stats={stats} rank={standing?.rank ?? null} onAnalyze={onAnalyze} />
     </div>

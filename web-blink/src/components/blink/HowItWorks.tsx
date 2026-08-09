@@ -328,43 +328,96 @@ function Marker({
  * Signals fan out from the centre, then collapse back into it as the score
  * resolves — which is the actual claim: these readings *become* your result.
  *
- * They must not linger in the ring once the score is up. Held at a wider radius
- * they overlapped the trait chips below the ring at every mobile width.
+ * **Why this is not polar coordinates.** The previous version placed all four
+ * chips on one radius, measured to each chip's *centre*. A chip is far wider
+ * than it is tall, so the two side chips ended up with roughly half the
+ * breathing room of the top and bottom ones — "Aesthetic" in particular sat
+ * almost against the ring. Each chip is now anchored by its *inner edge* at a
+ * constant clearance, so the gap around the centre is even in all four
+ * directions no matter how long a label is.
+ *
+ * The widest labels take the top and bottom slots, where horizontal space is
+ * free; the sides get the short ones, which is what keeps the whole thing
+ * inside 320px.
+ *
+ * They must not linger once the score is up. Held around the ring they
+ * overlapped the trait chips below it at every mobile width.
  */
+
+/** Gap between the centre object's edge and the nearest edge of any chip. */
+const SIGNAL_CLEARANCE = 68;
+
+type Place = "top" | "right" | "bottom" | "left";
+
+const SIGNAL_PLACES: Array<{ label: string; place: Place }> = [
+  { label: SIGNALS[0], place: "top" },
+  { label: SIGNALS[1], place: "right" },
+  { label: SIGNALS[2], place: "bottom" },
+  { label: SIGNALS[3], place: "left" },
+];
+
+/** Anchor a chip by the edge that faces the centre. */
+function placeStyle(place: Place): React.CSSProperties {
+  const c = SIGNAL_CLEARANCE;
+  switch (place) {
+    case "top":
+      return { bottom: c, left: 0, transform: "translateX(-50%)" };
+    case "bottom":
+      return { top: c, left: 0, transform: "translateX(-50%)" };
+    case "right":
+      return { left: c, top: 0, transform: "translateY(-50%)" };
+    case "left":
+      return { right: c, top: 0, transform: "translateY(-50%)" };
+  }
+}
+
+/** Entry offset, so each chip still reads as fanning out of the centre. */
+function fanFrom(place: Place): { x: number; y: number } {
+  switch (place) {
+    case "top":
+      return { x: 0, y: 34 };
+    case "bottom":
+      return { x: 0, y: -34 };
+    case "right":
+      return { x: -34, y: 0 };
+    case "left":
+      return { x: 34, y: 0 };
+  }
+}
+
 function SignalRing({ active, settled }: { active: boolean; settled: boolean }) {
   return (
     <AnimatePresence>
-      {active &&
-        SIGNALS.map((label, i) => {
-          const angle = (i * 360) / SIGNALS.length - 90;
-          const r = 104;
-          return (
-            <motion.span
-              key={label}
-              className="absolute whitespace-nowrap rounded-full bg-white/[0.07] px-2.5 py-1 text-[10px] font-semibold text-white/75 ring-1 ring-white/10 backdrop-blur-sm"
-              style={{ translateX: "-50%", translateY: "-50%" }}
-              initial={{ opacity: 0, x: 0, y: 0, scale: 0.6 }}
-              animate={
-                settled
-                  ? { opacity: 0, x: 0, y: 0, scale: 0.35 }
-                  : {
-                      opacity: 1,
-                      x: Math.cos((angle * Math.PI) / 180) * r,
-                      y: Math.sin((angle * Math.PI) / 180) * r,
-                      scale: 1,
-                    }
-              }
-              exit={{ opacity: 0, scale: 0.7, transition: { duration: 0.2 } }}
-              transition={
-                settled
-                  ? { duration: 0.45, ease, delay: i * 0.05 }
-                  : { type: "spring", stiffness: 260, damping: 26, delay: i * 0.07 }
-              }
-            >
-              {label}
-            </motion.span>
-          );
-        })}
+      {active && (
+        /* A zero-size box parked at the exact centre by the flex parent, so
+           every offset below is measured from the middle of the composition. */
+        <div className="pointer-events-none absolute h-0 w-0" aria-hidden={false}>
+          {SIGNAL_PLACES.map(({ label, place }, i) => {
+            const from = fanFrom(place);
+            return (
+              <span key={label} className="absolute" style={placeStyle(place)}>
+                <motion.span
+                  className="block whitespace-nowrap rounded-full bg-white/[0.07] px-2.5 py-1 text-[10px] font-semibold text-white/75 ring-1 ring-white/10 backdrop-blur-sm"
+                  initial={{ opacity: 0, scale: 0.6, ...from }}
+                  animate={
+                    settled
+                      ? { opacity: 0, scale: 0.4, ...from }
+                      : { opacity: 1, scale: 1, x: 0, y: 0 }
+                  }
+                  exit={{ opacity: 0, scale: 0.7, transition: { duration: 0.2 } }}
+                  transition={
+                    settled
+                      ? { duration: 0.45, ease, delay: i * 0.05 }
+                      : { type: "spring", stiffness: 260, damping: 26, delay: i * 0.07 }
+                  }
+                >
+                  {label}
+                </motion.span>
+              </span>
+            );
+          })}
+        </div>
+      )}
     </AnimatePresence>
   );
 }

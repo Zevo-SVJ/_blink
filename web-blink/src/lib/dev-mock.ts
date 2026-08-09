@@ -19,7 +19,16 @@ export function getMockMode(search: string): "own" | "other" | null {
 
 export async function mockAnalyze(mode: "own" | "other"): Promise<AnalysisResult> {
   await new Promise((resolve) => setTimeout(resolve, 4200));
+  return buildSample(mode);
+}
 
+/**
+ * A fully-populated result, also used by the dev component gallery so the
+ * result surfaces can be rendered without credentials.
+ */
+export const SAMPLE_ANALYSIS: AnalysisResult = buildSample("own");
+
+function buildSample(mode: "own" | "other"): AnalysisResult {
   const own = mode === "own";
 
   return validateAnalysisResult({

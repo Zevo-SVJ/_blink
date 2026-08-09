@@ -108,6 +108,17 @@
 }
 
 @layer utilities {
+  /* Horizontal pill strips scroll by gesture; a visible bar just adds noise
+     and steals height on desktop. */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   .text-balance {
     text-wrap: balance;
   }

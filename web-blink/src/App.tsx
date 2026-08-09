@@ -23,6 +23,16 @@ const Ranks = lazy(() => import("./pages/Ranks"));
 const Settings = lazy(() => import("./pages/Settings"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+/**
+ * Component gallery for local development only.
+ *
+ * The authenticated screens can't be opened without Supabase credentials, so
+ * this is how their components get looked at in a browser. `import.meta.env.DEV`
+ * is statically replaced at build time, so the route and its chunk are dropped
+ * from production entirely.
+ */
+const DevGallery = import.meta.env.DEV ? lazy(() => import("./pages/DevGallery")) : null;
+
 const Legal = {
   Privacy: lazy(() => import("./pages/Legal").then((m) => ({ default: m.PrivacyPolicy }))),
   Terms: lazy(() => import("./pages/Legal").then((m) => ({ default: m.TermsOfService }))),
@@ -67,6 +77,7 @@ const App = () => (
               <Route path="/terms" element={<Legal.Terms />} />
               <Route path="/cookies" element={<Legal.Cookies />} />
               <Route path="/contact" element={<Legal.Contact />} />
+              {DevGallery && <Route path="/dev" element={<DevGallery />} />}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
