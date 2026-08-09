@@ -35,8 +35,9 @@ interface LeaderboardRow {
   handle: string | null;
   display_name: string | null;
   avatar_url: string | null;
-  country: string | null;
-  instagram_url: string | null;
+  country?: string | null;
+  /** Added in migration 0004 — absent on older schemas. */
+  instagram_url?: string | null;
   score: number | null;
   peak_score: number | null;
   category: string | null;
@@ -44,11 +45,18 @@ interface LeaderboardRow {
   verified_count: number | null;
   rank: number | null;
   category_rank: number | null;
-  movement: number | null;
+  /** Added in migration 0003 — absent on older schemas. */
+  movement?: number | null;
 }
 
-const SELECT =
-  "id, handle, display_name, avatar_url, country, instagram_url, score, peak_score, category, streak, verified_count, rank, category_rank, movement";
+/**
+ * `*` rather than an explicit column list.
+ *
+ * The view gains columns across migrations (country, instagram_url, movement),
+ * and naming one the deployed view doesn't have yet fails the entire query —
+ * which would blank the leaderboard instead of just omitting a flag.
+ */
+const SELECT = "*";
 
 const UNREACHABLE =
   "Blink can't load the leaderboard right now. Check your connection and try again.";
@@ -82,8 +90,8 @@ function mapEntry(row: LeaderboardRow): LeaderboardEntry {
     handle: row.handle,
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
-    country: row.country,
-    instagramUrl: row.instagram_url,
+    country: row.country ?? null,
+    instagramUrl: row.instagram_url ?? null,
     score: row.score ?? 0,
     peakScore: row.peak_score ?? 0,
     category: row.category,
@@ -93,7 +101,7 @@ function mapEntry(row: LeaderboardRow): LeaderboardEntry {
     categoryRank: row.category_rank ?? 0,
     // Null until the first rank snapshot exists — never defaulted to 0, which
     // would read as "held position" when we simply don't know yet.
-    movement: row.movement,
+    movement: row.movement ?? null,
   };
 }
 

@@ -48,7 +48,6 @@ import {
   recordAnalysis,
   type RecordedAnalysis,
 } from "@/lib/blink-profile";
-import { BLINK_LOGO, BRAND } from "@/lib/brand";
 import { getMockMode, mockAnalyze } from "@/lib/dev-mock";
 import { fetchMyStanding, fetchScoreStanding } from "@/lib/leaderboard";
 import { getVoice, type Voice } from "@/lib/ownership";
@@ -323,15 +322,9 @@ export default function Product() {
             </span>
           </button>
 
-          <img
-            src={BLINK_LOGO}
-            alt={BRAND.name}
-            className="h-8 w-8 select-none rounded-lg"
-            draggable={false}
-          />
-
-          {/* Balances the back button so the logo stays optically centred. */}
-          <div className="flex w-[4.5rem] justify-end">
+          {/* No wordmark or logo here: the screenshot being analyzed is the
+              subject, and branding above it competes for attention. */}
+          <div className="flex justify-end">
             {user && !inAnalysisMode && (
               <button
                 type="button"

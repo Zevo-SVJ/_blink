@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { isDegenerateAnalysis, validateAnalysisResult } from "@/lib/analysis";
 import { validateIdentity, type IdentityDraft } from "@/lib/identity";
 import { CATEGORIES, availableCategories, categoryLabel } from "@/lib/categories";
+import { isMissingColumn, resolveOnboardedAt } from "@/lib/blink-profile";
 import { getClimbPaths } from "@/lib/climb";
 import { computeProfileStats, type ScoreEntry } from "@/lib/ranking";
 
@@ -169,5 +170,54 @@ describe("climb paths", () => {
       .filter((p) => p.priority)
       .map((p) => p.id);
     expect(priorities).toContain("momentum");
+  });
+});
+
+describe("schema tolerance", () => {
+  // Regression: the client shipped ahead of migration 0004, so PostgREST
+  // rejected instagram_url/onboarded_at and every profile read and write
+  // surfaced as "Blink can't reach your account right now."
+  it("recognises a missing column from either read or write error shapes", () => {
+    expect(isMissingColumn({ code: "42703" })).toBe(true);
+    expect(isMissingColumn({ code: "PGRST204" })).toBe(true);
+    expect(
+      isMissingColumn({
+        message: "Could not find the 'onboarded_at' column of 'blink_profiles' in the schema cache",
+      }),
+    ).toBe(true);
+  });
+
+  it("does not mistake a real failure for a schema gap", () => {
+    expect(isMissingColumn({ code: "42P01" })).toBe(false);
+    expect(isMissingColumn({ code: "23505", message: "duplicate key" })).toBe(false);
+    expect(isMissingColumn(null)).toBe(false);
+  });
+
+  // Regression: without onboarded_at the gate never closed, so a user who had
+  // already completed onboarding was asked again on every visit.
+  it("treats a filled-in profile as onboarded when the column is absent", () => {
+    expect(
+      resolveOnboardedAt({
+        handle: "sam.dev",
+        display_name: "Sam",
+        created_at: "2026-01-01T00:00:00.000Z",
+      }),
+    ).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it("still shows onboarding to someone who has not completed it", () => {
+    expect(resolveOnboardedAt({ handle: null, display_name: null })).toBeNull();
+    expect(resolveOnboardedAt({ handle: "sam.dev", display_name: null })).toBeNull();
+  });
+
+  it("prefers the real timestamp when the column exists", () => {
+    expect(
+      resolveOnboardedAt({
+        onboarded_at: "2026-08-01T10:00:00.000Z",
+        handle: "sam.dev",
+        display_name: "Sam",
+        created_at: "2026-01-01T00:00:00.000Z",
+      }),
+    ).toBe("2026-08-01T10:00:00.000Z");
   });
 });

@@ -5,7 +5,13 @@ import { BLINK_LOGO, BRAND } from "@/lib/brand";
 
 export function Hero({ onCTA }: { onCTA: () => void }) {
   return (
-    <section className="relative overflow-hidden px-4 pb-20 pt-32 sm:px-6 sm:pb-28 sm:pt-40 lg:pb-32">
+    <section
+      className="relative flex flex-col items-center justify-center overflow-hidden px-4 py-24 sm:px-6"
+      // Fills the first screen and centres within it, so the hero never sits
+      // high with dead space beneath. `dvh` so mobile browser chrome doesn't
+      // leave a gap when the toolbar collapses.
+      style={{ minHeight: "100dvh" }}
+    >
       <div className="relative z-10 mx-auto max-w-3xl text-center">
         <motion.div
           initial={{ opacity: 0, y: 24 }}

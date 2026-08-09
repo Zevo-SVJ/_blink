@@ -55,6 +55,26 @@ function isMissingRelation(error: { code?: string } | null): boolean {
   return error?.code === "42P01";
 }
 
+/**
+ * True when Postgres/PostgREST rejected a column this build knows about but the
+ * database doesn't yet.
+ *
+ * The app and its migrations deploy separately, so a build can legitimately be
+ * ahead of the schema for a while. Treating that as "can't reach your account"
+ * is both wrong and unrecoverable for the user — the fix below is to retry with
+ * the columns that definitely exist rather than fail the whole screen.
+ *
+ * 42703 = undefined_column (reads). PGRST204 = column not in schema cache
+ * (writes).
+ */
+export function isMissingColumn(error: { code?: string; message?: string } | null): boolean {
+  return (
+    error?.code === "42703" ||
+    error?.code === "PGRST204" ||
+    /column .* does not exist|could not find the '.*' column/i.test(error?.message ?? "")
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Public profile row
 // ---------------------------------------------------------------------------
@@ -80,14 +100,20 @@ export interface BlinkProfile {
   lastVerifiedAt: string | null;
 }
 
+/** Stand-in timestamp when the schema can't tell us the real one. */
+const EPOCH = "1970-01-01T00:00:00.000Z";
+
 interface BlinkProfileRow {
   id: string;
+  created_at?: string | null;
   handle: string | null;
   display_name: string | null;
   avatar_url: string | null;
   country: string | null;
-  instagram_url: string | null;
-  onboarded_at: string | null;
+  /** Added in migration 0004 — absent on older schemas. */
+  instagram_url?: string | null;
+  /** Added in migration 0004 — absent on older schemas. */
+  onboarded_at?: string | null;
   is_public: boolean | null;
   score: number | null;
   peak_score: number | null;
@@ -98,6 +124,25 @@ interface BlinkProfileRow {
   last_verified_at: string | null;
 }
 
+/**
+ * When onboarding was completed.
+ *
+ * The column arrives in migration 0004. Without it we infer completion from a
+ * handle and display name both being set, since those are only ever written by
+ * finishing onboarding — otherwise a build ahead of the schema would trap the
+ * user in the flow forever, re-asking questions they already answered.
+ */
+export function resolveOnboardedAt(row: {
+  onboarded_at?: string | null;
+  handle: string | null;
+  display_name: string | null;
+  created_at?: string | null;
+}): string | null {
+  if (row.onboarded_at) return row.onboarded_at;
+  if (row.handle && row.display_name) return row.created_at ?? EPOCH;
+  return null;
+}
+
 function mapProfile(row: BlinkProfileRow): BlinkProfile {
   return {
     id: row.id,
@@ -105,8 +150,8 @@ function mapProfile(row: BlinkProfileRow): BlinkProfile {
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
     country: row.country,
-    instagramUrl: row.instagram_url,
-    onboardedAt: row.onboarded_at,
+    instagramUrl: row.instagram_url ?? null,
+    onboardedAt: resolveOnboardedAt(row),
     isPublic: row.is_public ?? false,
     score: row.score ?? 0,
     peakScore: row.peak_score ?? 0,
@@ -125,11 +170,11 @@ export async function fetchBlinkProfile(
   if (!isSupabaseConfigured) return fail("fetchBlinkProfile", "not configured");
 
   return safe("fetchBlinkProfile", async () => {
+    // `*` rather than an explicit list: the identity columns arrive in a later
+    // migration, and naming one that doesn't exist yet fails the whole read.
     const { data, error } = await supabase
       .from("blink_profiles")
-      .select(
-        "id, handle, display_name, avatar_url, country, instagram_url, onboarded_at, is_public, score, peak_score, category, streak, verified_count, best_rank, last_verified_at",
-      )
+      .select("*")
       .eq("id", userId)
       .maybeSingle();
 
@@ -153,22 +198,41 @@ export async function updateBlinkProfile(
   if (!isSupabaseConfigured) return fail("updateBlinkProfile", "not configured");
 
   return safe("updateBlinkProfile", async () => {
-    const { error } = await supabase.from("blink_profiles").upsert(
-      {
-        id: userId,
-        ...(patch.handle !== undefined ? { handle: patch.handle } : {}),
-        ...(patch.displayName !== undefined ? { display_name: patch.displayName } : {}),
-        ...(patch.country !== undefined ? { country: patch.country } : {}),
-        ...(patch.avatarUrl !== undefined ? { avatar_url: patch.avatarUrl } : {}),
-        ...(patch.instagramUrl !== undefined ? { instagram_url: patch.instagramUrl } : {}),
-        ...(patch.isPublic !== undefined ? { is_public: patch.isPublic } : {}),
-        ...(patch.markOnboarded ? { onboarded_at: new Date().toISOString() } : {}),
-      },
-      { onConflict: "id" },
-    );
+    /** Columns present since migration 0003 — always safe to write. */
+    const base: Record<string, unknown> = {
+      id: userId,
+      ...(patch.handle !== undefined ? { handle: patch.handle } : {}),
+      ...(patch.displayName !== undefined ? { display_name: patch.displayName } : {}),
+      ...(patch.country !== undefined ? { country: patch.country } : {}),
+      ...(patch.avatarUrl !== undefined ? { avatar_url: patch.avatarUrl } : {}),
+      ...(patch.isPublic !== undefined ? { is_public: patch.isPublic } : {}),
+    };
 
-    if (error) return fail("updateBlinkProfile", error.message);
-    return { status: "ok", data: null };
+    /** Columns that only exist once migration 0004 has run. */
+    const extended: Record<string, unknown> = {
+      ...(patch.instagramUrl !== undefined ? { instagram_url: patch.instagramUrl } : {}),
+      ...(patch.markOnboarded ? { onboarded_at: new Date().toISOString() } : {}),
+    };
+
+    const write = (payload: Record<string, unknown>) =>
+      supabase.from("blink_profiles").upsert(payload, { onConflict: "id" });
+
+    const { error } = await write({ ...base, ...extended });
+    if (!error) return { status: "ok", data: null };
+
+    // The build can be ahead of the schema. Saving the identity the user just
+    // typed matters far more than the two optional columns, so drop them and
+    // retry rather than losing their input to a migration they can't run.
+    if (isMissingColumn(error) && Object.keys(extended).length > 0) {
+      console.warn(
+        "[updateBlinkProfile] schema is missing migration 0004 columns — saving without them",
+      );
+      const retry = await write(base);
+      if (!retry.error) return { status: "ok", data: null };
+      return fail("updateBlinkProfile", retry.error.message);
+    }
+
+    return fail("updateBlinkProfile", error.message);
   });
 }
 

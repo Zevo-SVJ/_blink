@@ -8,7 +8,6 @@ import { Footer } from "@/components/blink/Footer";
 import { Hero } from "@/components/blink/Hero";
 import { HowItWorks } from "@/components/blink/HowItWorks";
 import { LeaderboardShowcase } from "@/components/blink/LeaderboardShowcase";
-import { MobileCTA } from "@/components/blink/MobileCTA";
 import { Navbar } from "@/components/blink/Navbar";
 import { PageBackground } from "@/components/blink/PageBackground";
 import { PerceptionShowcase } from "@/components/blink/PerceptionShowcase";
@@ -37,7 +36,6 @@ const Index = () => {
           <FinalCTA onCTA={handleCTA} />
         </main>
         <Footer />
-        <MobileCTA onCTA={handleCTA} />
       </div>
     </MotionConfig>
   );

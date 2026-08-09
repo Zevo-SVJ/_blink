@@ -32,12 +32,22 @@ export function AppShell({
   children,
   /** Widen for dense screens like the leaderboard. */
   wide = false,
+  /** Drop the title block but keep navigation — used by onboarding. */
+  bare = false,
+  /**
+   * Centre the content in the remaining viewport instead of stacking it under
+   * the header. For screens whose content comfortably fits, so they don't sit
+   * high with dead space below or scroll for no reason.
+   */
+  center = false,
 }: {
   title: string;
   subtitle?: string;
   action?: ReactNode;
   children: ReactNode;
   wide?: boolean;
+  bare?: boolean;
+  center?: boolean;
 }) {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -63,7 +73,11 @@ export function AppShell({
           // Room for the floating tab bar plus the home indicator on phones.
           "pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-24",
           wide ? "max-w-5xl" : "max-w-2xl",
+          center && "flex flex-col justify-center",
         )}
+        // Fill the space between the fixed nav and the tab bar so `center` has
+        // something to centre within.
+        style={center ? { minHeight: "100dvh" } : undefined}
       >
         <AnimatePresence mode="wait">
           <motion.div
@@ -73,19 +87,21 @@ export function AppShell({
             exit={{ opacity: 0, y: -8 }}
             transition={{ type: "spring", stiffness: 320, damping: 32 }}
           >
-            <header className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h1 className="truncate text-[1.75rem] font-extrabold tracking-tight text-white sm:text-4xl">
-                  {title}
-                </h1>
-                {subtitle && (
-                  <p className="mt-2 text-sm leading-relaxed text-white/50">{subtitle}</p>
-                )}
-              </div>
-              {action && <div className="shrink-0 pt-1">{action}</div>}
-            </header>
+            {!bare && (
+              <header className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h1 className="truncate text-[1.75rem] font-extrabold tracking-tight text-white sm:text-4xl">
+                    {title}
+                  </h1>
+                  {subtitle && (
+                    <p className="mt-2 text-sm leading-relaxed text-white/50">{subtitle}</p>
+                  )}
+                </div>
+                {action && <div className="shrink-0 pt-1">{action}</div>}
+              </header>
+            )}
 
-            <div className="mt-8">{children}</div>
+            <div className={bare ? undefined : "mt-8"}>{children}</div>
           </motion.div>
         </AnimatePresence>
       </main>

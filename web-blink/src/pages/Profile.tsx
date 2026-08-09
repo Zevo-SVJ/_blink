@@ -76,6 +76,8 @@ export default function Profile() {
   return (
     <AppShell
       title="Profile"
+      // Nothing here needs the full column height until an analysis exists.
+      center={load.state === "ready" && load.data.stats.verifiedCount === 0}
       action={
         load.state === "ready" ? (
           <button
