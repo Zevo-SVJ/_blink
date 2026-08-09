@@ -84,7 +84,12 @@ function createChainableMock(method: "update" | "insert", payload: Record<string
   return chain;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+/**
+ * Loosely typed on purpose: each branch returns a different chain shape, and
+ * modelling the full PostgREST builder here would be more fixture than test.
+ */
+type SupabaseFromMock = (table: string) => unknown;
+
 const mockFrom = vi.fn(((table: string) => {
   if (table === "blink_profiles") {
     return {
@@ -104,7 +109,7 @@ const mockFrom = vi.fn(((table: string) => {
       }),
     }),
   };
-}) as any);
+}) as SupabaseFromMock);
 
 vi.mock("@/lib/supabase", () => ({
   supabase: { from: mockFrom },
