@@ -43,6 +43,7 @@ export function AnalysisResult({
   revealStage = ALL_REVEALED,
   standing,
   progression,
+  climb,
   actions,
 }: {
   result: Analysis;
@@ -51,6 +52,8 @@ export function AnalysisResult({
   standing?: PublicStanding | null;
   /** Own-profile verification card. Omitted when reopening from the Library. */
   progression?: ReactNode;
+  /** Own-profile "how to climb" block, supplied once stats are known. */
+  climb?: ReactNode;
   actions?: ReactNode;
 }) {
   const voice = getVoice(result.ownership, result.subjectGender);
@@ -108,6 +111,7 @@ export function AnalysisResult({
           voice={voice}
           revealStage={revealStage}
           progression={progression}
+          climb={climb}
         />
       ) : (
         <PublicResult
@@ -140,11 +144,13 @@ function OwnResult({
   voice,
   revealStage,
   progression,
+  climb,
 }: {
   result: Analysis;
   voice: Voice;
   revealStage: number;
   progression?: ReactNode;
+  climb?: ReactNode;
 }) {
   return (
     <>
@@ -191,7 +197,9 @@ function OwnResult({
             <ResultBlock title="Your next move" text={result.nextMove} tone="action" />
           )}
 
-          {result.recommendations.length > 0 && <ImprovementPlan result={result} />}
+          {/* `climb` carries the recommendations when stats are available, so
+              the plain list is only a fallback for contexts without them. */}
+          {climb ?? (result.recommendations.length > 0 && <ImprovementPlan result={result} />)}
 
           {progression}
         </motion.div>

@@ -66,6 +66,10 @@ export interface BlinkProfile {
   avatarUrl: string | null;
   /** ISO 3166-1 alpha-2, uppercase. */
   country: string | null;
+  /** Optional. Drives whether a "View Instagram" button is shown at all. */
+  instagramUrl: string | null;
+  /** Null until the user finishes onboarding. */
+  onboardedAt: string | null;
   isPublic: boolean;
   score: number;
   peakScore: number;
@@ -82,6 +86,8 @@ interface BlinkProfileRow {
   display_name: string | null;
   avatar_url: string | null;
   country: string | null;
+  instagram_url: string | null;
+  onboarded_at: string | null;
   is_public: boolean | null;
   score: number | null;
   peak_score: number | null;
@@ -99,6 +105,8 @@ function mapProfile(row: BlinkProfileRow): BlinkProfile {
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
     country: row.country,
+    instagramUrl: row.instagram_url,
+    onboardedAt: row.onboarded_at,
     isPublic: row.is_public ?? false,
     score: row.score ?? 0,
     peakScore: row.peak_score ?? 0,
@@ -120,7 +128,7 @@ export async function fetchBlinkProfile(
     const { data, error } = await supabase
       .from("blink_profiles")
       .select(
-        "id, handle, display_name, avatar_url, country, is_public, score, peak_score, category, streak, verified_count, best_rank, last_verified_at",
+        "id, handle, display_name, avatar_url, country, instagram_url, onboarded_at, is_public, score, peak_score, category, streak, verified_count, best_rank, last_verified_at",
       )
       .eq("id", userId)
       .maybeSingle();
@@ -135,7 +143,12 @@ export async function fetchBlinkProfile(
 
 export async function updateBlinkProfile(
   userId: string,
-  patch: Partial<Pick<BlinkProfile, "handle" | "displayName" | "country" | "avatarUrl" | "isPublic">>,
+  patch: Partial<
+    Pick<
+      BlinkProfile,
+      "handle" | "displayName" | "country" | "avatarUrl" | "instagramUrl" | "isPublic"
+    >
+  > & { markOnboarded?: boolean },
 ): Promise<DataResult<null>> {
   if (!isSupabaseConfigured) return fail("updateBlinkProfile", "not configured");
 
@@ -147,7 +160,9 @@ export async function updateBlinkProfile(
         ...(patch.displayName !== undefined ? { display_name: patch.displayName } : {}),
         ...(patch.country !== undefined ? { country: patch.country } : {}),
         ...(patch.avatarUrl !== undefined ? { avatar_url: patch.avatarUrl } : {}),
+        ...(patch.instagramUrl !== undefined ? { instagram_url: patch.instagramUrl } : {}),
         ...(patch.isPublic !== undefined ? { is_public: patch.isPublic } : {}),
+        ...(patch.markOnboarded ? { onboarded_at: new Date().toISOString() } : {}),
       },
       { onConflict: "id" },
     );

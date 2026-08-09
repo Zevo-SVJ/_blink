@@ -42,13 +42,18 @@ import {
   type AnalysisResult as AnalysisResultType,
   type ProfileOwnership,
 } from "@/lib/analysis";
-import { recordAnalysis, type RecordedAnalysis } from "@/lib/blink-profile";
+import { ClimbSection } from "@/components/app/ClimbSection";
+import {
+  fetchFullProfile,
+  recordAnalysis,
+  type RecordedAnalysis,
+} from "@/lib/blink-profile";
 import { BLINK_LOGO, BRAND } from "@/lib/brand";
 import { getMockMode, mockAnalyze } from "@/lib/dev-mock";
 import { fetchMyStanding, fetchScoreStanding } from "@/lib/leaderboard";
 import { getVoice, type Voice } from "@/lib/ownership";
 import { pdpAnchor, type PdpAnchor } from "@/lib/pdp";
-import { computeBlinkScore } from "@/lib/ranking";
+import { computeBlinkScore, type ProfileStats } from "@/lib/ranking";
 import { resizeForUpload } from "@/lib/resize";
 import { cn } from "@/lib/utils";
 
@@ -111,6 +116,7 @@ export default function Product() {
   const [progression, setProgression] = useState<RecordedAnalysis | null>(null);
   const [standing, setStanding] = useState<PublicStanding | null>(null);
   const [myRank, setMyRank] = useState<number | null>(null);
+  const [myStats, setMyStats] = useState<ProfileStats | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string>("");
   const navigate = useNavigate();
@@ -256,10 +262,15 @@ export default function Product() {
   const persist = useCallback(
     async (analysis: AnalysisResultType, sourceFile: File, userId: string) => {
       try {
-        const { base64, mimeType } = await resizeForUpload(sourceFile);
-        const saved = await saveAnalysis(analysis, base64, mimeType);
+        const { base64 } = await resizeForUpload(sourceFile);
+        const saved = await saveAnalysis(userId, analysis);
         const recorded = await recordAnalysis(userId, analysis, base64, saved?.id);
         if (recorded.status === "ok") setProgression(recorded.data);
+
+        // Loaded after recording so "how to climb" reflects the analysis the
+        // user is currently looking at, not the one before it.
+        const full = await fetchFullProfile(userId, null);
+        if (full.status === "ok") setMyStats(full.data.stats);
       } catch (err) {
         // A failed save must not take down a result the user is already reading.
         console.error("[persist]", err);
@@ -398,6 +409,7 @@ export default function Product() {
                 progression={progression}
                 standing={standing}
                 shareRank={myRank}
+                stats={myStats}
                 onUnlock={() => {
                   if (!user) {
                     setAuthModalOpen(true);
@@ -414,6 +426,7 @@ export default function Product() {
                   setProgression(null);
                   setStanding(null);
                   setMyRank(null);
+                  setMyStats(null);
                   setUnlocked(false);
                   setScreen("upload");
                   if (fileInputRef.current) fileInputRef.current.value = "";
@@ -1082,6 +1095,7 @@ function ResultScreen({
   progression,
   standing,
   shareRank,
+  stats,
   onUnlock,
   onAnalyzeAnother,
 }: {
@@ -1091,6 +1105,7 @@ function ResultScreen({
   progression: RecordedAnalysis | null;
   standing: PublicStanding | null;
   shareRank: number | null;
+  stats: ProfileStats | null;
   onUnlock: () => (() => void) | void;
   onAnalyzeAnother: () => void;
 }) {
@@ -1106,6 +1121,15 @@ function ResultScreen({
         standing={standing}
         progression={
           voice.isOwn ? <ProgressionCard progression={progression} result={result} /> : undefined
+        }
+        climb={
+          voice.isOwn && stats ? (
+            <ClimbSection
+              stats={stats}
+              rank={shareRank}
+              recommendations={result.recommendations}
+            />
+          ) : undefined
         }
         actions={
           <ResultActions

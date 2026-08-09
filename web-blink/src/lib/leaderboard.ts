@@ -17,6 +17,8 @@ export interface LeaderboardEntry {
   avatarUrl: string | null;
   /** ISO 3166-1 alpha-2, uppercase. */
   country: string | null;
+  /** Optional. Absent means no "View Instagram" button. */
+  instagramUrl: string | null;
   score: number;
   peakScore: number;
   category: string | null;
@@ -34,6 +36,7 @@ interface LeaderboardRow {
   display_name: string | null;
   avatar_url: string | null;
   country: string | null;
+  instagram_url: string | null;
   score: number | null;
   peak_score: number | null;
   category: string | null;
@@ -45,7 +48,7 @@ interface LeaderboardRow {
 }
 
 const SELECT =
-  "id, handle, display_name, avatar_url, country, score, peak_score, category, streak, verified_count, rank, category_rank, movement";
+  "id, handle, display_name, avatar_url, country, instagram_url, score, peak_score, category, streak, verified_count, rank, category_rank, movement";
 
 const UNREACHABLE =
   "Blink can't load the leaderboard right now. Check your connection and try again.";
@@ -80,6 +83,7 @@ function mapEntry(row: LeaderboardRow): LeaderboardEntry {
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
     country: row.country,
+    instagramUrl: row.instagram_url,
     score: row.score ?? 0,
     peakScore: row.peak_score ?? 0,
     category: row.category,
@@ -146,6 +150,36 @@ export async function fetchMyStanding(
     if (error) {
       if (isMissingRelation(error)) return { status: "ok", data: null };
       console.error("[fetchMyStanding]", error.message);
+      return { status: "error", message: UNREACHABLE };
+    }
+
+    return { status: "ok", data: data ? mapEntry(data as LeaderboardRow) : null };
+  });
+}
+
+/**
+ * Anyone's public standing by id.
+ *
+ * Reads the `leaderboard` view, which already excludes private profiles and
+ * those without a verified analysis — so visibility is enforced by the query
+ * rather than by a check the caller could forget. A hidden profile simply
+ * returns null.
+ */
+export async function fetchPublicStanding(
+  userId: string,
+): Promise<DataResult<LeaderboardEntry | null>> {
+  if (!isSupabaseConfigured) return { status: "error", message: UNREACHABLE };
+
+  return safe("fetchPublicStanding", async () => {
+    const { data, error } = await supabase
+      .from("leaderboard")
+      .select(SELECT)
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      if (isMissingRelation(error)) return { status: "ok", data: null };
+      console.error("[fetchPublicStanding]", error.message);
       return { status: "error", message: UNREACHABLE };
     }
 

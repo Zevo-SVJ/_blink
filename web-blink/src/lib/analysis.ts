@@ -109,6 +109,38 @@ export function isRefusal(code: AnalysisErrorCode): boolean {
   return code === "NOT_INSTAGRAM" || code === "UNSAFE_CONTENT";
 }
 
+/**
+ * Detect an analysis that carries no actual reading of a profile.
+ *
+ * When the model is handed something that isn't an Instagram profile it does
+ * not always take the rejection path — sometimes it complies with the schema
+ * and returns zeros. The validator then fills the gaps and the UI presents a
+ * confident "0" as though it were a real score.
+ *
+ * This is the backstop: a result with no signal, no narrative and no traits
+ * isn't an analysis, whatever the model called it. Treated as a rejection so
+ * the user is told to pick another image rather than shown a fake score.
+ *
+ * The thresholds are deliberately low — a genuinely poor profile still scores
+ * a few points on several axes and always produces prose.
+ */
+export function isDegenerateAnalysis(result: AnalysisResult): boolean {
+  const signalTotal = result.signals.reduce((sum, s) => sum + s.score, 0);
+  const hasNarrative = result.why.trim().length > 0;
+  const hasTraits = result.traits.length > 0;
+  const hasImpression = result.firstImpression.trim().length > 0
+    && result.firstImpression !== "First impression";
+
+  // Everything flat at zero AND nothing written: not a profile read.
+  if (signalTotal <= 0 && result.overallScore <= 0) return true;
+
+  // Scored but completely mute — the model filled numbers without seeing
+  // anything it could describe.
+  if (!hasNarrative && !hasTraits && !hasImpression) return true;
+
+  return false;
+}
+
 export class AnalysisError extends Error {
   code: AnalysisErrorCode;
   /** Real error detail for development — never shown to users */
@@ -393,7 +425,21 @@ export async function analyzeProfile(
   }
 
   console.log("[analyzeProfile] success — validating result");
-  return validateAnalysisResult(result);
+  const validated = validateAnalysisResult(result);
+
+  // Last line of defence: the model sometimes answers a non-profile image with
+  // a schema-shaped but empty analysis instead of refusing. Showing that as a
+  // score would be fabricating a reading, so it becomes a rejection here.
+  if (isDegenerateAnalysis(validated)) {
+    console.warn("[analyzeProfile] degenerate result — treating as not-an-Instagram-profile");
+    throw new AnalysisError(
+      "NOT_INSTAGRAM",
+      undefined,
+      "Model returned an empty analysis; likely not a profile screenshot",
+    );
+  }
+
+  return validated;
 }
 
 // ---------------------------------------------------------------------------
@@ -412,14 +458,17 @@ export interface SavedAnalysis {
  * RLS ensures only the authenticated user can insert their own records.
  */
 export async function saveAnalysis(
+  userId: string,
   result: AnalysisResult,
-  _imageBase64: string,
-  _mimeType: string,
 ): Promise<SavedAnalysis | null> {
   try {
     const { data, error } = await supabase
       .from("analyses")
       .insert({
+        // Required and has no database default — omitting it made every
+        // insert fail the NOT NULL check, which is why nothing ever reached
+        // the Library. RLS also matches this against auth.uid().
+        user_id: userId,
         ownership: result.ownership,
         overall_score: result.overallScore,
         first_impression: result.firstImpression,

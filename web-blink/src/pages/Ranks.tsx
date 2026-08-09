@@ -20,7 +20,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { EmptyState, ErrorState, SkeletonList } from "@/components/app/states";
 import { useAuth } from "@/hooks/useAuth";
 import { formatRank } from "@/lib/app-nav";
-import { categoryBlurb, categoryLabel, orderCategories } from "@/lib/categories";
+import { availableCategories, categoryBlurb, categoryLabel } from "@/lib/categories";
 import { countryName, flagEmoji } from "@/lib/countries";
 import {
   fetchCategories,
@@ -182,20 +182,28 @@ function CategoryPicker({
   selected: string | null;
   onSelect: (category: string | null) => void;
 }) {
-  const ordered = orderCategories(present);
-  const presentSet = new Set(present.map((c) => c.toLowerCase()));
+  // Only categories that actually have ranked profiles get a tab — an empty
+  // board is not worth inviting a tap.
+  const available = availableCategories(present);
   const blurb = categoryBlurb(selected);
+
+  if (available.length === 0) {
+    return (
+      <p className="px-1 text-sm text-white/40">
+        Categories appear once ranked profiles have been classified.
+      </p>
+    );
+  }
 
   return (
     <div>
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         <CategoryChip label="All" active={selected === null} onClick={() => onSelect(null)} />
-        {ordered.map((c) => (
+        {available.map((c) => (
           <CategoryChip
             key={c.id}
             label={c.label}
             active={selected === c.id}
-            dim={!presentSet.has(c.id)}
             onClick={() => onSelect(c.id)}
           />
         ))}
@@ -208,12 +216,10 @@ function CategoryPicker({
 function CategoryChip({
   label,
   active,
-  dim = false,
   onClick,
 }: {
   label: string;
   active: boolean;
-  dim?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -224,9 +230,7 @@ function CategoryChip({
         "shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition-colors",
         active
           ? "bg-blink-sky text-blink-navy"
-          : dim
-            ? "border border-white/[0.07] text-white/35 hover:text-white/60"
-            : "border border-white/10 text-white/70 hover:text-white",
+          : "border border-white/10 text-white/70 hover:text-white",
       )}
     >
       {label}
@@ -247,6 +251,7 @@ function StandingsBoard({
   byCategory: boolean;
   currentUserId?: string;
 }) {
+  const navigate = useNavigate();
   if (entries.length === 0) return <LaunchState byCategory={byCategory} />;
 
   const inList = me ? entries.some((e) => e.id === me.id) : false;
@@ -260,13 +265,22 @@ function StandingsBoard({
           position={byCategory ? entry.categoryRank : entry.rank}
           index={i}
           isMe={entry.id === currentUserId}
+          onOpen={() =>
+            navigate(entry.id === currentUserId ? "/profile" : `/u/${entry.id}`)
+          }
         />
       ))}
 
       {me && !inList && (
         <>
           <p className="pt-2 text-center text-xs font-semibold text-white/30">Your position</p>
-          <RankRow entry={me} position={byCategory ? me.categoryRank : me.rank} index={0} isMe />
+          <RankRow
+            entry={me}
+            position={byCategory ? me.categoryRank : me.rank}
+            index={0}
+            isMe
+            onOpen={() => navigate("/profile")}
+          />
         </>
       )}
     </div>
@@ -284,25 +298,33 @@ function RankRow({
   position,
   index,
   isMe,
+  onOpen,
 }: {
   entry: LeaderboardEntry;
   position: number;
   index: number;
   isMe: boolean;
+  onOpen: () => void;
 }) {
   const tier = getTier(entry.score);
   const name = entry.handle ? `@${entry.handle}` : (entry.displayName ?? "Anonymous");
   const secondary = entry.handle ? entry.displayName : null;
 
   return (
-    <motion.div
+    <motion.button
+      type="button"
+      onClick={onOpen}
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      whileTap={{ scale: 0.99 }}
       transition={{ type: "spring", stiffness: 320, damping: 32, delay: Math.min(index * 0.03, 0.25) }}
+      aria-label={`Open ${entry.handle ? `@${entry.handle}` : "profile"}`}
       className={cn(
-        "flex items-center gap-3 rounded-2xl border p-3",
-        isMe ? "border-blink-sky/35 bg-blink-sky/[0.07]" : "border-white/[0.07] bg-white/[0.03]",
+        "flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors",
+        isMe
+          ? "border-blink-sky/35 bg-blink-sky/[0.07] hover:bg-blink-sky/[0.11]"
+          : "border-white/[0.07] bg-white/[0.03] hover:bg-white/[0.06]",
       )}
     >
       <span
@@ -346,7 +368,7 @@ function RankRow({
       <span className="w-11 shrink-0 text-right text-base font-extrabold tabular-nums text-white sm:w-14 sm:text-lg">
         {entry.score}
       </span>
-    </motion.div>
+    </motion.button>
   );
 }
 

@@ -78,6 +78,33 @@
   ::selection {
     background: hsl(var(--blink-sky) / 0.45);
   }
+
+  /*
+   * iOS Safari zooms the viewport when a focused control's font-size is below
+   * 16px, and that zoom is what leaves the app shifted sideways and unable to
+   * scroll back. Enforcing the threshold on touch devices prevents it without
+   * disabling pinch-zoom, which would cost accessibility.
+   *
+   * Belt-and-braces alongside the explicit sizing in IdentityForm — a future
+   * component could easily forget.
+   */
+  @media (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      font-size: max(16px, 1rem);
+    }
+  }
+
+  /*
+   * A focused input inside a transformed ancestor can still nudge the document
+   * horizontally on iOS. Clipping at the root contains it; `clip` rather than
+   * `hidden` so it does not create a scroll container that would break
+   * `position: sticky` further down the tree.
+   */
+  html {
+    overflow-x: clip;
+  }
 }
 
 @layer utilities {

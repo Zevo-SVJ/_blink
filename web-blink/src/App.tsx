@@ -11,6 +11,7 @@ import AppHome from "./pages/AppHome";
 import Library from "./pages/Library";
 import AnalysisDetail from "./pages/AnalysisDetail";
 import Profile from "./pages/Profile";
+import PublicProfile from "./pages/PublicProfile";
 import Ranks from "./pages/Ranks";
 import Settings from "./pages/Settings";
 import AuthCallback from "./pages/AuthCallback";
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/library" element={<Library />} />
             <Route path="/library/:id" element={<AnalysisDetail />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/u/:id" element={<PublicProfile />} />
             <Route path="/ranks" element={<Ranks />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
