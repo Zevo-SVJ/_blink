@@ -15,7 +15,10 @@
  * component. If a component changes, this page changes with it.
  */
 
+import { useState } from "react";
+
 import { PageBackground } from "@/components/blink/PageBackground";
+import { AddSomeoneSheet, Confirmation } from "@/components/app/AddSomeoneSheet";
 import { TabBar } from "@/components/app/TabBar";
 import { BadgeShelf } from "@/components/app/BadgeEmblem";
 import { ClimbSection } from "@/components/app/ClimbSection";
@@ -58,6 +61,7 @@ const STATS: ProfileStats = {
 };
 
 export default function DevGallery() {
+  const [sheetOpen, setSheetOpen] = useState(false);
   const publicRead =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).has("public");
@@ -95,6 +99,23 @@ export default function DevGallery() {
       <PageBackground />
 
       <div className="mx-auto w-full max-w-2xl space-y-14 px-4 pt-10 sm:px-6">
+        <Block id="add-someone" title="Add someone — suggestion sheet">
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            className="min-h-[44px] rounded-2xl bg-blink-sky px-5 text-sm font-bold text-blink-navy"
+          >
+            Open the sheet
+          </button>
+          <AddSomeoneSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+
+          {/* The success beat, on its own: it is otherwise only reachable with
+              live credentials and an applied migration. */}
+          <div className="mt-5 rounded-[1.75rem] bg-blink-navy-2 ring-1 ring-white/[0.09]">
+            <Confirmation result={{ status: "ok" }} handle="mia.s" />
+          </div>
+        </Block>
+
         <Block id="badges-earned" title="Badges — earned and elite">
           <BadgeShelf badges={badges} title="Record" />
         </Block>

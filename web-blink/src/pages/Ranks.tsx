@@ -18,10 +18,11 @@
  */
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Crown, Info, Rocket, Trophy } from "lucide-react";
+import { Crown, Info, Rocket, Trophy, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { AddSomeoneSheet } from "@/components/app/AddSomeoneSheet";
 import { AppShell } from "@/components/app/AppShell";
 import { EmptyState, ErrorState, SkeletonList } from "@/components/app/states";
 import { useAuth } from "@/hooks/useAuth";
@@ -56,6 +57,7 @@ type Load =
 export default function Ranks() {
   const { user } = useAuth();
   const [board, setBoard] = useState<Board>("standings");
+  const [adding, setAdding] = useState(false);
   const [category, setCategory] = useState<string | null>(null);
   const [load, setLoad] = useState<Load>({ state: "loading" });
 
@@ -95,7 +97,19 @@ export default function Ranks() {
       title="Leaderboard"
       subtitle="Ranked by how optimized a profile is. Not by followers."
       wide
+      action={
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-white/[0.06] px-3.5 text-xs font-bold text-white/80 ring-1 ring-white/10 transition-colors hover:bg-white/[0.11]"
+        >
+          <UserPlus className="h-3.5 w-3.5" />
+          Add someone
+        </button>
+      }
     >
+      <AddSomeoneSheet open={adding} onClose={() => setAdding(false)} />
+
       <BoardTabs board={board} onChange={setBoard} />
 
       {load.state === "loading" && (

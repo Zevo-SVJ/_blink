@@ -721,6 +721,8 @@ export function AnalysisScreen({
   const [scanY, setScanY] = useState(0);
   const [transformed, setTransformed] = useState(false);
   const [signalsVisible, setSignalsVisible] = useState(false);
+  /** Blink has found the profile picture and is marking it, pre-zoom. */
+  const [locating, setLocating] = useState(false);
   const [target, setTarget] = useState<PdpTarget | null>(null);
 
   const stageRef = useRef<HTMLDivElement>(null);
@@ -793,10 +795,17 @@ export function AnalysisScreen({
     };
   }, [measureTarget, previewUrl]);
 
+  /**
+   * Mark the profile picture, then move the camera onto it.
+   *
+   * The pause is the point: without it the zoom is unmotivated, and the user
+   * sees a viewport lurch rather than "it found my picture and went in".
+   */
   const beginTransform = useCallback(() => {
     setTarget((current) => current ?? measureTarget());
-    setTransformed(true);
-    window.setTimeout(() => setSignalsVisible(true), 950);
+    setLocating(true);
+    window.setTimeout(() => setTransformed(true), 620);
+    window.setTimeout(() => setSignalsVisible(true), 1650);
   }, [measureTarget]);
 
   /**
@@ -838,7 +847,7 @@ export function AnalysisScreen({
         window.setTimeout(() => {
           setProgress(stage.target);
           if (stage.target >= TRANSFORM_PROGRESS) {
-            setTransformed((already) => {
+            setLocating((already) => {
               if (!already) beginTransform();
               return true;
             });
@@ -853,9 +862,9 @@ export function AnalysisScreen({
     // Runs once for the lifetime of the screen; both callbacks are stable.
   }, [beginTransform, cancelStages]);
 
-  // Scan line, retired once the screenshot collapses.
+  // Scan line, retired once Blink has locked onto the profile picture.
   useEffect(() => {
-    if (transformed) return;
+    if (locating) return;
     let frame: number;
     let startTime: number | null = null;
     const period = 2800;
@@ -868,7 +877,7 @@ export function AnalysisScreen({
     };
     frame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(frame);
-  }, [transformed]);
+  }, [locating]);
 
   // Result landed and the bar is full — hand off to the result screen.
   useEffect(() => {
@@ -886,9 +895,8 @@ export function AnalysisScreen({
     setMessageIdx(messages.length - 1);
     setTransformed((already) => {
       if (!already) beginTransform();
-      return true;
+      return already;
     });
-    setSignalsVisible(true);
   }, [hasResult, progress, messages.length, beginTransform, cancelStages]);
 
   // Both endpoints of the clip are expressed in pixels around the same centre,
@@ -900,10 +908,20 @@ export function AnalysisScreen({
       : `circle(${target.coverRadius}px at ${target.localX}px ${target.localY}px)`
     : "circle(150% at 50% 50%)";
 
+  /**
+   * The camera move, in two stages.
+   *
+   * A small lead-in — 1.35× toward the avatar — starts as soon as the target
+   * is known, so the shot is already drifting toward the profile picture
+   * while the marker settles on it. The full move follows. One jump from rest
+   * to 5× read as a cut; this reads as a camera finding its subject.
+   */
   const camera =
-    transformed && target
+    target && transformed
       ? { scale: target.scale, x: target.x, y: target.y }
-      : { scale: 1, x: 0, y: 0 };
+      : target && locating
+        ? { scale: 1.35, x: target.x * (0.35 / (target.scale - 1 || 1)), y: target.y * (0.35 / (target.scale - 1 || 1)) }
+        : { scale: 1, x: 0, y: 0 };
 
   return (
     <motion.div
@@ -964,29 +982,74 @@ export function AnalysisScreen({
               style={{ maxHeight: STAGE_HEIGHT, maxWidth: STAGE_MAX_WIDTH }}
               draggable={false}
             />
-            {!transformed && (
+            {/*
+              The read.
+
+              A soft band of light travelling down the capture, not a hard
+              line: a 2px white rule with a glow reads as a sci-fi prop, and
+              the brief was "Blink is inspecting this", which is a quieter
+              gesture. Three layers do it — a wide soft wash, a narrow bright
+              core inside it, and a faint sheen that lags slightly behind, so
+              the light has depth and a direction rather than being a shape
+              that slides.
+            */}
+            {!locating && (
               <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
                 <div
-                  className="absolute left-0 right-0"
+                  className="absolute inset-x-0"
                   style={{
                     top: `${scanY * 100}%`,
-                    height: "2px",
+                    height: "140px",
+                    transform: "translateY(-70px)",
                     background:
-                      "linear-gradient(90deg, transparent, rgba(175,224,249,0.6) 30%, rgba(175,224,249,0.9) 50%, rgba(175,224,249,0.6) 70%, transparent)",
-                    boxShadow: "0 0 12px 2px rgba(175,224,249,0.3)",
+                      "linear-gradient(to bottom, transparent 0%, rgba(175,224,249,0.05) 35%, rgba(175,224,249,0.12) 50%, rgba(175,224,249,0.05) 65%, transparent 100%)",
                   }}
                 />
                 <div
-                  className="absolute left-0 right-0"
+                  className="absolute inset-x-0"
                   style={{
                     top: `${scanY * 100}%`,
+                    height: "26px",
+                    transform: "translateY(-13px)",
+                    background:
+                      "linear-gradient(to bottom, transparent, rgba(200,235,255,0.3), transparent)",
+                  }}
+                />
+                {/* The lag. A second, dimmer pass a few percent behind the
+                    first is what stops it reading as a solid moving bar. */}
+                <div
+                  className="absolute inset-x-0"
+                  style={{
+                    top: `${Math.max(0, scanY * 100 - 5)}%`,
                     height: "60px",
                     transform: "translateY(-30px)",
                     background:
-                      "linear-gradient(to bottom, transparent, rgba(175,224,249,0.06), transparent)",
+                      "linear-gradient(to bottom, transparent, rgba(175,224,249,0.07), transparent)",
                   }}
                 />
               </div>
+            )}
+
+            {/*
+              Lock-on. Drawn in the screenshot's own coordinate space, so it
+              sits exactly on the detected profile picture and rides the zoom
+              with it. This is the beat that makes the camera move legible:
+              first Blink shows you what it found, then it goes there.
+            */}
+            {target && locating && (
+              <motion.span
+                aria-hidden
+                className="pointer-events-none absolute rounded-full ring-2 ring-blink-sky"
+                style={{
+                  left: target.localX - target.localRadius,
+                  top: target.localY - target.localRadius,
+                  width: target.localRadius * 2,
+                  height: target.localRadius * 2,
+                }}
+                initial={{ opacity: 0, scale: 2.4 }}
+                animate={{ opacity: transformed ? 0 : 1, scale: 1 }}
+                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              />
             )}
           </motion.div>
         </motion.div>

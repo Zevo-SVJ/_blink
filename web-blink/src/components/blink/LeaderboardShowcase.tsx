@@ -87,11 +87,11 @@ const CATEGORY_PILLS = ["All", "Larp", "Creator", "Fashion", "Fitness"];
  * than a product. The run loops, so no frame is ever the last one.
  */
 const STEPS = [
-  { id: "board", caption: "Ranked on how a profile reads. Not on followers.", ms: 1900 },
-  { id: "climb", caption: "Improve something real, and you move.", ms: 2000 },
-  { id: "categories", caption: "You're ranked inside a category, too.", ms: 1700 },
-  { id: "larp", caption: "Larp — one of Blink's categories.", ms: 1800 },
-  { id: "badges", caption: "Rank high enough and it becomes status.", ms: 2600 },
+  { id: "board", caption: "Ranked on how a profile reads. Not on followers.", ms: 2300 },
+  { id: "climb", caption: "Improve something real, and you move.", ms: 2400 },
+  { id: "categories", caption: "You're ranked inside a category, too.", ms: 1900 },
+  { id: "larp", caption: "Larp — one of Blink's categories.", ms: 2000 },
+  { id: "badges", caption: "Rank high enough and it becomes status.", ms: 3000 },
 ] as const;
 
 /** The status a first-in-category, first-overall profile actually holds. */
