@@ -1,11 +1,8 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useLayoutEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import { AppChrome } from "@/components/app/AppChrome";
 import { PageBackground } from "@/components/blink/PageBackground";
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 
 // The landing is the only route most visitors ever see, so it ships in the
@@ -32,16 +29,24 @@ const NotFound = lazy(() => import("./pages/NotFound"));
  * is statically replaced at build time, so the route and its chunk are dropped
  * from production entirely.
  */
-const DevGallery = import.meta.env.DEV ? lazy(() => import("./pages/DevGallery")) : null;
+const DevGallery = import.meta.env.DEV
+  ? lazy(() => import("./pages/DevGallery"))
+  : null;
 
 const Legal = {
-  Privacy: lazy(() => import("./pages/Legal").then((m) => ({ default: m.PrivacyPolicy }))),
-  Terms: lazy(() => import("./pages/Legal").then((m) => ({ default: m.TermsOfService }))),
-  Cookies: lazy(() => import("./pages/Legal").then((m) => ({ default: m.CookiePolicy }))),
-  Contact: lazy(() => import("./pages/Legal").then((m) => ({ default: m.ContactPage }))),
+  Privacy: lazy(() =>
+    import("./pages/Legal").then((m) => ({ default: m.PrivacyPolicy })),
+  ),
+  Terms: lazy(() =>
+    import("./pages/Legal").then((m) => ({ default: m.TermsOfService })),
+  ),
+  Cookies: lazy(() =>
+    import("./pages/Legal").then((m) => ({ default: m.CookiePolicy })),
+  ),
+  Contact: lazy(() =>
+    import("./pages/Legal").then((m) => ({ default: m.ContactPage })),
+  ),
 };
-
-const queryClient = new QueryClient();
 
 /**
  * Shown while a split route's chunk loads. Just the brand background — a
@@ -55,16 +60,36 @@ function RouteFallback() {
   );
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+/**
+ * Three providers used to wrap this tree — TanStack Query, Sonner's `Toaster`
+ * and Radix's `TooltipProvider`. None of them were used anywhere: no
+ * `useQuery`, no `toast()`, no `<Tooltip>` in the entire codebase. They cost
+ * roughly 35 kB gzip in the *critical* bundle, on every first load, to render
+ * nothing. Removed. The shadcn wrappers remain in `components/ui` for whenever
+ * something actually needs them.
+ */
+const App = () => {
+  /**
+   * Hand scrolling back to the user.
+   *
+   * `index.html` locks it while the boot markup is the whole document — see
+   * the note there. A layout effect is the right moment: it runs after React
+   * has committed the real page and before the browser paints it, so the
+   * document is already full height the first time scrolling is possible.
+   */
+  useLayoutEffect(() => {
+    document.documentElement.classList.remove("booting");
+  }, []);
+
+  return (
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          {/* The tab bar is mounted here, once, so navigating between app
+      <BrowserRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        {/* The tab bar is mounted here, once, so navigating between app
               screens never rebuilds it. See `AppChrome`. */}
-          <AppChrome>
-            <Suspense fallback={<RouteFallback />}>
+        <AppChrome>
+          <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/analyze" element={<Product />} />
@@ -84,13 +109,12 @@ const App = () => (
               {DevGallery && <Route path="/dev" element={<DevGallery />} />}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-          </AppChrome>
-        </BrowserRouter>
-      </TooltipProvider>
+            </Routes>
+          </Suspense>
+        </AppChrome>
+      </BrowserRouter>
     </AuthProvider>
-  </QueryClientProvider>
-);
+  );
+};
 
 export default App;

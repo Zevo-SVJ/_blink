@@ -15,7 +15,26 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 
-import { supabase } from "@/lib/supabase";
+/**
+ * Supabase is loaded on demand, not imported.
+ *
+ * The client is ~330 kB (92 kB gzip) and `AuthProvider` wraps the whole app,
+ * so a static import put it in the critical path: nothing could paint until
+ * it had downloaded, parsed and run. On a fast-3G phone that was most of the
+ * wait users saw as a blank screen — the landing page does not need Supabase
+ * to render, only to answer "is anyone signed in", which it can do a moment
+ * later without holding up the first paint.
+ *
+ * Everything below awaits `client()`. The provider already starts in
+ * `isLoading: true`, so nothing about the observable behaviour changes; the
+ * chunk simply downloads alongside the UI instead of in front of it.
+ */
+let clientPromise: Promise<typeof import("@/lib/supabase")> | null = null;
+
+function client() {
+  clientPromise ??= import("@/lib/supabase");
+  return clientPromise;
+}
 
 export interface User {
   id: string;
@@ -93,24 +112,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     mounted.current = true;
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data }) => {
+    let unsubscribe: (() => void) | undefined;
+
+    void client().then(async ({ supabase }) => {
+      if (!mounted.current) return;
+
+      // Initial session.
+      const { data } = await supabase.auth.getSession();
       if (!mounted.current) return;
       setSession(data.session);
       setUser(data.session?.user ? mapUser(data.session.user) : null);
       setIsLoading(false);
-    });
 
-    // Listen for auth state changes (login, logout, token refresh)
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (!mounted.current) return;
-      setSession(newSession);
-      setUser(newSession?.user ? mapUser(newSession.user) : null);
+      // Login, logout, token refresh.
+      const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+        if (!mounted.current) return;
+        setSession(newSession);
+        setUser(newSession?.user ? mapUser(newSession.user) : null);
+      });
+      unsubscribe = () => listener.subscription.unsubscribe();
     });
 
     return () => {
       mounted.current = false;
-      listener.subscription.unsubscribe();
+      unsubscribe?.();
     };
   }, []);
 
@@ -118,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     setIsSigningIn(true);
     try {
+      const { supabase } = await client();
       const { data, error: err } = await supabase.auth.signUp({ email, password });
       if (err) throw err;
 
@@ -141,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     setIsSigningIn(true);
     try {
+      const { supabase } = await client();
       const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) throw err;
 
@@ -163,6 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ? window.location.origin
         : `${window.location.origin}/auth/callback`;
 
+      const { supabase } = await client();
       const { error: err } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo },
@@ -181,6 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     setIsSigningIn(true);
     try {
+      const { supabase } = await client();
       const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset`,
       });
@@ -196,6 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resendVerification = useCallback(async (email: string) => {
     setError(null);
     try {
+      const { supabase } = await client();
       const { error: err } = await supabase.auth.resend({
         type: "signup",
         email,
@@ -208,7 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(() => {
-    void supabase.auth.signOut();
+    void client().then(({ supabase }) => supabase.auth.signOut());
     setSession(null);
     setUser(null);
   }, []);
@@ -257,6 +287,7 @@ export function getAccessToken(): string | null {
 
 /** Fetch helper that attaches the Supabase session token to API calls. */
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
+  const { supabase } = await client();
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   return fetch(url, {

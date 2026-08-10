@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="booting">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -61,21 +61,55 @@
       with nothing on it. No amount of animation tuning fixes that, because
       React has not run yet.
 
-      So the hero is also written here, in plain HTML with its CSS inline, and
-      paints in ~0.2 s. React mounts underneath and `main.tsx` removes this
-      once the real hero is on screen. The two are matched deliberately —
-      same gradient, same type scale, same button geometry — so the handover
-      is invisible rather than a jump.
+      So the hero is also written here, in plain HTML with its CSS inline.
+
+      **It lives INSIDE `#root`, and that placement is the whole design.**
+      The first version of this was a `position: fixed` overlay next to
+      `#root`, and it broke the page in three separate ways:
+
+        - the document was one viewport tall until React mounted, so the page
+          could not be scrolled at all for the whole load;
+        - a queued scroll then applied the instant React inflated the document,
+          which is the "jumps to the top and back down" report;
+        - both heroes existed at once, and the overlay was removed on a timer,
+          so the handover was a visible cut between two copies.
+
+      Inside `#root`, React's first commit *replaces* this markup. There is
+      never more than one hero in the tree, nothing is removed on a timer, and
+      there is no overlay to trap the scroll. The real fix for the wait itself
+      is upstream — see the Supabase note in `useAuth` — this is only the
+      bridge, and it is now a few hundred milliseconds rather than seconds.
 
       Keep them in sync. If the hero's headline or CTA changes, change it in
       both places; a mismatch here is a visible flicker on every cold load.
     -->
     <style>
+      /*
+        No scrolling until React owns the page.
+
+        Before React mounts, the document is one screen tall — there is nothing
+        below the hero yet. A user who flicks during that window scrolls
+        nothing, but iOS keeps the gesture's momentum, and applies it the
+        instant React inflates the document to its real height. That is the
+        "jumps to the top and then back down by itself" report: not a bug in
+        the animation, a queued scroll landing on a page that just grew.
+
+        Locking it for the few hundred milliseconds costs nothing (there is
+        genuinely nothing to scroll to) and makes the jump impossible rather
+        than unlikely. `App` removes the class in a layout effect, before the
+        browser paints the real page.
+      */
+      html.booting,
+      html.booting body {
+        overflow: hidden;
+        height: 100%;
+      }
+
       #boot {
-        position: fixed;
-        inset: 0;
-        z-index: 1;
+        /* In flow, not fixed. A fixed overlay leaves the document one screen
+           tall and swallows the scroll until React arrives. */
         display: flex;
+        min-height: 100svh;
         flex-direction: column;
         align-items: center;
         justify-content: center;
@@ -89,10 +123,6 @@
         );
         font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
         -webkit-font-smoothing: antialiased;
-      }
-
-      #boot[hidden] {
-        display: none;
       }
 
       #boot .b-mark {
@@ -179,17 +209,15 @@
   </head>
 
   <body>
-    <div id="root"></div>
-
-    <!-- Removed by main.tsx as soon as the real hero has painted. -->
-    <div id="boot">
+    <!-- Inside #root on purpose: React's first commit replaces it. -->
+    <div id="root"><div id="boot">
       <span class="b-mark">Blink</span>
       <h1>
         See yourself the way<br /><span class="b-accent">others see you.</span>
       </h1>
       <p>Blink analyzes your Instagram presence and reveals the first impression you make.</p>
       <a class="b-cta" href="/analyze">See my first impression</a>
-    </div>
+    </div></div>
 
     <script type="module" src="/src/main.tsx"></script>
   </body>
