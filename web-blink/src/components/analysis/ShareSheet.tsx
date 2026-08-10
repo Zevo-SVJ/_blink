@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AnalysisResult } from "@/lib/analysis";
 import {
   SHARE_FORMATS,
+  SHARE_VARIANTS,
   canShareFiles,
   canvasToBlob,
   drawShareCard,
@@ -33,6 +34,7 @@ export function ShareSheet({
   rank?: number | null;
 }) {
   const [format, setFormat] = useState<ShareFormat>("story");
+  const [variantIndex, setVariantIndex] = useState(0);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
@@ -40,20 +42,21 @@ export function ShareSheet({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const spec = SHARE_FORMATS.find((f) => f.id === format) ?? SHARE_FORMATS[0];
+  const variant = SHARE_VARIANTS[variantIndex] ?? SHARE_VARIANTS[0];
 
   // Redraw whenever the sheet opens or the format changes.
   useEffect(() => {
     if (!open) return;
     setError(null);
     try {
-      const canvas = drawShareCard(toShareCardData(result, rank), spec);
+      const canvas = drawShareCard(toShareCardData(result, rank), spec, variant);
       canvasRef.current = canvas;
       setPreview(canvas.toDataURL("image/png"));
     } catch (err) {
       console.error("[ShareSheet] draw failed", err);
       setError("Blink couldn't build the card. Try again.");
     }
-  }, [open, spec, result, rank]);
+  }, [open, spec, variant, result, rank]);
 
   // Close on Escape, matching the dialog role.
   useEffect(() => {
@@ -108,7 +111,7 @@ export function ShareSheet({
     } finally {
       setBusy(false);
     }
-  }, [format, result.handle]);
+  }, [format, variant.id, result.handle]);
 
   return (
     <AnimatePresence>
@@ -174,13 +177,35 @@ export function ShareSheet({
             </div>
             <p className="mt-2 text-center text-[0.7rem] text-white/35">{spec.hint}</p>
 
-            {/* Preview */}
+            {/*
+              Preview — swipe horizontally to change the background.
+
+              A drag past a small threshold steps the palette. The card itself
+              never moves off screen: it shifts a little, snaps back, and
+              redraws in the new colours, so the gesture reads as "turning to
+              the next one" without a carousel's layout cost.
+            */}
             <div className="mt-4 flex justify-center">
               {preview ? (
-                <img
+                <motion.img
+                  key={variant.id}
                   src={preview}
-                  alt="Preview of your Blink share card"
-                  className="w-auto rounded-2xl border border-white/[0.08] shadow-2xl"
+                  alt={`Preview of your Blink share card — ${variant.label}`}
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.16}
+                  onDragEnd={(_, info) => {
+                    if (Math.abs(info.offset.x) < 48) return;
+                    setVariantIndex(
+                      (i) =>
+                        (i + (info.offset.x < 0 ? 1 : -1) + SHARE_VARIANTS.length) %
+                        SHARE_VARIANTS.length,
+                    );
+                  }}
+                  initial={{ opacity: 0.4, scale: 0.985 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: "spring", stiffness: 320, damping: 30 }}
+                  className="w-auto cursor-grab touch-pan-y rounded-2xl border border-white/[0.08] shadow-2xl active:cursor-grabbing"
                   style={{ maxHeight: "min(46dvh, 380px)" }}
                 />
               ) : (
@@ -190,6 +215,33 @@ export function ShareSheet({
                 />
               )}
             </div>
+
+            {/* Dots double as the affordance — a bare swipe is undiscoverable. */}
+            <div className="mt-3 flex items-center justify-center gap-2">
+              {SHARE_VARIANTS.map((v, i) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setVariantIndex(i)}
+                  aria-label={v.label}
+                  aria-current={i === variantIndex}
+                  className="flex h-11 w-8 items-center justify-center"
+                >
+                  <span
+                    className={cn(
+                      "block rounded-full ring-1 transition-all",
+                      i === variantIndex
+                        ? "h-4 w-4 ring-white/70"
+                        : "h-3 w-3 ring-white/20",
+                    )}
+                    style={{ background: v.lift }}
+                  />
+                </button>
+              ))}
+            </div>
+            <p className="text-center text-[0.7rem] text-white/35">
+              {variant.label} — swipe the card to change
+            </p>
 
             {error && (
               <p role="alert" className="mt-3 text-center text-xs font-medium text-red-400">

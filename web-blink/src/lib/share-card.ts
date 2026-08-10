@@ -21,6 +21,71 @@ import { MAX_SCORE, computeBlinkScore, getTier } from "@/lib/ranking";
 
 export type ShareFormat = "story" | "square";
 
+/**
+ * Background treatments, swiped between before sharing.
+ *
+ * The card is the thing people post, and a single fixed look means every Blink
+ * result in a feed is the same image. Four palettes is enough that two friends
+ * rarely post identical cards, and few enough that all of them stay
+ * recognisably Blink: same layout, same type, same ring — only the environment
+ * changes. Text colours are fixed white/sky across all of them, so contrast is
+ * never at the mercy of the choice.
+ */
+export type ShareVariant = "midnight" | "ember" | "moss" | "violet";
+
+export interface ShareVariantSpec {
+  id: ShareVariant;
+  label: string;
+  /** Base fill. */
+  base: string;
+  /** Colour of the glow lifted from the top. */
+  lift: string;
+  /** Ring, bar and accent text. */
+  accent: string;
+  /** Tint behind the crush read. */
+  lens: string;
+  lensRing: string;
+}
+
+export const SHARE_VARIANTS: ShareVariantSpec[] = [
+  {
+    id: "midnight",
+    label: "Midnight",
+    base: "#04102D",
+    lift: "#0d2049",
+    accent: "#AFE0F9",
+    lens: "rgba(244,114,182,0.10)",
+    lensRing: "rgba(244,114,182,0.22)",
+  },
+  {
+    id: "ember",
+    label: "Ember",
+    base: "#1A0B12",
+    lift: "#45162A",
+    accent: "#F9C6AF",
+    lens: "rgba(249,198,175,0.10)",
+    lensRing: "rgba(249,198,175,0.24)",
+  },
+  {
+    id: "moss",
+    label: "Moss",
+    base: "#06170F",
+    lift: "#0E3A26",
+    accent: "#9BE8C0",
+    lens: "rgba(155,232,192,0.09)",
+    lensRing: "rgba(155,232,192,0.22)",
+  },
+  {
+    id: "violet",
+    label: "Violet",
+    base: "#120A2A",
+    lift: "#2E1A5E",
+    accent: "#C9B8FF",
+    lens: "rgba(201,184,255,0.10)",
+    lensRing: "rgba(201,184,255,0.24)",
+  },
+];
+
 export interface ShareFormatSpec {
   id: ShareFormat;
   label: string;
@@ -101,9 +166,6 @@ export function toShareCardData(
 // Drawing
 // ---------------------------------------------------------------------------
 
-const NAVY = "#04102D";
-const NAVY_LIFT = "#0d2049";
-const SKY = "#AFE0F9";
 const WHITE = "#FFFFFF";
 const FONT = `'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif`;
 
@@ -141,6 +203,12 @@ const LAYOUT = {
 
 /** How many lines the crush read may take. A square has room for fewer. */
 const LENS_LINES: Record<ShareFormat, number> = { story: 3, square: 2 };
+
+/** `#rrggbb` at a given alpha, so tints can follow the chosen accent. */
+function hexAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.replace("#", ""), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
 
 /** Shorten to fit `maxWidth`, ellipsising. Used where wrapping isn't an option. */
 function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
@@ -208,9 +276,16 @@ function wrapLines(
  * the bottom, so the two can never overlap regardless of how long the headline
  * wraps.
  */
-export function drawShareCard(data: ShareCardData, format: ShareFormatSpec): HTMLCanvasElement {
+export function drawShareCard(
+  data: ShareCardData,
+  format: ShareFormatSpec,
+  variant: ShareVariantSpec = SHARE_VARIANTS[0],
+): HTMLCanvasElement {
   const { width: W, height: H } = format;
   const L = LAYOUT[format.id];
+  const NAVY = variant.base;
+  const NAVY_LIFT = variant.lift;
+  const SKY = variant.accent;
 
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -228,7 +303,7 @@ export function drawShareCard(data: ShareCardData, format: ShareFormatSpec): HTM
   ctx.fillRect(0, 0, W, H);
 
   // A hairline frame gives the card an edge when it lands on a white feed.
-  ctx.strokeStyle = "rgba(175,224,249,0.14)";
+  ctx.strokeStyle = hexAlpha(SKY, 0.16);
   ctx.lineWidth = Math.max(2, W * 0.003);
   const inset = W * 0.028;
   roundRect(ctx, inset, inset, W - inset * 2, H - inset * 2, W * 0.055);
@@ -332,7 +407,7 @@ export function drawShareCard(data: ShareCardData, format: ShareFormatSpec): HTM
       draw: (top) => {
         ctx.font = `700 ${Math.round(W * 0.031)}px ${FONT}`;
         const chipW = ctx.measureText(data.tier).width + W * 0.085;
-        ctx.fillStyle = "rgba(175,224,249,0.16)";
+        ctx.fillStyle = hexAlpha(SKY, 0.16);
         roundRect(ctx, cx - chipW / 2, top, chipW, chipH, chipH / 2);
         ctx.fill();
         ctx.fillStyle = SKY;
@@ -379,10 +454,10 @@ export function drawShareCard(data: ShareCardData, format: ShareFormatSpec): HTM
       height: boxH,
       optional: true,
       draw: (top) => {
-        ctx.fillStyle = "rgba(244,114,182,0.10)";
+        ctx.fillStyle = variant.lens;
         roundRect(ctx, pad, top, contentWidth, boxH, W * 0.035);
         ctx.fill();
-        ctx.strokeStyle = "rgba(244,114,182,0.22)";
+        ctx.strokeStyle = variant.lensRing;
         ctx.lineWidth = Math.max(1, W * 0.0016);
         roundRect(ctx, pad, top, contentWidth, boxH, W * 0.035);
         ctx.stroke();
