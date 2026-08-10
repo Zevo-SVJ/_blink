@@ -170,18 +170,49 @@ export function detectPdp(
 
     if (!best) continue;
 
-    // Found a candidate row. Measure the blob's height at its midpoint; the
-    // avatar is round, so the vertical extent must match the horizontal one.
-    const cx = Math.round((best.start + best.end) / 2);
-    const diameter = best.end - best.start + 1;
+    /*
+      Found the blob's first row. That row is near the *top* of the circle,
+      where the chord is far shorter than the diameter — measuring there
+      underestimated the avatar by ~30% (truth r=0.115 measured as 0.081 on a
+      standard iOS capture). Since the zoom is `CIRCLE_SIZE / (2 * r)`, a 30%
+      under-read inflates the scale by over 40%: the animation drove past the
+      profile picture and framed a crop of the middle of it.
+
+      So walk the blob down and take its widest row as the true diameter, and
+      its vertical extent as the height, rather than trusting the first row.
+    */
+    const firstCx = Math.round((best.start + best.end) / 2);
 
     let bottom = y;
     for (let yy = y; yy < h; yy++) {
-      const i = (yy * w + cx) * 4;
+      const i = (yy * w + firstCx) * 4;
       if (distance({ r: data[i], g: data[i + 1], b: data[i + 2] }, bg) <= THRESHOLD) break;
       bottom = yy;
     }
     const height = bottom - y + 1;
+
+    let diameter = best.end - best.start + 1;
+    let cx = firstCx;
+    for (let yy = y; yy <= bottom; yy++) {
+      let runStart2 = -1;
+      for (let x = x0; x <= x1; x++) {
+        const i = (yy * w + x) * 4;
+        const isFg =
+          distance({ r: data[i], g: data[i + 1], b: data[i + 2] }, bg) > THRESHOLD;
+        if (isFg && runStart2 === -1) runStart2 = x;
+        if ((!isFg || x === x1) && runStart2 !== -1) {
+          const end = isFg ? x : x - 1;
+          const width = end - runStart2 + 1;
+          // Still bounded by the plausible band, so a wide row of furniture
+          // crossing the blob cannot inflate it.
+          if (width > diameter && width <= MAX_D * w && width <= maxRun) {
+            diameter = width;
+            cx = Math.round((runStart2 + end) / 2);
+          }
+          runStart2 = -1;
+        }
+      }
+    }
 
     // Square within tolerance, both ways — a tall run is a sidebar, a short
     // one is a rule.
@@ -189,9 +220,9 @@ export function detectPdp(
     if (ratio < SQUARENESS) continue;
 
     const cy = (y + bottom) / 2;
-    // A touch wider than the blob, so the framing reads as deliberate rather
-    // than as a tight crop that clips the edge.
-    const r = (diameter / 2) * 1.18;
+    // The widest row is the real diameter, so only a little padding is needed
+    // for the framing to read as deliberate rather than as a tight crop.
+    const r = (Math.max(diameter, height) / 2) * 1.06;
 
     return {
       cx: cx / w,
