@@ -86,19 +86,12 @@ describe("pickerCategories", () => {
     expect(pickerCategories([])[0].id).toBe("larp");
   });
 
-  it("appends values the model produced that aren't canonical", () => {
+  it("offers only canonical categories, whatever the model produced", () => {
+    // Appending model values is how boards that exist nowhere in Ranks used to
+    // reach the picker.
     const shown = pickerCategories(["minimalist", "creator"]);
-    expect(shown).toHaveLength(CATEGORIES.length + 1);
-    expect(shown[shown.length - 1]).toMatchObject({
-      id: "minimalist",
-      label: "Minimalist",
-    });
-  });
-
-  it("does not duplicate an unknown value that appears twice", () => {
-    expect(pickerCategories(["minimalist", "Minimalist"])).toHaveLength(
-      CATEGORIES.length + 1,
-    );
+    expect(shown).toHaveLength(CATEGORIES.length);
+    expect(shown.map((c) => c.id)).not.toContain("minimalist");
   });
 });
 

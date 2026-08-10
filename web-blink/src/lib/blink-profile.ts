@@ -7,6 +7,7 @@
  */
 
 import type { AnalysisResult } from "@/lib/analysis";
+import { normaliseCategory } from "@/lib/categories";
 import {
   computeBlinkScore,
   computeProfileStats,
@@ -428,7 +429,9 @@ export async function recordAnalysis(
       user_id: userId,
       analysis_id: analysisId ?? null,
       score,
-      category: result.category?.category ?? null,
+      // Folded to a canonical Ranks category on the way in, so a profile can
+      // never be stored under a board that does not exist.
+      category: normaliseCategory(result.category?.category),
       image_hash: imageHash,
       verified: check.counts,
     });

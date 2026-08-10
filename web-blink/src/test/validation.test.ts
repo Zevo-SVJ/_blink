@@ -163,10 +163,26 @@ describe("categories", () => {
     expect(availableCategories([])).toEqual([]);
   });
 
-  it("keeps unrecognised values rather than dropping them", () => {
+  it("never surfaces a category that does not exist in Ranks", () => {
+    // The old behaviour title-cased anything the model returned, which is how
+    // an analysis came to claim a board the leaderboard has never heard of.
     const available = availableCategories(["mystery"]);
-    expect(available.map((c) => c.id)).toContain("mystery");
-    expect(categoryLabel("mystery")).toBe("Mystery");
+    expect(available.map((c) => c.id)).not.toContain("mystery");
+    for (const c of available) {
+      expect(CATEGORIES.map((k) => k.id)).toContain(c.id);
+    }
+  });
+
+  it("folds descriptive model phrases onto a real category", () => {
+    expect(categoryLabel("photography-and-visual-storytelling")).toBe("Artist");
+    expect(categoryLabel("Quiet Luxury")).toBe("Larp");
+    expect(categoryLabel("gym rat")).toBe("Fitness");
+    expect(categoryLabel("Creator")).toBe("Creator");
+  });
+
+  it("returns nothing when a value cannot be placed", () => {
+    expect(categoryLabel("zzzz")).toBeNull();
+    expect(categoryLabel(null)).toBeNull();
   });
 });
 
