@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import { AppChrome } from "@/components/app/AppChrome";
@@ -117,54 +117,57 @@ function HashLanding() {
  * nothing. Removed. The shadcn wrappers remain in `components/ui` for whenever
  * something actually needs them.
  */
-const App = () => {
-  /**
-   * Hand scrolling back to the user.
-   *
-   * `index.html` locks it while the boot markup is the whole document — see
-   * the note there. A layout effect is the right moment: it runs after React
-   * has committed the real page and before the browser paints it, so the
-   * document is already full height the first time scrolling is possible.
-   */
-  useLayoutEffect(() => {
-    document.documentElement.classList.remove("booting");
-  }, []);
+/**
+ * Everything inside the router.
+ *
+ * Split out so the same tree can be mounted under `BrowserRouter` in the
+ * browser and `StaticRouter` during the build-time prerender. The two must be
+ * the same component or the prerendered markup and the hydrated markup drift,
+ * and hydration silently throws the server HTML away — which is precisely the
+ * flash this build exists to remove.
+ */
+export const AppTree = () => (
+  <AuthProvider>
+    <HashLanding />
+    {/* The tab bar is mounted here, once, so navigating between app
+        screens never rebuilds it. See `AppChrome`. */}
+    <AppChrome>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>{ROUTES}</Routes>
+      </Suspense>
+    </AppChrome>
+  </AuthProvider>
+);
 
+const App = () => {
   return (
-    <AuthProvider>
-      <HashLanding />
-      <BrowserRouter
-        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-      >
-        {/* The tab bar is mounted here, once, so navigating between app
-              screens never rebuilds it. See `AppChrome`. */}
-        <AppChrome>
-          <Suspense fallback={<RouteFallback />}>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/analyze" element={<Product />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/auth/reset" element={<AuthCallback />} />
-              <Route path="/app" element={<AppHome />} />
-              <Route path="/library" element={<Library />} />
-              <Route path="/library/:id" element={<AnalysisDetail />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/u/:id" element={<PublicProfile />} />
-              <Route path="/ranks" element={<Ranks />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/privacy" element={<Legal.Privacy />} />
-              <Route path="/terms" element={<Legal.Terms />} />
-              <Route path="/cookies" element={<Legal.Cookies />} />
-              <Route path="/contact" element={<Legal.Contact />} />
-              {DevGallery && <Route path="/dev" element={<DevGallery />} />}
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </AppChrome>
-      </BrowserRouter>
-    </AuthProvider>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <AppTree />
+    </BrowserRouter>
   );
 };
 
 export default App;
+
+const ROUTES = (
+  <>
+    <Route path="/" element={<Index />} />
+    <Route path="/analyze" element={<Product />} />
+    <Route path="/auth/callback" element={<AuthCallback />} />
+    <Route path="/auth/reset" element={<AuthCallback />} />
+    <Route path="/app" element={<AppHome />} />
+    <Route path="/library" element={<Library />} />
+    <Route path="/library/:id" element={<AnalysisDetail />} />
+    <Route path="/profile" element={<Profile />} />
+    <Route path="/u/:id" element={<PublicProfile />} />
+    <Route path="/ranks" element={<Ranks />} />
+    <Route path="/settings" element={<Settings />} />
+    <Route path="/privacy" element={<Legal.Privacy />} />
+    <Route path="/terms" element={<Legal.Terms />} />
+    <Route path="/cookies" element={<Legal.Cookies />} />
+    <Route path="/contact" element={<Legal.Contact />} />
+    {DevGallery && <Route path="/dev" element={<DevGallery />} />}
+    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+    <Route path="*" element={<NotFound />} />
+  </>
+);

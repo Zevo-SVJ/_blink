@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="booting">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -51,155 +51,6 @@
       />
     </noscript>
 
-    <!--
-      ══════════════════════════════════════════════════════════════════════
-      First paint
-      ══════════════════════════════════════════════════════════════════════
-
-      `#root` is empty until the JS bundle has downloaded, parsed and run. On
-      a fast-3G phone that measured 1.83 s of blank navy — the "blue screen"
-      with nothing on it. No amount of animation tuning fixes that, because
-      React has not run yet.
-
-      So the hero is also written here, in plain HTML with its CSS inline.
-
-      **It lives INSIDE `#root`, and that placement is the whole design.**
-      The first version of this was a `position: fixed` overlay next to
-      `#root`, and it broke the page in three separate ways:
-
-        - the document was one viewport tall until React mounted, so the page
-          could not be scrolled at all for the whole load;
-        - a queued scroll then applied the instant React inflated the document,
-          which is the "jumps to the top and back down" report;
-        - both heroes existed at once, and the overlay was removed on a timer,
-          so the handover was a visible cut between two copies.
-
-      Inside `#root`, React's first commit *replaces* this markup. There is
-      never more than one hero in the tree, nothing is removed on a timer, and
-      there is no overlay to trap the scroll. The real fix for the wait itself
-      is upstream — see the Supabase note in `useAuth` — this is only the
-      bridge, and it is now a few hundred milliseconds rather than seconds.
-
-      Keep them in sync. If the hero's headline or CTA changes, change it in
-      both places; a mismatch here is a visible flicker on every cold load.
-    -->
-    <style>
-      /*
-        No scrolling until React owns the page.
-
-        Before React mounts, the document is one screen tall — there is nothing
-        below the hero yet. A user who flicks during that window scrolls
-        nothing, but iOS keeps the gesture's momentum, and applies it the
-        instant React inflates the document to its real height. That is the
-        "jumps to the top and then back down by itself" report: not a bug in
-        the animation, a queued scroll landing on a page that just grew.
-
-        Locking it for the few hundred milliseconds costs nothing (there is
-        genuinely nothing to scroll to) and makes the jump impossible rather
-        than unlikely. `App` removes the class in a layout effect, before the
-        browser paints the real page.
-      */
-      html.booting,
-      html.booting body {
-        overflow: hidden;
-        height: 100%;
-      }
-
-      #boot {
-        /* In flow, not fixed. A fixed overlay leaves the document one screen
-           tall and swallows the scroll until React arrives. */
-        display: flex;
-        min-height: 100svh;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 0 1rem;
-        text-align: center;
-        background: radial-gradient(
-          ellipse 80% 60% at 50% 0%,
-          hsl(220 70% 14%) 0%,
-          hsl(220 84% 10%) 40%,
-          hsl(220 80% 8%) 100%
-        );
-        font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-        -webkit-font-smoothing: antialiased;
-      }
-
-      #boot .b-mark {
-        position: absolute;
-        top: 1.15rem;
-        left: 1rem;
-        font-size: 1.125rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        color: #fff;
-      }
-
-      #boot h1 {
-        margin: 0;
-        max-width: 36rem;
-        font-size: 2rem;
-        font-weight: 800;
-        line-height: 1.02;
-        letter-spacing: -0.035em;
-        color: #fff;
-      }
-
-      #boot .b-accent {
-        display: inline-block;
-        position: relative;
-        padding-bottom: 0.375rem;
-        color: #afe0f9;
-      }
-
-      #boot .b-accent::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        height: 3px;
-        border-radius: 999px;
-        background: rgba(175, 224, 249, 0.7);
-      }
-
-      #boot p {
-        margin: 1rem 0 0;
-        max-width: 24rem;
-        font-size: 0.95rem;
-        line-height: 1.6;
-        color: rgba(255, 255, 255, 0.55);
-      }
-
-      #boot .b-cta {
-        margin-top: 1.75rem;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        min-height: 3.25rem;
-        padding: 0 1.75rem;
-        border-radius: 1rem;
-        background: #afe0f9;
-        color: #04102d;
-        font-size: 1rem;
-        font-weight: 700;
-        text-decoration: none;
-      }
-
-      @media (min-width: 400px) {
-        #boot h1 { font-size: 2.25rem; }
-      }
-
-      @media (min-width: 640px) {
-        #boot h1 { font-size: 3rem; }
-        #boot p { font-size: 1.125rem; max-width: 28rem; }
-      }
-
-      @media (min-width: 1024px) {
-        #boot h1 { font-size: 3.5rem; }
-      }
-    </style>
-
     <meta name="theme-color" content="#04102D" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -210,15 +61,31 @@
 
   <body>
     <!-- Inside #root on purpose: React's first commit replaces it. -->
-    <div id="root"><div id="boot">
-      <span class="b-mark">Blink</span>
-      <h1>
-        See yourself the way<br /><span class="b-accent">others see you.</span>
-      </h1>
-      <p>Blink analyzes your Instagram presence and reveals the first impression you make.</p>
-      <a class="b-cta" href="/analyze">See my first impression</a>
-    </div></div>
+    <!--
+      Filled at build time with the real landing page — see
+      `scripts/prerender.mjs` and `src/entry-server.tsx`. React hydrates
+      whatever is here rather than replacing it, so the first paint and the
+      interactive page are the same DOM.
+    -->
+    <div id="root"></div>
 
+    <script>
+      /*
+        Static hosts serve this same file as the SPA fallback for any path they
+        have no file for — /analyze, /u/:id, /library/:id. On those paths the
+        prerendered landing markup above is simply wrong: React would hydrate
+        against it, mismatch, and the reader would see the landing flash before
+        their actual page arrived.
+
+        Clearing it here is synchronous and happens during parse, before the
+        first paint, so nothing wrong is ever shown. `main.tsx` then finds an
+        empty #root and mounts normally instead of hydrating.
+      */
+      if (location.pathname !== "/") {
+        var root = document.getElementById("root");
+        if (root) root.textContent = "";
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

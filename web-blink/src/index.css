@@ -239,3 +239,46 @@
     scroll-behavior: auto;
   }
 }
+
+/*
+  The hero's entrance, in CSS rather than JS.
+
+  The landing is prerendered, so the hero markup is in the HTML before any
+  bundle arrives. It used to animate in with Framer Motion variants, and
+  `renderToString` faithfully serialised the *initial* state — `opacity: 0` —
+  so the prerendered hero was on the page but invisible until hydration.
+  Measured on Fast 3G: the navbar painted at 496ms and the headline did not
+  appear until the main bundle landed at ~1.7s. Prerendering bought nothing.
+
+  A CSS animation starts the moment the element is parsed, with no JavaScript
+  at all, so the hero now animates in off the prerendered HTML alone. Framer
+  still drives everything below the fold, where content is revealed on scroll
+  and the bundle has long since arrived.
+*/
+@keyframes blink-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.blink-rise {
+  animation: blink-rise 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* The same 15ms stagger the variants used, as a delay per position. */
+.blink-rise-1 { animation-delay: 0ms; }
+.blink-rise-2 { animation-delay: 15ms; }
+.blink-rise-3 { animation-delay: 30ms; }
+.blink-rise-4 { animation-delay: 45ms; }
+.blink-rise-5 { animation-delay: 60ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .blink-rise {
+    animation: none;
+  }
+}

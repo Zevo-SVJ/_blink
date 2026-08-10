@@ -6,6 +6,17 @@ import { cn } from "@/lib/utils";
 interface CTAButtonProps {
   label: string;
   onClick?: () => void;
+  /**
+   * Render as a link to this path instead of a bare button.
+   *
+   * The landing is prerendered, so its CTA is on screen roughly a second
+   * before the bundle that would attach an onClick handler. As a `<button>`
+   * that meant the most important control on the page looked ready and did
+   * nothing if tapped early. An anchor navigates with no JavaScript at all,
+   * and `onClick` still takes over once React has hydrated — so the control is
+   * genuinely live from the first paint and upgrades silently.
+   */
+  href?: string;
   size?: "md" | "lg";
   variant?: "solid" | "ghost" | "dark";
   className?: string;
@@ -19,14 +30,29 @@ interface CTAButtonProps {
 export function CTAButton({
   label,
   onClick,
+  href,
   size = "md",
   variant = "solid",
   className,
 }: CTAButtonProps) {
+  const Tag = href ? motion.a : motion.button;
+  const nav = href
+    ? {
+        href,
+        // Before hydration the browser follows the href. After it, this runs
+        // and keeps the navigation client-side — same destination, no reload.
+        onClick: (e: React.MouseEvent) => {
+          if (!onClick) return;
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+          e.preventDefault();
+          onClick();
+        },
+      }
+    : { type: "button" as const, onClick };
+
   return (
-    <motion.button
-      type="button"
-      onClick={onClick}
+    <Tag
+      {...nav}
       whileHover={{ scale: 1.02, y: -1.5 }}
       whileTap={{ scale: 0.96, y: 0 }}
       transition={{ type: "spring", stiffness: 520, damping: 26 }}
@@ -59,6 +85,6 @@ export function CTAButton({
           size === "lg" ? "h-5 w-5" : "h-4 w-4",
         )}
       />
-    </motion.button>
+    </Tag>
   );
 }

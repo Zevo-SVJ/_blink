@@ -42,61 +42,38 @@ const LENSES = [
 export function Hero({ onCTA }: { onCTA: () => void }) {
   const reduceMotion = useReducedMotion();
 
-  // One short group fade, not a chain. A 40ms stagger over six children still
-  // meant the last element landed ~500ms after the first, and the hero read as
-  // "loading". Everything now moves together and is settled inside ~220ms; the
-  // text is in the DOM from first paint either way, so nothing is gated on it.
-  const group = reduceMotion
-    ? {}
-    : {
-        initial: "hidden" as const,
-        animate: "shown" as const,
-        variants: { hidden: {}, shown: { transition: { staggerChildren: 0.015 } } },
-      };
-
-  const item = reduceMotion
-    ? {}
-    : {
-        variants: {
-          hidden: { opacity: 0, y: 6 },
-          shown: {
-            opacity: 1,
-            y: 0,
-            transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] as const },
-          },
-        },
-      };
+  // The entrance is CSS, not JS — see `.blink-rise` in index.css. The landing
+  // is prerendered, and Framer's `initial` state is what renderToString emits,
+  // so a JS-driven fade shipped an invisible hero to every cold visitor until
+  // hydration. CSS animates straight off the prerendered markup.
 
   return (
     <section
       className="relative flex flex-col items-center justify-center px-4 pb-14 pt-24 sm:px-6 sm:pb-20 sm:pt-28"
       style={{ minHeight: "90svh" }}
     >
-      <motion.div {...group} className="relative z-10 mx-auto w-full max-w-xl text-center">
-        <motion.h1
-          {...item}
-          className="text-[2rem] font-extrabold leading-[1.02] tracking-[-0.035em] text-white min-[400px]:text-[2.25rem] sm:text-5xl lg:text-[3.5rem]"
+      <div className="relative z-10 mx-auto w-full max-w-xl text-center">
+        <h1
+          className="blink-rise blink-rise-1 text-[2rem] font-extrabold leading-[1.02] tracking-[-0.035em] text-white min-[400px]:text-[2.25rem] sm:text-5xl lg:text-[3.5rem]"
         >
           See yourself the way
           <br />
           <AccentPhrase />
-        </motion.h1>
+        </h1>
 
-        <motion.p
-          {...item}
-          className="mx-auto mt-4 max-w-sm text-balance text-[0.95rem] leading-relaxed text-white/55 sm:mt-5 sm:max-w-md sm:text-lg"
+        <p
+          className="blink-rise blink-rise-2 mx-auto mt-4 max-w-sm text-balance text-[0.95rem] leading-relaxed text-white/55 sm:mt-5 sm:max-w-md sm:text-lg"
         >
           {BRAND.name} analyzes your Instagram presence and reveals the first impression you
           make.
-        </motion.p>
+        </p>
 
-        <motion.div {...item} className="mt-7 flex justify-center">
-          <CTAButton label={BRAND.cta} onClick={onCTA} size="lg" />
-        </motion.div>
+        <div className="blink-rise blink-rise-3 mt-7 flex justify-center">
+          <CTAButton label={BRAND.cta} onClick={onCTA} href="/analyze" size="lg" />
+        </div>
 
-        <motion.ul
-          {...item}
-          className="mx-auto mt-4 flex max-w-md flex-wrap items-center justify-center gap-1.5 text-[0.68rem] font-medium text-white/35 min-[400px]:text-xs"
+        <ul
+          className="blink-rise blink-rise-4 mx-auto mt-4 flex max-w-md flex-wrap items-center justify-center gap-1.5 text-[0.68rem] font-medium text-white/35 min-[400px]:text-xs"
         >
           {TRUST.map((label) => (
             <li
@@ -106,12 +83,12 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
               {label}
             </li>
           ))}
-        </motion.ul>
+        </ul>
 
-        <motion.div {...item} className="mt-9 flex justify-center sm:mt-11">
+        <div className="blink-rise blink-rise-5 mt-9 flex justify-center sm:mt-11">
           <MechanismPreview />
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
     </section>
   );
@@ -192,7 +169,7 @@ function MechanismPreview() {
           Reads as
         </p>
         <div className="mt-1 h-[2.75rem]">
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" initial={false}>
             <motion.p
               key={current.phrase}
               initial={reduceMotion ? false : { opacity: 0, y: 10 }}
