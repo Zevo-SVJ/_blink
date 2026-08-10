@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { pickHandle } from "@/lib/handle-detect";
 import { normaliseHandle } from "@/lib/leaderboard-suggestions";
+import { normaliseSupabaseUrl } from "@/lib/supabase";
 
 describe("normaliseHandle", () => {
   it("accepts the three things people actually paste", () => {
@@ -54,5 +55,41 @@ describe("pickHandle", () => {
   it("returns null on empty input rather than throwing", () => {
     expect(pickHandle([], 1000)).toBeNull();
     expect(pickHandle([line("@ok.handle", 50)], 0)?.handle).toBe("ok.handle");
+  });
+});
+
+describe("normaliseSupabaseUrl", () => {
+  it("strips the paths the dashboard hands you", () => {
+    // The Data API panel offers this one, and pasting it makes every query
+    // resolve to /rest/v1/rest/v1/… while the analysis endpoint 401s.
+    expect(normaliseSupabaseUrl("https://abc.supabase.co/rest/v1/")).toBe(
+      "https://abc.supabase.co",
+    );
+    expect(normaliseSupabaseUrl("https://abc.supabase.co/rest/v1")).toBe(
+      "https://abc.supabase.co",
+    );
+    expect(normaliseSupabaseUrl("https://abc.supabase.co/graphql/v1")).toBe(
+      "https://abc.supabase.co",
+    );
+  });
+
+  it("leaves a correct project URL alone", () => {
+    expect(normaliseSupabaseUrl("https://abc.supabase.co")).toBe("https://abc.supabase.co");
+    expect(normaliseSupabaseUrl("https://abc.supabase.co/")).toBe("https://abc.supabase.co");
+  });
+
+  it("trims whitespace, which .env files collect", () => {
+    expect(normaliseSupabaseUrl("  https://abc.supabase.co/rest/v1  ")).toBe(
+      "https://abc.supabase.co",
+    );
+  });
+
+  it("passes through undefined and empty rather than inventing a value", () => {
+    expect(normaliseSupabaseUrl(undefined)).toBeUndefined();
+    expect(normaliseSupabaseUrl("   ")).toBeUndefined();
+  });
+
+  it("does not throw on a value that isn't a URL", () => {
+    expect(normaliseSupabaseUrl("not-a-url/")).toBe("not-a-url");
   });
 });

@@ -14,7 +14,7 @@ import {
   type ProfileOwnership,
   type SubjectGender,
 } from "@/lib/ownership";
-import { supabase } from "@/lib/supabase";
+import { normaliseSupabaseUrl, supabase } from "@/lib/supabase";
 
 // Ownership lives in its own module, but it is part of an analysis result's
 // public shape — re-exported so callers have a single import site.
@@ -323,7 +323,12 @@ export function validateAnalysisResult(raw: unknown): AnalysisResult {
 // Service — calls the Supabase Edge Function for AI analysis
 // ---------------------------------------------------------------------------
 
-const SUPABASE_URL = import.meta.env.EXPO_PUBLIC_SUPABASE_URL as string;
+// Normalised, so a project URL pasted from the Data API panel (which carries
+// a `/rest/v1` path) still resolves to the Edge Function rather than to
+// PostgREST. See `normaliseSupabaseUrl`.
+const SUPABASE_URL = normaliseSupabaseUrl(
+  import.meta.env.EXPO_PUBLIC_SUPABASE_URL as string | undefined,
+);
 const SUPABASE_ANON_KEY = import.meta.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string;
 
 /** Supabase Edge Function endpoint for AI analysis */
