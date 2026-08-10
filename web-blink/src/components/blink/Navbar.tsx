@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 
 import { AuthModal } from "@/components/blink/AuthModal";
@@ -47,9 +47,15 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
         )}
       >
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6 sm:py-4">
-          <a href="#" className="text-lg font-bold tracking-tight text-white">
+          {/* Was `href="#"`, which scrolled to the top and left `#` in the URL.
+              The wordmark is the way home from every route the navbar appears
+              on, so it navigates like one. */}
+          <Link
+            to="/"
+            className="inline-flex min-h-[44px] items-center text-lg font-bold tracking-tight text-white"
+          >
             {BRAND.name}
-          </a>
+          </Link>
 
           <div className="hidden items-center gap-8 md:flex">
             {publicLinks.map((link) => (
@@ -73,7 +79,7 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
             <button
               type="button"
               onClick={() => (user ? navigate("/app") : setSignInOpen(true))}
-              className="min-h-[40px] rounded-full px-3 text-sm font-semibold text-white/65 transition-colors hover:text-white sm:px-4"
+              className="min-h-[44px] rounded-full px-3 text-sm font-semibold text-white/65 transition-colors hover:text-white sm:px-4"
             >
               {user ? "Open Blink" : "Log in"}
             </button>
@@ -88,7 +94,7 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-white/80 transition-colors hover:text-white md:hidden"
+              className="flex h-11 w-11 items-center justify-center rounded-xl text-white/80 transition-colors hover:text-white md:hidden"
               aria-label="Open menu"
             >
               <Menu className="h-6 w-6" />
@@ -194,7 +200,7 @@ function MobileMenu({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-white/60 transition-colors hover:text-white"
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-white/60 transition-colors hover:text-white"
             aria-label="Close menu"
           >
             <X className="h-5 w-5" />

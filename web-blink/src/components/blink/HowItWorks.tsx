@@ -275,7 +275,9 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
           </div>
 
           {/* Jump straight to a lens. Also the progress indicator. */}
-          <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+          {/* 10px gap, not 8: the pills are 36px with a 44px hit area, so the
+              pitch has to clear 44 or neighbouring targets overlap. */}
+          <div className="mt-4 flex flex-wrap justify-center gap-2.5">
             {PERCEPTIONS.map((p, i) => {
               const isActive = reading && i === lens;
               return (
@@ -290,7 +292,12 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
                     setLens(i);
                   }}
                   className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-full text-sm transition-colors",
+                    // 36px pill, 44px hit area. The dot is deliberately small —
+                    // it is a progress indicator as much as a control — but a
+                    // 36px target is under the thumb-size minimum, so the tap
+                    // area is grown with a pseudo-element instead of the box.
+                    "relative flex h-9 w-9 items-center justify-center rounded-full text-sm transition-colors",
+                    "before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']",
                     isActive
                       ? "bg-blink-sky/20 ring-1 ring-blink-sky/50"
                       : "bg-white/[0.04] ring-1 ring-white/[0.07] hover:bg-white/[0.08]",

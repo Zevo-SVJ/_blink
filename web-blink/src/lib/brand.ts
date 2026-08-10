@@ -12,3 +12,16 @@ export const BRAND = {
   tagline: "See yourself the way others see you.",
   cta: "See my first impression",
 } as const;
+
+/**
+ * Official social profiles.
+ *
+ * `null` means "not published yet", and the footer omits those entries rather
+ * than rendering a link to `#` — a link that scrolls the reader to the top of
+ * the page is worse than no link at all. Fill a URL in here and it appears.
+ */
+export const SOCIAL: Record<"instagram" | "tiktok" | "x", string | null> = {
+  instagram: null,
+  tiktok: null,
+  x: null,
+};

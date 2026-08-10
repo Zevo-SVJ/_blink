@@ -1,4 +1,4 @@
-import { lazy, Suspense, useLayoutEffect } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import { AppChrome } from "@/components/app/AppChrome";
@@ -61,6 +61,55 @@ function RouteFallback() {
 }
 
 /**
+ * Honour an anchor in the URL on a cold load.
+ *
+ * The browser resolves `/#faq` once, at parse time — when the document is
+ * still the boot shell, `#faq` does not exist yet, and scrolling is locked by
+ * `html.booting`. By the time React has mounted the real page and released the
+ * lock, the browser has long since given up, so a shared deep link silently
+ * landed at the top of the page. In-page clicks were unaffected, which is why
+ * this only shows up on a fresh load.
+ *
+ * The target arrives with a lazily-loaded route chunk, so it is polled for
+ * rather than read once — briefly, and only until it appears. Any real scroll
+ * input cancels the wait: someone who has started reading should never be
+ * yanked somewhere else by a late-arriving anchor.
+ */
+function HashLanding() {
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (!id) return;
+
+    let cancelled = false;
+    const stop = () => { cancelled = true; };
+    window.addEventListener("wheel", stop, { once: true, passive: true });
+    window.addEventListener("touchstart", stop, { once: true, passive: true });
+    window.addEventListener("keydown", stop, { once: true });
+
+    const deadline = performance.now() + 3000;
+    const tick = () => {
+      if (cancelled) return;
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ block: "start", behavior: "instant" });
+        return;
+      }
+      if (performance.now() < deadline) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+      window.removeEventListener("keydown", stop);
+    };
+  }, []);
+
+  return null;
+}
+
+/**
  * Three providers used to wrap this tree — TanStack Query, Sonner's `Toaster`
  * and Radix's `TooltipProvider`. None of them were used anywhere: no
  * `useQuery`, no `toast()`, no `<Tooltip>` in the entire codebase. They cost
@@ -83,6 +132,7 @@ const App = () => {
 
   return (
     <AuthProvider>
+      <HashLanding />
       <BrowserRouter
         future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
       >
