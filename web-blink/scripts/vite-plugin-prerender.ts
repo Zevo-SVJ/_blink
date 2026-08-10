@@ -27,15 +27,21 @@
  */
 
 import { readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import type { Plugin } from "vite";
+import { isAbsolute, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import type { Plugin, ResolvedConfig } from "vite";
 
 const MARKER = '<div id="root"></div>';
 
 export function prerender(): Plugin {
+  let config: ResolvedConfig;
+
   return {
     name: "blink-prerender",
     apply: "build",
+    configResolved(resolved) {
+      config = resolved;
+    },
     // Runs after the bundle is on disk.
     async closeBundle() {
       // The SSR build below re-enters the plugin pipeline. Without this guard
@@ -43,8 +49,13 @@ export function prerender(): Plugin {
       if (process.env.BLINK_SSR_PASS === "1") return;
 
       const { build } = await import("vite");
-      const root = process.cwd();
-      const dist = join(root, "dist");
+      // Resolved from Vite's own config, never `process.cwd()`: a host may
+      // invoke the build from the repository root rather than from this
+      // package, and cwd would then point at the wrong tree entirely.
+      const root = config.root;
+      const dist = isAbsolute(config.build.outDir)
+        ? config.build.outDir
+        : resolve(root, config.build.outDir);
 
       const indexPath = join(dist, "index.html");
       let template: string;
@@ -62,10 +73,12 @@ export function prerender(): Plugin {
       process.env.BLINK_SSR_PASS = "1";
       try {
         await build({
+          root,
+          configFile: config.configFile || undefined,
           logLevel: "warn",
           build: {
             ssr: join(root, "src", "entry-server.tsx"),
-            outDir: "dist-ssr",
+            outDir: join(root, "dist-ssr"),
             emptyOutDir: true,
           },
         });
@@ -73,9 +86,12 @@ export function prerender(): Plugin {
         delete process.env.BLINK_SSR_PASS;
       }
 
-      const { render } = (await import(
-        /* @vite-ignore */ join(root, "dist-ssr", "entry-server.js")
-      )) as { render: (url: string) => string };
+      // A file:// URL, not a bare path: importing an absolute path happens to
+      // work on POSIX and is not portable.
+      const entry = pathToFileURL(join(root, "dist-ssr", "entry-server.js")).href;
+      const { render } = (await import(/* @vite-ignore */ entry)) as {
+        render: (url: string) => string;
+      };
 
       /*
         The stylesheet is render-blocking, so with the markup already in the
