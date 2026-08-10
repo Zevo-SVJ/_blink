@@ -14,24 +14,34 @@ interface AuthModalProps {
   onSuccess?: () => void;
   title?: string;
   subtitle?: string;
+  /** Tab to open on. Defaults to signup — the acquisition path. */
+  initialMode?: AuthMode;
 }
 
-export function AuthModal({ open, onClose, onSuccess, title, subtitle }: AuthModalProps) {
+export function AuthModal({
+  open,
+  onClose,
+  onSuccess,
+  title,
+  subtitle,
+  /** Which tab to land on. "Already have an account?" must not open signup. */
+  initialMode = "signup",
+}: AuthModalProps) {
   const { signIn, signUp, signInWithGoogle, resetPassword, resendVerification, isSigningIn, error, clearError } = useAuth();
-  const [mode, setMode] = useState<AuthMode>("signup");
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
-      setMode("signup");
+      setMode(initialMode);
       setEmail("");
       setPassword("");
       setInfoMessage(null);
       clearError();
     }
-  }, [open, clearError]);
+  }, [open, clearError, initialMode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

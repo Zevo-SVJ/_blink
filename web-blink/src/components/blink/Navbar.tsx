@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 
+import { AuthModal } from "@/components/blink/AuthModal";
 import { CTAButton } from "@/components/blink/CTAButton";
 import { BRAND } from "@/lib/brand";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +20,7 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -65,9 +67,12 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
             {/* The returning-user door. Secondary by weight, but present on
                 every width — someone who already has an account should never
                 have to hunt through a marketing page to get back in. */}
+            {/* Someone who already has an account gets a sign-in form, not the
+                upload flow. Sending them through acquisition was the bug: the
+                button said "Log in" and asked for a screenshot. */}
             <button
               type="button"
-              onClick={() => (user ? navigate("/app") : onCTA())}
+              onClick={() => (user ? navigate("/app") : setSignInOpen(true))}
               className="min-h-[40px] rounded-full px-3 text-sm font-semibold text-white/65 transition-colors hover:text-white sm:px-4"
             >
               {user ? "Open Blink" : "Log in"}
@@ -92,6 +97,18 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
 
         </nav>
       </header>
+
+      <AuthModal
+        open={signInOpen}
+        onClose={() => setSignInOpen(false)}
+        onSuccess={() => {
+          setSignInOpen(false);
+          navigate("/app");
+        }}
+        initialMode="signin"
+        title="Welcome back"
+        subtitle="Sign in to open your Blink."
+      />
 
       {/* Mobile menu overlay */}
       <AnimatePresence>
