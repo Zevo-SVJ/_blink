@@ -174,12 +174,12 @@ const LAYOUT = {
   story: {
     padding: 0.1,
     top: 0.1,
-    ringRadius: 0.225,
+    ringRadius: 0.25,
     gapAfterRing: 0.055,
     gapAfterHeadline: 0.03,
-    statsFromBottom: 0.13,
+    statsFromBottom: 0.10,
     footerFromBottom: 0.055,
-    headlineSize: 0.058,
+    headlineSize: 0.055,
   },
   square: {
     // A square is 840px shorter than a story at the same width, and it now has
@@ -190,19 +190,18 @@ const LAYOUT = {
     // thing on the card.
     padding: 0.075,
     top: 0.06,
-    ringRadius: 0.09,
+    ringRadius: 0.15,
     gapAfterRing: 0.03,
     gapAfterHeadline: 0.022,
-    // Not lower than this: below ~0.14 the stats value and the footer line
-    // land within ~15px of each other and collide.
-    statsFromBottom: 0.145,
+    // With the stats row gone this only has to clear the footer line.
+    statsFromBottom: 0.10,
     footerFromBottom: 0.045,
-    headlineSize: 0.044,
+    headlineSize: 0.046,
   },
 } as const;
 
 /** How many lines the crush read may take. A square has room for fewer. */
-const LENS_LINES: Record<ShareFormat, number> = { story: 3, square: 2 };
+const LENS_LINES: Record<ShareFormat, number> = { story: 3, square: 3 };
 
 /** `#rrggbb` at a given alpha, so tints can follow the chosen accent. */
 function hexAlpha(hex: string, alpha: number): string {
@@ -369,7 +368,7 @@ export function drawShareCard(
     // The caption goes inside the ring only when it genuinely clears the
     // stroke. The chord at that height is far narrower than the diameter, so
     // on a small ring the words used to sit on the arc itself.
-    const capY = radius * 0.5;
+    const capY = radius * 0.42;
     const chord = 2 * Math.sqrt(Math.max(0, radius * radius - capY * capY)) - stroke * 2;
     ctx.font = `700 ${Math.round(Math.min(W * 0.023, radius * 0.19))}px ${FONT}`;
     if (ctx.measureText("BLINK SCORE").width <= chord * 0.82) {
@@ -401,28 +400,36 @@ export function drawShareCard(
 
   // ---- Tier chip (required) ----------------------------------------------
   {
-    const chipH = W * 0.072;
+    // Tier and category in one chip. They are the two words a viewer compares
+    // against their own result, and separating them into a chip plus a stats
+    // column was half the clutter.
+    const chipH = W * 0.078;
+    const label = data.category ? `${data.tier}  ·  ${data.category}` : data.tier;
     blocks.push({
       height: chipH,
       draw: (top) => {
-        ctx.font = `700 ${Math.round(W * 0.031)}px ${FONT}`;
-        const chipW = ctx.measureText(data.tier).width + W * 0.085;
+        ctx.font = `700 ${Math.round(W * 0.032)}px ${FONT}`;
+        const text = fitText(ctx, label, contentWidth - W * 0.09);
+        const chipW = ctx.measureText(text).width + W * 0.09;
         ctx.fillStyle = hexAlpha(SKY, 0.16);
         roundRect(ctx, cx - chipW / 2, top, chipW, chipH, chipH / 2);
         ctx.fill();
         ctx.fillStyle = SKY;
         ctx.textAlign = "center";
-        ctx.fillText(data.tier, cx, top + chipH / 2);
+        ctx.fillText(text, cx, top + chipH / 2);
       },
     });
   }
 
-  // ---- Headline (required) ------------------------------------------------
+  // ---- Headline (droppable) -----------------------------------------------
+  // Lower priority than the quote below. When both cannot fit, a two-word
+  // label is the one worth losing: the crush read is the line people forward.
   {
     ctx.font = `800 ${Math.round(W * L.headlineSize)}px ${FONT}`;
-    const lines = wrapLines(ctx, data.headline, contentWidth, 2);
+    const lines = wrapLines(ctx, data.headline, contentWidth, format.id === "square" ? 1 : 2);
     const lineHeight = W * L.headlineSize * 1.24;
     blocks.push({
+      optional: true,
       height: lines.length * lineHeight,
       draw: (top) => {
         ctx.fillStyle = WHITE;
@@ -452,7 +459,6 @@ export function drawShareCard(
 
     blocks.push({
       height: boxH,
-      optional: true,
       draw: (top) => {
         ctx.fillStyle = variant.lens;
         roundRect(ctx, pad, top, contentWidth, boxH, W * 0.035);
@@ -482,78 +488,21 @@ export function drawShareCard(
     });
   }
 
-  // ---- The loudest signal, with its number --------------------------------
-  if (data.signal) {
-    const sig = data.signal;
-    const labelSize = Math.round(W * 0.026);
-    const barH = W * 0.018;
-    const rowH = labelSize * 1.5 + barH;
+  /*
+    Deliberately nothing else.
 
-    blocks.push({
-      height: rowH,
-      optional: true,
-      draw: (top) => {
-        const barW = contentWidth * 0.78;
-        const barX = cx - barW / 2;
+    The card used to carry a tier chip, a headline, a three-line quote, a
+    scored signal bar, three trait pills and a two-column stats row. Exported
+    at 1080px it read as a compressed screenshot of the results page: eight
+    competing elements, no clear first thing to look at, and the one genuinely
+    interesting line — how a crush reads the profile — fighting for space with
+    a bar chart.
 
-        ctx.textAlign = "left";
-        ctx.fillStyle = "rgba(255,255,255,0.45)";
-        ctx.font = `700 ${labelSize}px ${FONT}`;
-        ctx.fillText(sig.label.toUpperCase(), barX, top + labelSize * 0.6);
-
-        ctx.textAlign = "right";
-        ctx.fillStyle = WHITE;
-        ctx.font = `800 ${Math.round(W * 0.032)}px ${FONT}`;
-        ctx.fillText(sig.score.toFixed(1), barX + barW, top + labelSize * 0.6);
-
-        const barY = top + labelSize * 1.5;
-        ctx.fillStyle = "rgba(255,255,255,0.10)";
-        roundRect(ctx, barX, barY, barW, barH, barH / 2);
-        ctx.fill();
-        const pct = Math.max(0, Math.min(1, sig.score / 10));
-        if (pct > 0) {
-          ctx.fillStyle = SKY;
-          roundRect(ctx, barX, barY, Math.max(barH, barW * pct), barH, barH / 2);
-          ctx.fill();
-        }
-        ctx.textAlign = "center";
-      },
-    });
-  }
-
-  // ---- Traits -------------------------------------------------------------
-  if (data.traits.length > 0) {
-    const chipHeight = W * 0.062;
-    blocks.push({
-      height: chipHeight,
-      optional: true,
-      draw: (top) => {
-        ctx.font = `600 ${Math.round(W * 0.029)}px ${FONT}`;
-        ctx.textAlign = "center";
-        const gap = W * 0.02;
-        const widths = data.traits.map((t) => ctx.measureText(t).width + W * 0.058);
-
-        // Drop traits that would run past the edge rather than letting them
-        // clip — this is what broke on the square format.
-        let usable = data.traits.length;
-        let running = widths.reduce((a, b) => a + b, 0) + gap * (usable - 1);
-        while (usable > 1 && running > contentWidth) {
-          usable -= 1;
-          running = widths.slice(0, usable).reduce((a, b) => a + b, 0) + gap * (usable - 1);
-        }
-
-        let x = cx - running / 2;
-        for (let i = 0; i < usable; i++) {
-          ctx.fillStyle = "rgba(255,255,255,0.08)";
-          roundRect(ctx, x, top, widths[i], chipHeight, chipHeight / 2);
-          ctx.fill();
-          ctx.fillStyle = "rgba(255,255,255,0.85)";
-          ctx.fillText(data.traits[i], x + widths[i] / 2, top + chipHeight / 2);
-          x += widths[i] + gap;
-        }
-      },
-    });
-  }
+    What survives is what someone actually forwards: the number, what it makes
+    them, and one sentence nobody expects. The signal bar, the traits and the
+    rank/category row moved back into the app, where there is room to read
+    them.
+  */
 
   // ---- Size the ring, fit the stack, then place both ----------------------
   const hasStats = data.rank !== null || data.category !== null;
@@ -567,6 +516,8 @@ export function drawShareCard(
   // nearly-empty one grows the ring to fill what would otherwise be a void.
   const radius = Math.max(
     W * L.ringRadius * 0.72,
+    // Capped at 1.5: at 1.9 a content-free card grew the ring past the card's
+    // own edge, which the bounds check catches.
     Math.min(W * L.ringRadius * 1.5, forRing / 2),
   );
   const ringY = headerBottom + W * L.gapAfterRing + radius;
@@ -604,10 +555,8 @@ export function drawShareCard(
 
   ctx.textAlign = "center";
 
-  // ---- Bottom block: stats, then footer ----------------------------------
+  // ---- Bottom block: footer only -----------------------------------------
   const stats: Array<[string, string]> = [];
-  if (data.rank !== null) stats.push(["RANK", `#${data.rank}`]);
-  if (data.category) stats.push(["CATEGORY", data.category]);
 
   if (stats.length > 0) {
     const rowY = H - H * L.statsFromBottom;

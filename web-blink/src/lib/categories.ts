@@ -87,7 +87,7 @@ const SYNONYMS: Array<[string, string[]]> = [
   ["artist", ["artist", "art", "photograph", "music", "design", "visual", "storytelling", "film", "craft"]],
   ["fitness", ["fitness", "gym", "training", "athlete", "sport", "run", "lift"]],
   ["fashion", ["fashion", "style", "outfit", "streetwear", "model", "beauty"]],
-  ["lifestyle", ["lifestyle", "travel", "food", "aesthetic", "wellness", "luxury"]],
+  ["lifestyle", ["lifestyle", "travel", "food", "aesthetic", "minimal", "wellness", "luxury"]],
   ["personal", ["personal", "private", "everyday", "casual", "friends", "normal"]],
 ];
 
