@@ -16,7 +16,7 @@
  */
 
 import { PageBackground } from "@/components/blink/PageBackground";
-import { TabBar } from "@/components/app/AppShell";
+import { TabBar } from "@/components/app/TabBar";
 import { BadgeShelf } from "@/components/app/BadgeEmblem";
 import { ClimbSection } from "@/components/app/ClimbSection";
 import { PublicProfileCard } from "@/components/app/PublicProfileCard";

@@ -29,16 +29,20 @@ import { useMemo, useState } from "react";
 
 import { DeckProgress, DeckStatus, SwipeDeck, SwipeHint } from "@/components/blink/SwipeDeck";
 import {
+  TRACK_LABEL,
   climbHeadline,
   getClimbPaths,
   type ClimbIdentity,
   type ClimbPath,
+  type ClimbTrack,
 } from "@/lib/climb";
 import type { ProfileStats } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
 
 interface ActionCard {
   id: string;
+  /** Which of the three routes up this belongs to. */
+  track: ClimbTrack | null;
   /** Small label above the title, naming what kind of move this is. */
   kind: string;
   title: string;
@@ -59,6 +63,7 @@ interface ActionCard {
 function pathCard(path: ClimbPath): ActionCard {
   return {
     id: `path-${path.id}`,
+    track: path.track,
     kind: path.priority ? "Start here" : path.kind,
     title: path.title,
     whatToTry: path.whatToTry,
@@ -73,6 +78,7 @@ function pathCard(path: ClimbPath): ActionCard {
 function recommendationCard(text: string, i: number): ActionCard {
   return {
     id: `rec-${i}`,
+    track: "perception",
     kind: "Read off your screenshot",
     title: text,
     whatToTry:
@@ -101,6 +107,7 @@ export function ClimbSection({
   onAnalyze?: () => void;
 }) {
   const [seen, setSeen] = useState(false);
+  const [index, setIndex] = useState(0);
 
   const cards = useMemo(() => {
     const paths = getClimbPaths(stats, identity);
@@ -112,6 +119,8 @@ export function ClimbSection({
     return [...priority, ...recommendations.map(recommendationCard), ...rest];
   }, [stats, recommendations, identity]);
 
+  const activeTrack = cards[index]?.track ?? null;
+
   return (
     <section>
       <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-blink-sky">
@@ -122,12 +131,34 @@ export function ClimbSection({
         {climbHeadline(stats, rank)}
       </p>
 
+      {/* The three routes, stated up front. Someone who likes their profile
+          exactly as it is needs to see that before they see any advice. */}
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {(Object.keys(TRACK_LABEL) as ClimbTrack[]).map((track) => (
+          <span
+            key={track}
+            className={cn(
+              "rounded-full px-2.5 py-1 text-[0.65rem] font-bold transition-colors",
+              track === activeTrack
+                ? "bg-blink-sky/20 text-blink-sky ring-1 ring-blink-sky/30"
+                : "bg-white/[0.05] text-white/35 ring-1 ring-white/[0.06]",
+            )}
+          >
+            {TRACK_LABEL[track]}
+            {track === "perception" && (
+              <span className="ml-1 font-semibold opacity-60">· optional</span>
+            )}
+          </span>
+        ))}
+      </div>
+
       <div className="mt-6">
         <SwipeDeck
           items={cards}
           height={264}
           cardClassName="p-5"
           onIndexChange={(i) => {
+            setIndex(i);
             if (i > 0) setSeen(true);
           }}
           renderCard={(card) => <ActionCardBody card={card} />}
@@ -175,6 +206,11 @@ function ActionCardBody({ card }: { card: ActionCard }) {
         >
           {card.kind}
         </span>
+        {card.track && (
+          <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[0.58rem] font-bold uppercase tracking-[0.1em] text-white/45">
+            {TRACK_LABEL[card.track]}
+          </span>
+        )}
         {card.optional && (
           <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[0.58rem] font-bold uppercase tracking-[0.1em] text-white/40">
             Optional

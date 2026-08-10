@@ -8,7 +8,10 @@
 
 import { describe, expect, it } from "vitest";
 
+import { isAppRoute } from "@/components/app/AppChrome";
 import { PERCEPTIONS, TESTIMONIALS } from "@/lib/blink-data";
+import { getClimbPaths } from "@/lib/climb";
+import { getTier } from "@/lib/ranking";
 import {
   FAN_CLEARANCE,
   FAN_SLOTS,
@@ -83,5 +86,59 @@ describe("reaction stream data", () => {
 
   it("keeps reactions short enough to read while moving", () => {
     for (const t of TESTIMONIALS) expect(t.text.length).toBeLessThanOrEqual(90);
+  });
+});
+
+describe("app chrome routing", () => {
+  it("carries the tab bar on every app route, including nested ones", () => {
+    for (const path of [
+      "/app",
+      "/library",
+      "/library/abc-123",
+      "/profile",
+      "/ranks",
+      "/settings",
+      "/analyze",
+      "/u/some-user-id",
+    ]) {
+      expect(isAppRoute(path), path).toBe(true);
+    }
+  });
+
+  it("never shows it on public pages", () => {
+    for (const path of ["/", "/privacy", "/terms", "/cookies", "/contact", "/auth/callback"]) {
+      expect(isAppRoute(path), path).toBe(false);
+    }
+  });
+});
+
+describe("climb tracks", () => {
+  it("offers all three routes up, and marks only perception optional", () => {
+    const stats = {
+      score: 700,
+      tier: getTier(700),
+      peakScore: 700,
+      rank: 12,
+      bestRank: 12,
+      category: "larp",
+      momentum: { direction: "up" as const, delta: 20, label: "+20" },
+      streak: 3,
+      weeklyWins: 1,
+      verifiedCount: 4,
+    };
+    const paths = getClimbPaths(stats);
+    const tracks = new Set(paths.map((p) => p.track));
+
+    expect(tracks).toEqual(new Set(["perception", "momentum", "recognition"]));
+
+    // Every path that asks you to change the profile is on the optional track,
+    // and every path on the other two tracks leaves the profile alone.
+    for (const path of paths) {
+      if (path.redesign) expect(path.track).toBe("perception");
+      if (path.track !== "perception") expect(path.redesign).toBe(false);
+    }
+
+    // And there is more than one way up that doesn't touch the profile.
+    expect(paths.filter((p) => p.track !== "perception").length).toBeGreaterThanOrEqual(4);
   });
 });

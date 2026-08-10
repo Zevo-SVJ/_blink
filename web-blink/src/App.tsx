@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
+import { AppChrome } from "@/components/app/AppChrome";
 import { PageBackground } from "@/components/blink/PageBackground";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -60,7 +61,10 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <Suspense fallback={<RouteFallback />}>
+          {/* The tab bar is mounted here, once, so navigating between app
+              screens never rebuilds it. See `AppChrome`. */}
+          <AppChrome>
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/analyze" element={<Product />} />
@@ -80,8 +84,9 @@ const App = () => (
               {DevGallery && <Route path="/dev" element={<DevGallery />} />}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
+              </Routes>
+            </Suspense>
+          </AppChrome>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

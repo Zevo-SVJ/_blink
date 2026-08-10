@@ -1,108 +1,139 @@
 /**
  * Blink — "How it works".
  *
- * One screenshot goes in. Six readings come out. The composition says that
- * literally: the profile scans, collapses to a node at the centre, and the six
- * perspectives fan out around it — then the ring keeps turning through them,
- * one lit at a time, with its reading underneath.
+ * A four-act sequence that has to be legible with the sound off, so to speak:
+ * someone who reads none of the surrounding copy should still come away with
+ * *I give it a screenshot → it reads the screenshot → it pulls signals out →
+ * different people see different things.*
  *
- * ## Spacing
+ * ## The staging
  *
- * The nodes are placed by their **inner edge**, not their centre — a single
- * radius measured to the centre gives wide labels roughly half the breathing
- * room of narrow ones, which is why one of them always ended up pressed
- * against the middle. The maths and its regression test live in
- * `@/lib/perception-fan`.
+ *   1. `upload`   the screenshot arrives and settles.
+ *   2. `read`     a reflection passes down it; three markers light on the
+ *                 parts being read — picture, bio, grid.
+ *   3. `extract`  the screenshot shrinks to a thumbnail and the markers
+ *                 detach as signal chips beneath it.
+ *   4. `perceive` the chips clear and the readings begin, one perception card
+ *                 at a time, cycling through all six.
  *
- * ## Motion rules this file exists to hold
+ * Then it loops back to act one.
+ *
+ * ## What this replaced, and why
+ *
+ * A core node with six labels around it and a line to whichever was lit. It
+ * looked deliberate and explained nothing: a hub-and-spoke diagram says
+ * "these things are related to that thing", not "your screenshot becomes
+ * these readings". There is no radial layout here at all — the composition
+ * moves top-to-bottom because that is the direction the story runs.
+ *
+ * ## Rules
  *
  *  - **Starts on arrival.** The observer reaches nearly half a viewport below
- *    the fold and the intro is 750ms, so the scan is already running when the
- *    section comes into view. No entrance chain, no artificial delay.
- *  - **Never stops.** The cycle runs indefinitely. A section that plays once
- *    and freezes reads as a screenshot of a product rather than a product.
- *  - **No decoration.** No glow, no blurred plate, no floating square. Every
- *    element on screen is the profile, a perspective, or its reading.
+ *    the fold and act one is 800ms, so the read is already under way by the
+ *    time the section is on screen. No entrance chain.
+ *  - **One subject.** The screenshot is never replaced or cross-faded — it
+ *    shrinks and stays, so the perceptions are visibly *of it*.
+ *  - **Nothing decorative.** No glow, no blurred plate, no floating square.
+ *    Every element is the screenshot, a marker, a signal, or a reading.
  */
 
 import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CTAButton } from "@/components/blink/CTAButton";
+import { PerceptionCard } from "@/components/blink/PerceptionCard";
 import { Reveal } from "@/components/blink/Reveal";
 import { PERCEPTIONS } from "@/lib/blink-data";
-import {
-  FAN_CLEARANCE,
-  FAN_CORE,
-  FAN_SLOTS,
-  estimateHalfWidth,
-  nodeOffset,
-} from "@/lib/perception-fan";
 import { cn } from "@/lib/utils";
 
-/** How long the scan runs before the profile collapses to the centre. */
-const INTRO_MS = 750;
+type Act = "upload" | "read" | "extract" | "perceive";
 
-/** How long each perspective holds lit. Long enough to read the reading. */
-const LENS_MS = 2400;
+const ACTS: Array<{ id: Act; ms: number }> = [
+  // Tuned so the first *perception* — the interesting part — is on screen at
+  // ~3.2s rather than 4.2s. The rail moves from the first beat, so the reader
+  // can see the sequence is running long before the payoff arrives.
+  { id: "upload", ms: 600 },
+  { id: "read", ms: 1500 },
+  { id: "extract", ms: 1100 },
+  // `perceive` runs until every perception has been shown, then wraps.
+  { id: "perceive", ms: 0 },
+];
+
+/** How long each reading holds before the next. */
+const LENS_MS = 2100;
 
 const ease = [0.22, 1, 0.36, 1] as const;
 const spring = { type: "spring" as const, stiffness: 300, damping: 30 };
 
-/**
- * A tint per lens, matching the app's perception card.
- *
- * Same palette, same emoji-behind-the-words composition: a visitor who signs
- * up should recognise the result screen from the landing page.
- */
-const LENS_TINT: Record<string, string> = {
-  crush: "rgba(244, 114, 182, 0.16)",
-  stranger: "rgba(175, 224, 249, 0.14)",
-  friends: "rgba(52, 211, 153, 0.13)",
-  recruiter: "rgba(251, 191, 36, 0.12)",
-  "green-flag": "rgba(52, 211, 153, 0.15)",
-  "red-flag": "rgba(248, 113, 113, 0.14)",
-};
+/** What the read marks, as fractions of the screenshot. */
+const MARKERS = [
+  { id: "photo", label: "Photo", left: 0.06, top: 0.04, w: 0.32, h: 0.24 },
+  { id: "bio", label: "Bio", left: 0.42, top: 0.06, w: 0.52, h: 0.16 },
+  { id: "grid", label: "Grid", left: 0.03, top: 0.32, w: 0.94, h: 0.62 },
+];
 
-/** Short chip labels — the full titles are far too long for a six-up ring. */
-const SHORT: Record<string, string> = {
-  crush: "crush",
-  stranger: "stranger",
-  friends: "friends",
-  recruiter: "recruiter",
-  "green-flag": "green flag",
-  "red-flag": "red flag",
-};
+/** The three signals the markers become. */
+const SIGNALS = ["Visual identity", "Aesthetic", "Confidence"];
+
+/** The named steps, shown as a rail so the story has a spine. */
+const RAIL: Array<{ act: Act[]; label: string }> = [
+  { act: ["upload", "read"], label: "Your screenshot" },
+  { act: ["extract"], label: "Blink reads it" },
+  { act: ["perceive"], label: "Six perceptions" },
+];
+
+const SHOT_W = 148;
+const SHOT_H = 196;
+const THUMB_SCALE = 0.42;
 
 export function HowItWorks({ onCTA }: { onCTA: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { amount: 0, margin: "0px 0px 45% 0px", once: true });
   const reduceMotion = useReducedMotion();
 
-  const [scanning, setScanning] = useState(true);
+  const [act, setAct] = useState<Act>("upload");
   const [lens, setLens] = useState(0);
-  const [interacted, setInteracted] = useState(false);
+  /** Set once the reader takes over by tapping a perception. */
+  const [held, setHeld] = useState(false);
 
+  const advance = useCallback(() => {
+    setAct((current) => {
+      const i = ACTS.findIndex((a) => a.id === current);
+      return ACTS[(i + 1) % ACTS.length].id;
+    });
+  }, []);
+
+  // Acts one to three are timed. `perceive` ends when the readings run out.
   useEffect(() => {
-    if (!inView) return;
-    if (reduceMotion) {
-      setScanning(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setScanning(false), INTRO_MS);
+    if (!inView || reduceMotion || held) return;
+    if (act === "perceive") return;
+    const timer = window.setTimeout(advance, ACTS.find((a) => a.id === act)!.ms);
     return () => window.clearTimeout(timer);
-  }, [inView, reduceMotion]);
+  }, [inView, reduceMotion, held, act, advance]);
 
-  // The cycle. Runs forever; only a tap on a perspective hands over control.
+  // The readings. After the last one the sequence restarts from the top, so
+  // a reader who arrives late still sees the whole story.
   useEffect(() => {
-    if (scanning || interacted || reduceMotion) return;
-    const timer = window.setInterval(
-      () => setLens((i) => (i + 1) % PERCEPTIONS.length),
-      LENS_MS,
-    );
-    return () => window.clearInterval(timer);
-  }, [scanning, interacted, reduceMotion]);
+    if (!inView || reduceMotion || held || act !== "perceive") return;
+    const timer = window.setTimeout(() => {
+      setLens((i) => {
+        if (i + 1 >= PERCEPTIONS.length) {
+          setAct("upload");
+          return 0;
+        }
+        return i + 1;
+      });
+    }, LENS_MS);
+    return () => window.clearTimeout(timer);
+  }, [inView, reduceMotion, held, act, lens]);
 
+  // Reduced motion gets the end state: the point, without the journey.
+  useEffect(() => {
+    if (reduceMotion) setAct("perceive");
+  }, [reduceMotion]);
+
+  const reading = act === "perceive";
+  const shrunk = act === "extract" || reading;
   const current = PERCEPTIONS[lens];
 
   return (
@@ -116,100 +147,156 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
             One screenshot becomes a perception.
           </h2>
           <p className="mx-auto mt-3 max-w-md text-[0.95rem] leading-relaxed text-white/50 sm:mt-4 sm:text-base">
-            The same profile reads six different ways depending on who is looking.
+            Blink reads your profile the way a person would, then shows you what each kind
+            of person walks away with.
           </p>
         </Reveal>
 
-        {/* The fan. Fixed height so the reading underneath never shifts. */}
-        <div className="relative mx-auto mt-8 h-[300px] w-full max-w-[22rem] sm:mt-12 sm:h-[320px]">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <CentreNode scanning={scanning} reduceMotion={!!reduceMotion} />
+        <div className="mx-auto mt-9 w-full max-w-[24rem] sm:mt-12">
+          <Rail act={act} />
 
+          {/* The subject. Shrinks but is never replaced, so the readings are
+              visibly *of it*. */}
+          <div className="mt-6 flex justify-center">
+            <motion.div
+              className="relative"
+              initial={false}
+              animate={{
+                width: shrunk ? SHOT_W * THUMB_SCALE : SHOT_W,
+                height: shrunk ? SHOT_H * THUMB_SCALE : SHOT_H,
+              }}
+              transition={{ duration: 0.55, ease }}
+            >
+              <motion.div
+                className="absolute left-1/2 top-0 origin-top overflow-hidden rounded-2xl bg-white/[0.05] ring-1 ring-white/10"
+                style={{ width: SHOT_W, height: SHOT_H, x: "-50%" }}
+                initial={false}
+                animate={{
+                  scale: shrunk ? THUMB_SCALE : 1,
+                  opacity: act === "upload" ? 0.85 : 1,
+                }}
+                transition={{ duration: 0.55, ease }}
+              >
+                <ProfileShot />
+
+                {/* The read: one pass, then the markers hold. */}
+                {act === "read" && !reduceMotion && (
+                  <motion.span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 h-12"
+                    initial={{ top: "-25%" }}
+                    animate={{ top: "110%" }}
+                    transition={{ duration: 0.9, ease: "easeInOut", repeat: 1 }}
+                    style={{
+                      background:
+                        "linear-gradient(to bottom, transparent, rgba(175,224,249,0.3), transparent)",
+                    }}
+                  />
+                )}
+
+                {MARKERS.map((m, i) => (
+                  <motion.span
+                    key={m.id}
+                    aria-hidden
+                    className="absolute rounded-[7px] ring-[1.5px] ring-blink-sky/70"
+                    style={{
+                      left: `${m.left * 100}%`,
+                      top: `${m.top * 100}%`,
+                      width: `${m.w * 100}%`,
+                      height: `${m.h * 100}%`,
+                    }}
+                    initial={false}
+                    animate={{ opacity: act === "read" ? 1 : 0, scale: act === "read" ? 1 : 1.15 }}
+                    transition={{ ...spring, delay: act === "read" ? 0.35 + i * 0.18 : 0 }}
+                  />
+                ))}
+              </motion.div>
+            </motion.div>
+          </div>
+
+          {/* Act three: what the read pulled out. */}
+          <div className="mt-4 h-8">
+            <AnimatePresence>
+              {act === "extract" && (
+                <motion.div
+                  className="flex flex-wrap justify-center gap-1.5"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  {SIGNALS.map((signal, i) => (
+                    <motion.span
+                      key={signal}
+                      initial={{ opacity: 0, y: -8, scale: 0.85 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ ...spring, delay: i * 0.09 }}
+                      className="rounded-full bg-white/[0.07] px-3 py-1.5 text-[0.7rem] font-semibold text-white/75 ring-1 ring-white/10"
+                    >
+                      {signal}
+                    </motion.span>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Act four: the readings. */}
+          <div className="mt-2 min-h-[11.5rem]">
+            <AnimatePresence mode="popLayout">
+              {reading && (
+                <motion.div
+                  key={current.id}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -14 }}
+                  transition={spring}
+                >
+                  <PerceptionCard
+                    lensId={current.id}
+                    emoji={current.emoji}
+                    title={current.title}
+                    traits={current.traits}
+                    summary={`“${current.quote}”`}
+                    compact
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Jump straight to a lens. Also the progress indicator. */}
+          <div className="mt-4 flex flex-wrap justify-center gap-1.5">
             {PERCEPTIONS.map((p, i) => {
-              const label = SHORT[p.id] ?? p.id;
-              const { x, y } = nodeOffset(FAN_SLOTS[i], estimateHalfWidth(label));
-              const isActive = i === lens && !scanning;
+              const isActive = reading && i === lens;
               return (
-                <PerspectiveNode
+                <button
                   key={p.id}
-                  emoji={p.emoji}
-                  label={label}
-                  x={x}
-                  y={y}
-                  active={isActive}
-                  hidden={scanning}
-                  delay={i * 0.05}
-                  onSelect={() => {
-                    setInteracted(true);
-                    setScanning(false);
+                  type="button"
+                  aria-pressed={isActive}
+                  aria-label={p.title}
+                  onClick={() => {
+                    setHeld(true);
+                    setAct("perceive");
                     setLens(i);
                   }}
-                />
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-full text-sm transition-colors",
+                    isActive
+                      ? "bg-blink-sky/20 ring-1 ring-blink-sky/50"
+                      : "bg-white/[0.04] ring-1 ring-white/[0.07] hover:bg-white/[0.08]",
+                  )}
+                >
+                  <span aria-hidden className={cn(!isActive && "opacity-55")}>
+                    {p.emoji}
+                  </span>
+                </button>
               );
             })}
-
-            {/* A line from the core to whichever node is lit, so the reading
-                below is unambiguously that node's. */}
-            {!scanning && <Spoke angle={FAN_SLOTS[lens]} />}
           </div>
         </div>
 
-        {/* The reading. */}
-        <div className="mx-auto mt-2 min-h-[10rem] max-w-md">
-          <AnimatePresence mode="popLayout">
-            {!scanning && (
-              <motion.div
-                key={current.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={spring}
-                /* The same treatment the app gives a perception: a tinted
-                   surface with the lens emoji sitting large and faint behind
-                   the words. Reused rather than reinvented, so the landing and
-                   the product visibly belong to each other. */
-                className="relative overflow-hidden rounded-3xl p-5 text-left ring-1 ring-white/[0.08]"
-                style={{
-                  background: `linear-gradient(155deg, ${LENS_TINT[current.id] ?? "rgba(255,255,255,0.05)"} 0%, rgba(255,255,255,0.03) 60%)`,
-                }}
-              >
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute -right-3 -top-4 select-none text-[5.5rem] leading-none opacity-[0.13]"
-                >
-                  {current.emoji}
-                </span>
-
-                <p className="relative text-[1.15rem] font-extrabold tracking-tight text-white sm:text-[1.3rem]">
-                  {current.title}
-                </p>
-                <div className="relative mt-3 flex flex-wrap gap-1.5">
-                  {current.traits.map((trait, i) => (
-                    <motion.span
-                      key={trait}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ ...spring, delay: 0.05 + i * 0.04 }}
-                      className={cn(
-                        "rounded-full px-3 py-1.5 text-xs font-bold",
-                        i === 0
-                          ? "bg-blink-sky text-blink-navy"
-                          : "bg-white/[0.1] text-white/85",
-                      )}
-                    >
-                      {trait}
-                    </motion.span>
-                  ))}
-                </div>
-                <p className="relative mt-3.5 text-[0.92rem] leading-relaxed text-white/80">
-                  &ldquo;{current.quote}&rdquo;
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <Reveal delay={0.05} className="mt-8 flex justify-center">
+        <Reveal delay={0.05} className="mt-9 flex justify-center">
           <CTAButton label="See mine" onClick={onCTA} />
         </Reveal>
       </div>
@@ -218,157 +305,78 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
 }
 
 /**
- * The subject: a screenshot that scans, then collapses into the node every
- * perspective points at. It is never replaced — that persistence is the whole
- * argument the section is making.
+ * The sequence's spine.
+ *
+ * Three segments plus the name of the step you are on — not three names in a
+ * row. Spelled out, "Your screenshot — Blink reads it — Six perceptions" is
+ * 43 characters of letter-spaced caps, which overflowed a 320px screen and got
+ * clipped at both ends. Segments carry the progress, one label carries the
+ * meaning, and it fits.
  */
-function CentreNode({
-  scanning,
-  reduceMotion,
-}: {
-  scanning: boolean;
-  reduceMotion: boolean;
-}) {
-  return (
-    <motion.div
-      className="absolute z-10 overflow-hidden bg-white/[0.06] ring-1 ring-white/10"
-      initial={false}
-      animate={{
-        width: scanning ? 116 : FAN_CORE * 2,
-        height: scanning ? 154 : FAN_CORE * 2,
-        borderRadius: scanning ? 16 : FAN_CORE,
-      }}
-      transition={{ duration: 0.55, ease }}
-    >
-      <AnimatePresence>
-        {scanning ? (
-          <motion.div
-            key="shot"
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="absolute inset-0"
-          >
-            <div className="flex items-center gap-1.5 p-2">
-              <span className="h-4 w-4 shrink-0 rounded-full bg-[linear-gradient(140deg,hsl(var(--blink-sky)),hsl(var(--blink-sky-bright)))]" />
-              <span className="flex flex-1 flex-col gap-1">
-                <span className="block h-1 w-full rounded-full bg-white/25" />
-                <span className="block h-1 w-2/3 rounded-full bg-white/[0.12]" />
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-[2px] px-[2px]">
-              {Array.from({ length: 9 }).map((_, i) => (
-                <span key={i} className="aspect-square bg-white/[0.07]" />
-              ))}
-            </div>
+function Rail({ act }: { act: Act }) {
+  const activeIndex = RAIL.findIndex((step) => step.act.includes(act));
 
-            {!reduceMotion && (
-              <motion.span
-                aria-hidden
-                className="pointer-events-none absolute inset-x-0 h-9"
-                initial={{ top: "-20%" }}
-                animate={{ top: "110%" }}
-                transition={{ duration: 0.75, repeat: Infinity, ease: "easeInOut" }}
-                style={{
-                  background:
-                    "linear-gradient(to bottom, transparent, rgba(175,224,249,0.32), transparent)",
-                }}
-              />
-            )}
-          </motion.div>
-        ) : (
-          <motion.div
-            key="core"
-            initial={{ opacity: 0, scale: 0.7 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ ...spring, delay: 0.1 }}
-            className="absolute inset-0 bg-[linear-gradient(140deg,hsl(var(--blink-sky)),hsl(var(--blink-sky-bright)))]"
-          >
-            {/* A slow breath, so the subject reads as live rather than as a
-                dot someone drew. */}
-            {!reduceMotion && (
-              <motion.span
-                aria-hidden
-                className="absolute inset-0 rounded-full bg-white"
-                animate={{ opacity: [0, 0.14, 0] }}
-                transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-              />
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-}
-
-/** One perspective, parked around the core. */
-function PerspectiveNode({
-  emoji,
-  label,
-  x,
-  y,
-  active,
-  hidden,
-  delay,
-  onSelect,
-}: {
-  emoji: string;
-  label: string;
-  x: number;
-  y: number;
-  active: boolean;
-  hidden: boolean;
-  delay: number;
-  onSelect: () => void;
-}) {
   return (
-    <motion.button
-      type="button"
-      onClick={onSelect}
-      aria-pressed={active}
-      className={cn(
-        "absolute flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[0.68rem] font-bold transition-colors min-[380px]:text-[0.72rem]",
-        active
-          ? "bg-blink-sky text-blink-navy"
-          : "bg-white/[0.05] text-white/50 ring-1 ring-white/[0.08] hover:text-white/80",
-      )}
-      initial={false}
-      animate={{
-        x: hidden ? 0 : x,
-        y: hidden ? 0 : y,
-        opacity: hidden ? 0 : 1,
-        scale: hidden ? 0.5 : active ? 1.06 : 1,
-      }}
-      transition={{ ...spring, delay: hidden ? 0 : delay }}
-    >
-      <span aria-hidden>{emoji}</span>
-      {label}
-    </motion.button>
+    <div className="flex flex-col items-center gap-2.5">
+      <div className="flex items-center gap-1.5">
+        {RAIL.map((step, i) => (
+          <motion.span
+            key={step.label}
+            className="h-[3px] rounded-full"
+            animate={{
+              width: i === activeIndex ? 26 : 14,
+              backgroundColor:
+                i === activeIndex
+                  ? "hsl(var(--blink-sky))"
+                  : i < activeIndex
+                    ? "hsl(var(--blink-sky) / 0.35)"
+                    : "rgba(255,255,255,0.12)",
+            }}
+            transition={{ type: "spring", stiffness: 380, damping: 32 }}
+          />
+        ))}
+      </div>
+
+      <div className="h-4">
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={activeIndex}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.2 }}
+            className="whitespace-nowrap text-[0.62rem] font-bold uppercase tracking-[0.16em] text-blink-sky"
+          >
+            {RAIL[activeIndex]?.label}
+          </motion.p>
+        </AnimatePresence>
+      </div>
+    </div>
   );
 }
 
 /**
- * The line from the core's edge to the lit perspective.
+ * The profile being read.
  *
- * The rotation lives on a plain wrapper, not on the animated span: Framer
- * composes translate before rotate, so animating both on one element rotates
- * an already-translated box about the wrong point and the spoke swings out of
- * the composition. The wrapper positions, the span animates.
+ * Abstracted to shapes rather than a stock capture: a fabricated Instagram
+ * profile with an invented face would be the one dishonest thing on the page,
+ * and shapes make the point just as well.
  */
-function Spoke({ angle }: { angle: number }) {
+function ProfileShot() {
   return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute left-1/2 top-1/2 h-px"
-      style={{ transform: `rotate(${angle}deg) translateX(${FAN_CORE}px)`, transformOrigin: "left center" }}
-    >
-      <motion.span
-        key={angle}
-        className="block h-px origin-left bg-gradient-to-r from-blink-sky/55 to-transparent"
-        style={{ width: FAN_CLEARANCE }}
-        initial={{ opacity: 0, scaleX: 0.3 }}
-        animate={{ opacity: 1, scaleX: 1 }}
-        transition={{ duration: 0.28, ease }}
-      />
-    </span>
+    <>
+      <div className="flex items-center gap-2 p-2.5">
+        <span className="h-8 w-8 shrink-0 rounded-full bg-[linear-gradient(140deg,hsl(var(--blink-sky)),hsl(var(--blink-sky-bright)))]" />
+        <span className="flex flex-1 flex-col gap-1.5">
+          <span className="block h-1.5 w-full rounded-full bg-white/25" />
+          <span className="block h-1.5 w-2/3 rounded-full bg-white/[0.12]" />
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-[3px] px-[3px]">
+        {Array.from({ length: 9 }).map((_, i) => (
+          <span key={i} className="aspect-square bg-white/[0.07]" />
+        ))}
+      </div>
+    </>
   );
 }

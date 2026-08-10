@@ -29,7 +29,7 @@ import { ShareSheet } from "@/components/analysis/ShareSheet";
 import { AuthModal } from "@/components/blink/AuthModal";
 import { CTAButton } from "@/components/blink/CTAButton";
 import { PageBackground } from "@/components/blink/PageBackground";
-import { TabBar } from "@/components/app/AppShell";
+import { useImmersive } from "@/components/app/AppChrome";
 import { ScoreRing } from "@/components/blink/ScoreRing";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -53,6 +53,7 @@ import { getMockMode, mockAnalyze } from "@/lib/dev-mock";
 import { fetchMyStanding, fetchScoreStanding } from "@/lib/leaderboard";
 import { getVoice, type Voice } from "@/lib/ownership";
 import { pdpAnchor } from "@/lib/pdp";
+import { detectPdp } from "@/lib/pdp-detect";
 import { computeBlinkScore, type ProfileStats } from "@/lib/ranking";
 import { resizeForUpload } from "@/lib/resize";
 import { cn } from "@/lib/utils";
@@ -306,16 +307,20 @@ export default function Product() {
     navigate(user ? "/app" : "/");
   };
 
-  // The tab bar stays for signed-in users everywhere on this route except the
-  // analysis itself, which is deliberately full-screen and cinematic. It comes
-  // back the moment the result lands.
-  const showTabBar = !!user && screen !== "analyzing";
+  // The tab bar is mounted by `AppChrome` and is already on screen when this
+  // route loads. All this screen does is ask it to step aside for the analysis
+  // animation, which is deliberately full-screen; it returns on its own the
+  // moment the result lands, or if the user navigates away mid-run.
+  useImmersive(screen === "analyzing");
+  // Not "should we render it" — `AppChrome` owns that. This is only whether
+  // to reserve the space it occupies.
+  const chromeVisible = !!user && screen !== "analyzing";
 
   return (
     <div
       className={cn(
         "relative min-h-screen overflow-x-hidden",
-        showTabBar && "has-app-tabbar",
+        chromeVisible && "has-app-tabbar",
       )}
     >
       <PageBackground />
@@ -352,7 +357,7 @@ export default function Product() {
       <main
         className={cn(
           "px-4 pt-20 sm:px-6 sm:pt-24",
-          showTabBar ? "pb-[calc(7rem+env(safe-area-inset-bottom))]" : "pb-24",
+          chromeVisible ? "pb-[calc(7rem+env(safe-area-inset-bottom))]" : "pb-24",
         )}
       >
         <div className="mx-auto max-w-2xl">
@@ -445,22 +450,6 @@ export default function Product() {
           </AnimatePresence>
         </div>
       </main>
-
-      {/* Persistent, exactly as in the rest of the app. `AnimatePresence` so
-          it slides away for the analysis rather than blinking out. */}
-      <AnimatePresence>
-        {showTabBar && (
-          <motion.div
-            key="tabbar"
-            initial={{ y: 90, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 90, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 320, damping: 34 }}
-          >
-            <TabBar />
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <AuthModal
         open={authModalOpen}
@@ -754,7 +743,15 @@ export function AnalysisScreen({
     const rect = img.getBoundingClientRect();
     if (rect.width === 0) return null;
 
-    const anchor = pdpAnchor(img.naturalWidth, img.naturalHeight);
+    // Look for the avatar in the actual pixels first. `pdpAnchor` is a fixed
+    // layout fraction and lands *near* the profile picture rather than on it
+    // whenever the capture includes a status bar, comes from Android, or has
+    // been cropped — which is most real uploads. Detection returns null rather
+    // than guessing, so a miss degrades to the fraction instead of to a
+    // confidently wrong target.
+    const anchor =
+      detectPdp(img, img.naturalWidth, img.naturalHeight) ??
+      pdpAnchor(img.naturalWidth, img.naturalHeight);
 
     const localX = anchor.cx * rect.width;
     const localY = anchor.cy * rect.height;

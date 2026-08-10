@@ -3,7 +3,6 @@ import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { CTAButton } from "@/components/blink/CTAButton";
-import { ProfileStream } from "@/components/blink/ProfileStream";
 import { BRAND } from "@/lib/brand";
 
 /**
@@ -114,16 +113,6 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
         </motion.div>
       </motion.div>
 
-      {/* Full-bleed, so the stream runs off both edges rather than sitting in
-          the hero's column like another card. */}
-      <motion.div
-        initial={reduceMotion ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, delay: 0.15 }}
-        className="absolute inset-x-0 bottom-4 z-0 sm:bottom-6"
-      >
-        <ProfileStream />
-      </motion.div>
     </section>
   );
 }

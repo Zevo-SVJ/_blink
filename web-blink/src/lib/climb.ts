@@ -50,8 +50,27 @@ export type ClimbPathId =
   | "lane"
   | "perception";
 
+/**
+ * The three routes up.
+ *
+ * Naming them matters more than it looks. Without the grouping, a list of
+ * seven suggestions reads as seven chores and the first one that mentions the
+ * profile becomes "what Blink wants me to do". With it, the very first thing
+ * a user sees is that *changing the profile is one of three options*, and the
+ * only one marked optional.
+ */
+export type ClimbTrack = "perception" | "momentum" | "recognition";
+
+export const TRACK_LABEL: Record<ClimbTrack, string> = {
+  perception: "Improve perception",
+  momentum: "Build momentum",
+  recognition: "Earn recognition",
+};
+
 export interface ClimbPath {
   id: ClimbPathId;
+  /** Which of the three routes this belongs to. */
+  track: ClimbTrack;
   /** Small label naming the kind of move this is. */
   kind: string;
   title: string;
@@ -103,6 +122,7 @@ export function getClimbPaths(
   const paths: ClimbPath[] = [
     {
       id: "identity",
+      track: "recognition",
       kind: "Your identity",
       title: label ? `Lean into ${label}` : "Lean into what you already are",
       whatToTry: label
@@ -118,6 +138,7 @@ export function getClimbPaths(
     },
     {
       id: "body-of-work",
+      track: "momentum",
       kind: "Your work",
       title: "Deepen the body of work",
       whatToTry:
@@ -130,6 +151,7 @@ export function getClimbPaths(
     },
     {
       id: "lane",
+      track: "recognition",
       kind: "Your lane",
       title: label ? `Compete inside ${label}` : "Compete inside your category",
       whatToTry: label
@@ -143,6 +165,7 @@ export function getClimbPaths(
     },
     {
       id: "verify",
+      track: "momentum",
       kind: "Housekeeping",
       title: "Re-verify what you've already changed",
       whatToTry:
@@ -155,6 +178,7 @@ export function getClimbPaths(
     },
     {
       id: "streak",
+      track: "momentum",
       kind: "Housekeeping",
       title: "Show up weekly",
       whatToTry: "One verified analysis a week keeps your streak alive. A single upload counts.",
@@ -166,6 +190,7 @@ export function getClimbPaths(
     },
     {
       id: "momentum",
+      track: "momentum",
       kind: "Momentum",
       title: "Turn momentum positive",
       whatToTry:
@@ -178,6 +203,7 @@ export function getClimbPaths(
     },
     {
       id: "perception",
+      track: "perception",
       kind: "Optional",
       title: "Sharpen the first three seconds",
       whatToTry:
