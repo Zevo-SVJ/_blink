@@ -41,6 +41,8 @@ import { Info } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { PerceptionCard, LENS_TINT } from "@/components/blink/PerceptionCard";
+import { PerceptionReveal } from "@/components/analysis/PerceptionReveal";
+import { buildRead } from "@/lib/perception-read";
 import { ScoreRing } from "@/components/blink/ScoreRing";
 import type { AnalysisResult as Analysis, Perspective } from "@/lib/analysis";
 import { getVoice, type Voice } from "@/lib/ownership";
@@ -327,7 +329,11 @@ function OwnResult({
       id: "perception",
       label: "Perception",
       render: () => (
-        <PerspectiveSelector perspectives={result.perspectives} voice={voice} />
+        <PerspectiveSelector
+          perspectives={result.perspectives}
+          signals={result.signals}
+          voice={voice}
+        />
       ),
     },
     {
@@ -660,13 +666,19 @@ const LENS_KICKER: Record<Perspective["id"], string> = {
 
 function PerspectiveSelector({
   perspectives,
+  signals,
   voice,
 }: {
   perspectives: Analysis["perspectives"];
+  signals: Analysis["signals"];
   voice: Voice;
 }) {
   const [selected, setSelected] = useState<Perspective["id"]>("crush");
   const current = perspectives[selected];
+  // Recomputed per perspective on purpose: which signals matter, and which of
+  // them is loudest, is the whole point — a crush and a recruiter reading the
+  // same profile do not arrive at the same beat.
+  const beats = buildRead(selected, current, signals, voice.isOwn);
 
   return (
     <div>
@@ -722,20 +734,13 @@ function PerspectiveSelector({
             emoji={current.emoji}
             kicker={LENS_KICKER[selected]}
             title={voice.perspectiveTitle(selected)}
-            traits={current.traits}
-            summary={current.summary || undefined}
-          />
-
-          {/* The reasoning sits outside the card — it's for the reader, not for
-              the screenshot. */}
-          {current.why && (
-            <div className="mt-5">
-              <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-white/40">
-                Why
-              </p>
-              <p className="mt-1.5 text-sm leading-relaxed text-white/65">{current.why}</p>
-            </div>
-          )}
+            traits={[]}
+            // Both now belong to the reveal: the summary is its first beat and
+            // the traits are its last, so showing either here would spoil the
+            // ending before the sequence starts.
+          >
+            <PerceptionReveal beats={beats} lensId={selected} />
+          </PerceptionCard>
 
           {/* Reached only from OwnResult, so this is always the owner's own advice. */}
           {current.recommendation && (

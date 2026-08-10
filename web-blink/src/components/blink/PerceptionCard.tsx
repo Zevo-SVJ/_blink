@@ -14,6 +14,7 @@
  */
 
 import { motion } from "framer-motion";
+import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,7 @@ export function PerceptionCard({
   score,
   className,
   compact = false,
+  children,
 }: {
   /** Drives the tint. Unknown ids fall back to a neutral surface. */
   lensId: string;
@@ -51,6 +53,14 @@ export function PerceptionCard({
   className?: string;
   /** Tighter type, for the landing's sequence where space is shared. */
   compact?: boolean;
+  /**
+   * Extra content inside the tinted surface, below the summary.
+   *
+   * Exists so the staged reveal can live *inside* the signature card rather
+   * than rebuilding its tint, emoji and ring in a second component that would
+   * then drift. Every existing caller omits it and is unaffected.
+   */
+  children?: ReactNode;
 }) {
   return (
     <div
@@ -131,6 +141,8 @@ export function PerceptionCard({
           {summary}
         </p>
       )}
+
+      {children && <div className="relative">{children}</div>}
     </div>
   );
 }
