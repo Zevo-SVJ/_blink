@@ -281,18 +281,35 @@ interface WinnerRow {
   user_id: string;
   score: number | null;
   improvement: number | null;
-  blink_profiles: { handle: string | null; display_name: string | null } | null;
 }
 
+/**
+ * The weekly winners, with the names attached.
+ *
+ * **Why this is two queries.** It used to ask PostgREST to embed
+ * `blink_profiles(handle, display_name)` in one go, which needs a foreign key
+ * between the two tables for PostgREST to resolve the relationship. There
+ * isn't one: `weekly_winners.user_id` references `auth.users`, not
+ * `blink_profiles`. The request came back
+ * `400 Could not find a relationship … in the schema cache`, so the Winners
+ * tab was empty on a correctly-migrated database.
+ *
+ * Fetching the rows and their names separately works whatever the foreign
+ * keys happen to be, and adding one would not have been enough on its own —
+ * PostgREST caches its schema, so the fix would have depended on a cache
+ * reload nobody would remember to trigger. Two round trips for at most 24 rows
+ * is not a cost worth optimising against that.
+ *
+ * Names are best-effort: a winner whose profile row is missing or private
+ * still appears, as "Anonymous", rather than disappearing from the board.
+ */
 export async function fetchWeeklyWinners(): Promise<DataResult<WeeklyWinner[]>> {
   if (!isSupabaseConfigured) return { status: "error", message: UNREACHABLE };
 
   return safe("fetchWeeklyWinners", async () => {
     const { data, error } = await supabase
       .from("weekly_winners")
-      .select(
-        "id, week_start, category, user_id, score, improvement, blink_profiles(handle, display_name)",
-      )
+      .select("id, week_start, category, user_id, score, improvement")
       .order("week_start", { ascending: false })
       .limit(24);
 
@@ -302,21 +319,41 @@ export async function fetchWeeklyWinners(): Promise<DataResult<WeeklyWinner[]>> 
       return { status: "error", message: UNREACHABLE };
     }
 
+    const rows = (data ?? []) as WinnerRow[];
+    if (rows.length === 0) return { status: "ok", data: [] };
+
+    // Names, in one lookup. A failure here costs the names, not the board.
+    const names = new Map<string, { handle: string | null; displayName: string | null }>();
+    const ids = Array.from(new Set(rows.map((r) => r.user_id)));
+    const { data: profiles, error: profileError } = await supabase
+      .from("blink_profiles")
+      .select("id, handle, display_name")
+      .in("id", ids);
+
+    if (profileError) {
+      console.error("[fetchWeeklyWinners] names unavailable:", profileError.message);
+    } else {
+      for (const row of (profiles ?? []) as Array<{
+        id: string;
+        handle: string | null;
+        display_name: string | null;
+      }>) {
+        names.set(row.id, { handle: row.handle, displayName: row.display_name });
+      }
+    }
+
     return {
       status: "ok",
-      data: (data ?? []).map((row) => {
-      const r = row as unknown as WinnerRow;
-      return {
+      data: rows.map((r) => ({
         id: r.id,
         weekStart: r.week_start,
         category: r.category,
         userId: r.user_id,
-        handle: r.blink_profiles?.handle ?? null,
-        displayName: r.blink_profiles?.display_name ?? null,
+        handle: names.get(r.user_id)?.handle ?? null,
+        displayName: names.get(r.user_id)?.displayName ?? null,
         score: r.score ?? 0,
         improvement: r.improvement ?? 0,
-      };
-      }),
+      })),
     };
   });
 }
