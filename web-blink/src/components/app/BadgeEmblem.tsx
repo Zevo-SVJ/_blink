@@ -57,6 +57,13 @@ const ICONS: Record<BadgeIcon, string> = {
     "M13.5 2 C15 7 19.5 8.5 19.5 14 A6 6 0 0 1 7.5 14 C7.5 11.5 9 10 10 8.5 C10.6 10.4 11.6 11 12.4 11.2 C11.4 8 12 4.5 13.5 2 Z",
   // Check inside nothing — the plate is the container.
   verified: "M4 13 L10.5 19.5 L23 6 L20.5 3.5 L10.5 14.5 L6.5 10.5 Z",
+  // A star — category champion. Read at 20px, a laurel is two parentheses.
+  champion:
+    "M13.5 1.5 L17.2 9.4 L25.7 10.5 L19.5 16.5 L21.1 25 L13.5 20.9 L5.9 25 L7.5 16.5 L1.3 10.5 L9.8 9.4 Z",
+  // Faceted gem — top three.
+  elite: "M13.5 2 L23 9.5 L13.5 25 L4 9.5 Z M8.6 9.5 H18.4 L13.5 20 Z",
+  // A podium — a position, not a number.
+  topten: "M3 14 H9.5 V24 H3 Z M10.5 8 H16.5 V24 H10.5 Z M17.5 17 H24 V24 H17.5 Z",
 };
 
 const ICON_VIEWBOX = 27;

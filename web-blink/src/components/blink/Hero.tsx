@@ -120,7 +120,7 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
         initial={reduceMotion ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3, delay: 0.15 }}
-        className="absolute inset-x-0 bottom-8 z-0 sm:bottom-10"
+        className="absolute inset-x-0 bottom-4 z-0 sm:bottom-6"
       >
         <ProfileStream />
       </motion.div>

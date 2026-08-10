@@ -10,6 +10,14 @@
  * Splitting the thirty-four reactions across two rows rather than looping one
  * long row matters: opposite directions mean two cards never travel together
  * for long, so the eye can't latch onto a repeating pattern.
+ *
+ * **Cards are sized by their content.** They used to be a fixed 7.5rem tall
+ * with `line-clamp-3` on the quote, which silently ate the end of the longer
+ * reactions — "…my gf said thats literally just me being" and then nothing.
+ * A testimonial with its punchline cut off is worse than no testimonial. The
+ * width is fixed so the row stays a row; the height is whatever the words
+ * need, and `items-start` in the marquee keeps them from stretching to match
+ * each other.
  */
 
 import { Heart } from "lucide-react";
@@ -73,7 +81,7 @@ export function Testimonials({ onCTA }: { onCTA: () => void }) {
 
 function ReactionCard({ card }: { card: Testimonial }) {
   return (
-    <figure className="flex h-[7.5rem] w-[15.5rem] flex-col rounded-2xl bg-blink-navy-2/70 p-4 ring-1 ring-white/[0.07] sm:w-[17rem]">
+    <figure className="flex w-[15.5rem] flex-col rounded-2xl bg-blink-navy-2/70 p-4 ring-1 ring-white/[0.07] sm:w-[17rem]">
       <div className="flex items-center gap-2.5">
         <span
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
@@ -92,12 +100,12 @@ function ReactionCard({ card }: { card: Testimonial }) {
         </figcaption>
       </div>
 
-      <blockquote className="mt-3 line-clamp-3 text-[0.9rem] font-medium leading-snug text-white">
+      <blockquote className="mt-3 text-[0.9rem] font-medium leading-snug text-white">
         {card.text}
       </blockquote>
 
       {card.likes !== undefined && (
-        <p className="mt-auto flex items-center gap-1.5 pt-2 text-[0.7rem] font-semibold text-white/30">
+        <p className="mt-3 flex items-center gap-1.5 text-[0.7rem] font-semibold text-white/30">
           <Heart className="h-3 w-3 fill-current text-rose-400/60" aria-hidden />
           {formatLikes(card.likes)}
         </p>

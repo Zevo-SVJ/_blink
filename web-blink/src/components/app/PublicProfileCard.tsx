@@ -27,7 +27,7 @@ import { Instagram } from "lucide-react";
 import { AvatarPreview } from "@/components/app/IdentityForm";
 import { BadgeShelf } from "@/components/app/BadgeEmblem";
 import { formatRank } from "@/lib/app-nav";
-import { buildBadges } from "@/lib/badges";
+import { buildBadges, buildStatusBadges } from "@/lib/badges";
 import { categoryLabel } from "@/lib/categories";
 import { countryName, flagEmoji } from "@/lib/countries";
 import type { LeaderboardEntry } from "@/lib/leaderboard";
@@ -78,6 +78,15 @@ export function PublicProfileCard({
     view.standing?.category && view.standing.categoryRank > 0
       ? { label: categoryLabel(view.standing.category)!, rank: view.standing.categoryRank }
       : null;
+
+  // Status first, and only when actually held — a shelf of locked trophies
+  // reads as failure, an absent shelf reads as "not yet".
+  const status = buildStatusBadges({
+    rank: view.standing?.rank ?? null,
+    categoryRank: categoryClaim?.rank ?? null,
+    categoryLabel: categoryClaim?.label ?? null,
+    movement: view.standing?.movement ?? null,
+  });
 
   const badges = buildBadges(
     {
@@ -181,6 +190,10 @@ export function PublicProfileCard({
           <Instagram className="h-4 w-4" />
           {isMe ? "Your Instagram" : `View on Instagram`}
         </a>
+      )}
+
+      {status.length > 0 && (
+        <BadgeShelf badges={status} title={isMe ? "Status" : "Status held"} />
       )}
 
       <BadgeShelf badges={badges} title={isMe ? "Your record" : "Record"} />

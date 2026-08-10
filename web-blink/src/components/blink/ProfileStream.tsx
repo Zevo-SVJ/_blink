@@ -19,8 +19,8 @@
  *     approve. A landing page whose hero depends on that is a landing page
  *     that breaks quietly.
  *
- * So the row shows what it can honestly show: an abstract avatar, a category,
- * and a score. That is the same approach the leaderboard showcase takes with
+ * So the row shows what it can honestly show: an abstract avatar, a category
+ * with its own symbol, and a score. That is the same approach the leaderboard showcase takes with
  * its anonymous rows, and it makes the real point — *every kind of profile has
  * a reading, and a small account can score higher than a big one* — without
  * borrowing anyone's face to do it.
@@ -32,6 +32,8 @@ import { cn } from "@/lib/utils";
 interface StreamProfile {
   id: string;
   category: string;
+  /** The category's mark. Recognisable at 20px, part of Blink's language. */
+  symbol: string;
   score: number;
   hue: number;
   /** Abstract avatar treatment, so the row doesn't look like one template. */
@@ -45,18 +47,18 @@ interface StreamProfile {
  * uninteresting. The spread is the message.
  */
 const PROFILES: StreamProfile[] = [
-  { id: "p1", category: "Larp", score: 8.6, hue: 210, variant: "duo" },
-  { id: "p2", category: "Creator", score: 7.4, hue: 28, variant: "solid" },
-  { id: "p3", category: "Fashion", score: 9.1, hue: 320, variant: "ring" },
-  { id: "p4", category: "Personal", score: 5.8, hue: 150, variant: "solid" },
-  { id: "p5", category: "Fitness", score: 8.0, hue: 45, variant: "duo" },
-  { id: "p6", category: "Artist", score: 8.8, hue: 265, variant: "ring" },
-  { id: "p7", category: "Lifestyle", score: 6.5, hue: 190, variant: "solid" },
-  { id: "p8", category: "Entrepreneur", score: 7.9, hue: 85, variant: "duo" },
-  { id: "p9", category: "Creator", score: 6.1, hue: 340, variant: "ring" },
-  { id: "p10", category: "Larp", score: 9.3, hue: 230, variant: "solid" },
-  { id: "p11", category: "Personal", score: 7.2, hue: 12, variant: "duo" },
-  { id: "p12", category: "Artist", score: 5.4, hue: 170, variant: "ring" },
+  { id: "p1", category: "Larp", symbol: "🕶️", score: 8.6, hue: 210, variant: "duo" },
+  { id: "p2", category: "Creator", symbol: "🎥", score: 7.4, hue: 28, variant: "solid" },
+  { id: "p3", category: "Fashion", symbol: "✦", score: 9.1, hue: 320, variant: "ring" },
+  { id: "p4", category: "Personal", symbol: "🫧", score: 5.8, hue: 150, variant: "solid" },
+  { id: "p5", category: "Fitness", symbol: "⚡", score: 8.0, hue: 45, variant: "duo" },
+  { id: "p6", category: "Artist", symbol: "🎨", score: 8.8, hue: 265, variant: "ring" },
+  { id: "p7", category: "Lifestyle", symbol: "🌿", score: 6.5, hue: 190, variant: "solid" },
+  { id: "p8", category: "Entrepreneur", symbol: "💼", score: 7.9, hue: 85, variant: "duo" },
+  { id: "p9", category: "Creator", symbol: "🎥", score: 6.1, hue: 340, variant: "ring" },
+  { id: "p10", category: "Larp", symbol: "🕶️", score: 9.3, hue: 230, variant: "solid" },
+  { id: "p11", category: "Personal", symbol: "🫧", score: 7.2, hue: 12, variant: "duo" },
+  { id: "p12", category: "Artist", symbol: "🎨", score: 5.4, hue: 170, variant: "ring" },
 ];
 
 export function ProfileStream() {
@@ -78,9 +80,12 @@ export function ProfileStream() {
 
 function ProfileChip({ profile }: { profile: StreamProfile }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-full bg-white/[0.04] py-1.5 pl-1.5 pr-3.5 ring-1 ring-white/[0.06]">
+    <div className="flex items-center gap-2 rounded-full bg-white/[0.04] py-1.5 pl-1.5 pr-3.5 ring-1 ring-white/[0.06]">
       <Avatar hue={profile.hue} variant={profile.variant} />
-      <span className="whitespace-nowrap text-[0.7rem] font-semibold text-white/50">
+      <span className="text-[0.85rem] leading-none" aria-hidden>
+        {profile.symbol}
+      </span>
+      <span className="whitespace-nowrap text-[0.7rem] font-semibold text-white/55">
         {profile.category}
       </span>
       <span className="text-[0.7rem] font-extrabold tabular-nums text-blink-sky">

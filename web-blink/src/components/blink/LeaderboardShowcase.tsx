@@ -16,16 +16,17 @@
  *    changed before you had finished it. There are now three, each holding
  *    long enough to read, with the score-and-climb story landing in about
  *    3.5s and the category act following it.
- *  - **It never freezes.** The scripted run ends, but the board doesn't: it
- *    keeps drifting afterwards — scores tick, positions below you trade
- *    places. A leaderboard that stops dead is a screenshot, and the whole
- *    point of the section is that this thing is alive and you are in it.
+ *  - **It never freezes.** The run loops. `run` is mixed into the row keys so
+ *    a restart is rows entering, not rows teleporting home — the difference
+ *    between a loop and a glitch. A leaderboard that stops dead is a
+ *    screenshot, and the point of the section is that this thing is live and
+ *    you are in it.
  *
- * The conclusion is the point of the whole section: you are not competing in
- * one enormous meaningless board. Global filters down to a category, the two
- * profiles that don't belong drop away, and the same person who was second
- * overall is first in Larp — which is Blink's own category and the reason the
- * category system exists.
+ * The argument runs in three claims and a payoff: rank comes from how a
+ * profile reads and not from followers (890 followers finishing above 1.2M);
+ * the board narrows to a category; and a high enough position stops being a
+ * number and becomes status you can hold. The badge reveal is the payoff, and
+ * it uses the same emblems the app awards — not a mock-up of them.
  *
  * On invented data: rows are anonymous, with no handles, names or avatars,
  * because fabricating people would misrepresent a board that only ever
@@ -37,8 +38,10 @@ import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-mot
 import { Crown, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { BadgeEmblem } from "@/components/app/BadgeEmblem";
 import { CTAButton } from "@/components/blink/CTAButton";
 import { Reveal } from "@/components/blink/Reveal";
+import type { BadgeSpec } from "@/lib/badges";
 import { cn } from "@/lib/utils";
 
 interface Row {
@@ -46,34 +49,81 @@ interface Row {
   score: number;
   isYou?: boolean;
   category: string;
+  /**
+   * Audience size, as a label.
+   *
+   * The section's first claim is that rank is not bought with followers, and
+   * that claim is unprovable without showing the follower counts it is
+   * ignoring. These are annotations on a diagram, not people — the rows carry
+   * no names, handles or faces for exactly that reason.
+   */
+  followers: string;
 }
 
 const INITIAL_ROWS: Row[] = [
-  { id: "a", score: 913, category: "Creator" },
-  { id: "b", score: 871, category: "Artist" },
-  { id: "c", score: 838, category: "Larp" },
-  { id: "d", score: 802, category: "Larp" },
-  { id: "you", score: 781, isYou: true, category: "Larp" },
+  { id: "a", score: 871, category: "Creator", followers: "1.2M" },
+  { id: "b", score: 838, category: "Artist", followers: "340k" },
+  { id: "c", score: 802, category: "Larp", followers: "8.4k" },
+  { id: "d", score: 764, category: "Larp", followers: "2.1k" },
+  { id: "you", score: 731, isYou: true, category: "Larp", followers: "890" },
 ];
 
-/** Enough of a jump to pass two rows, so the movement is legible. */
+/**
+ * Enough to take the smallest account on the board to first place.
+ *
+ * That is the whole argument in one number: 890 followers finishing above
+ * 1.2M. A climb to second would have been safer and would have proved nothing.
+ */
 const IMPROVED_SCORE = 889;
 
-/** Shown when the board narrows. Larp leads because the ending lands on it. */
-const CATEGORY_PILLS = ["Larp", "Creator", "Fashion", "Fitness"];
+/** Shown when the board narrows. `All` first, Larp next — as in the app. */
+const CATEGORY_PILLS = ["All", "Larp", "Creator", "Fashion", "Fitness"];
 
+/**
+ * The three things this section has to land, one per beat, then the payoff.
+ *
+ * Beats are short and the holds are where the reading happens — slowing
+ * everything down uniformly would have made it feel like a loading bar rather
+ * than a product. The run loops, so no frame is ever the last one.
+ */
 const STEPS = [
-  { id: "board", caption: "Every profile gets a score.", ms: 1500 },
-  // Verification and the climb are one beat: the sweep and the reorder are the
-  // same event, and splitting them gave each half too little time to read.
-  { id: "climb", caption: "Improve something real, and you move.", ms: 2100 },
-  { id: "categories", caption: "Not everyone competes in the same lane.", ms: 1900 },
-  // Terminal for the *script*. The board keeps drifting after this.
-  { id: "larp", caption: "Larp is a lane. So is yours.", ms: null },
+  { id: "board", caption: "Ranked on how a profile reads. Not on followers.", ms: 1900 },
+  { id: "climb", caption: "Improve something real, and you move.", ms: 2000 },
+  { id: "categories", caption: "You're ranked inside a category, too.", ms: 1700 },
+  { id: "larp", caption: "Larp — one of Blink's categories.", ms: 1800 },
+  { id: "badges", caption: "Rank high enough and it becomes status.", ms: 2600 },
 ] as const;
 
-/** How often the resting board nudges itself. Slow enough to ignore. */
-const IDLE_MS = 2600;
+/** The status a first-in-category, first-overall profile actually holds. */
+const EARNED: BadgeSpec[] = [
+  {
+    id: "champion",
+    label: "Larp Icon",
+    value: "#1",
+    detail: "",
+    shape: "shield",
+    icon: "champion",
+    grade: "elite",
+  },
+  {
+    id: "elite",
+    label: "Elite",
+    value: "#1",
+    detail: "",
+    shape: "hex",
+    icon: "elite",
+    grade: "elite",
+  },
+  {
+    id: "topten",
+    label: "Top 10",
+    value: "#1",
+    detail: "",
+    shape: "hex",
+    icon: "topten",
+    grade: "earned",
+  },
+];
 
 type StepId = (typeof STEPS)[number]["id"];
 
@@ -87,16 +137,30 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
   const reduceMotion = useReducedMotion();
   const [index, setIndex] = useState(0);
 
+  /**
+   * Which pass through the sequence we're on.
+   *
+   * Bumped on every wrap and mixed into the row keys, so `AnimatePresence`
+   * treats a restart as fresh rows entering rather than as the same rows
+   * teleporting back to their opening positions — which is what a naive index
+   * reset looks like, and it reads as a glitch.
+   */
+  const [run, setRun] = useState(0);
+
   useEffect(() => {
     if (!inView) return;
     if (reduceMotion) {
       setIndex(STEPS.length - 1);
       return;
     }
-    const ms = STEPS[index].ms;
-    // Null duration marks the resting state — nothing schedules a restart.
-    if (ms === null) return;
-    const timer = window.setTimeout(() => setIndex((i) => i + 1), ms);
+    const timer = window.setTimeout(() => {
+      setIndex((i) => {
+        const next = i + 1;
+        if (next < STEPS.length) return next;
+        setRun((r) => r + 1);
+        return 0;
+      });
+    }, STEPS[index].ms);
     return () => window.clearTimeout(timer);
   }, [inView, reduceMotion, index]);
 
@@ -105,41 +169,15 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
 
   const climbed = past("climb");
   const narrowed = past("larp");
-  const settled = STEPS[index].ms === null;
-
-  /**
-   * Drift applied to the other profiles once the script has finished.
-   *
-   * Keyed by row id and always kept below the user's score, so the ending —
-   * you are first in your lane — stays true while the board around you moves.
-   */
-  const [drift, setDrift] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    if (!settled || reduceMotion) return;
-    const timer = window.setInterval(() => {
-      setDrift((current) => {
-        const others = INITIAL_ROWS.filter((r) => !r.isYou);
-        const pick = others[Math.floor(Math.random() * others.length)];
-        const delta = Math.floor(Math.random() * 9) - 4;
-        const next = (current[pick.id] ?? 0) + delta;
-        // Cap so nobody drifts past the user, and so scores stay plausible.
-        const ceiling = IMPROVED_SCORE - pick.score - 1;
-        return { ...current, [pick.id]: Math.max(-40, Math.min(ceiling, next)) };
-      });
-    }, IDLE_MS);
-    return () => window.clearInterval(timer);
-  }, [settled, reduceMotion]);
+  const showBadges = past("badges");
 
   const rows = useMemo(() => {
     const scored = INITIAL_ROWS.map((r) =>
-      r.isYou
-        ? { ...r, score: climbed ? IMPROVED_SCORE : r.score }
-        : { ...r, score: r.score + (drift[r.id] ?? 0) },
+      r.isYou && climbed ? { ...r, score: IMPROVED_SCORE } : r,
     );
     const visible = narrowed ? scored.filter((r) => r.category === "Larp") : scored;
     return visible.sort((a, b) => b.score - a.score);
-  }, [climbed, narrowed, drift]);
+  }, [climbed, narrowed]);
 
   return (
     <section id="leaderboard" ref={ref} className="relative px-4 py-20 sm:px-6 sm:py-28">
@@ -165,7 +203,7 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
             <AnimatePresence initial={false} mode="popLayout">
               {rows.map((row, i) => (
                 <BoardRow
-                  key={row.id}
+                  key={`${run}-${row.id}`}
                   row={row}
                   rank={i + 1}
                   verifying={!!row.isYou && STEPS[index].id === "climb"}
@@ -178,7 +216,12 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
             </AnimatePresence>
           </div>
 
-          <CategoryStrip shown={past("categories")} selected={narrowed ? "Larp" : null} />
+          <CategoryStrip
+            shown={past("categories")}
+            selected={narrowed ? "Larp" : "All"}
+          />
+
+          <StatusReveal shown={showBadges} />
         </div>
 
         <div className="mt-5 h-10 text-center sm:h-6">
@@ -292,6 +335,48 @@ function CategoryStrip({ shown, selected }: { shown: boolean; selected: string |
   );
 }
 
+/**
+ * The payoff: the status a first-place profile actually holds.
+ *
+ * These are the real emblems from the badge system, not a drawing of them, so
+ * what the section promises is literally what the profile screen awards.
+ */
+function StatusReveal({ shown }: { shown: boolean }) {
+  return (
+    <AnimatePresence>
+      {shown && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.3, ease }}
+          className="overflow-hidden"
+        >
+          <div className="flex items-start justify-center gap-6 pt-5">
+            {EARNED.map((badge, i) => (
+              <motion.div
+                key={badge.id}
+                className="flex flex-col items-center gap-1.5"
+                initial={{ opacity: 0, scale: 0.4, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 380,
+                  damping: 20,
+                  delay: 0.1 + i * 0.12,
+                }}
+              >
+                <BadgeEmblem badge={badge} size={46} />
+                <span className="text-[0.6rem] font-bold text-white/50">{badge.label}</span>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function BoardRow({
   row,
   rank,
@@ -352,21 +437,24 @@ function BoardRow({
         ) : (
           <span className="block h-2 w-14 rounded-full bg-white/[0.14]" />
         )}
-        <AnimatePresence>
-          {showCategory && (
-            <motion.span
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className={cn(
-                "mt-1 block text-[0.62rem] font-semibold",
-                row.category === "Larp" ? "text-blink-sky/80" : "text-white/35",
-              )}
-            >
-              {row.category}
-            </motion.span>
-          )}
-        </AnimatePresence>
+        <span className="mt-1 flex items-center gap-1.5 text-[0.62rem] font-semibold">
+          <span className="text-white/30">{row.followers} followers</span>
+          <AnimatePresence>
+            {showCategory && (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                className={cn(
+                  "overflow-hidden whitespace-nowrap",
+                  row.category === "Larp" ? "text-blink-sky/80" : "text-white/35",
+                )}
+              >
+                · {row.category}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </span>
       </div>
 
       <AnimatePresence>

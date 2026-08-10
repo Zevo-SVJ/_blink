@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildBadges, earnedCount, type BadgeInput } from "@/lib/badges";
+import {
+  buildBadges,
+  buildStatusBadges,
+  earnedCount,
+  type BadgeInput,
+} from "@/lib/badges";
 import { CATEGORIES, pickerCategories } from "@/lib/categories";
 
 const EMPTY: BadgeInput = {
@@ -94,5 +99,54 @@ describe("pickerCategories", () => {
     expect(pickerCategories(["minimalist", "Minimalist"])).toHaveLength(
       CATEGORIES.length + 1,
     );
+  });
+});
+
+describe("buildStatusBadges", () => {
+  const NONE = { rank: null, categoryRank: null, categoryLabel: null, movement: null };
+
+  it("shows nothing for a profile holding no status", () => {
+    // An empty shelf is honest; a shelf of locked trophies is discouraging.
+    expect(buildStatusBadges(NONE)).toEqual([]);
+    expect(buildStatusBadges({ ...NONE, rank: 40, categoryRank: 12 })).toEqual([]);
+  });
+
+  it("awards the category champion its own named emblem", () => {
+    const badges = buildStatusBadges({
+      ...NONE,
+      rank: 7,
+      categoryRank: 1,
+      categoryLabel: "Larp",
+    });
+    const champion = badges.find((b) => b.id === "champion")!;
+    expect(champion.label).toBe("Larp Icon");
+    expect(champion.grade).toBe("elite");
+  });
+
+  it("gives Elite or Top 10, never both", () => {
+    const top3 = buildStatusBadges({ ...NONE, rank: 2 }).map((b) => b.id);
+    expect(top3).toContain("elite");
+    expect(top3).not.toContain("topten");
+
+    const top10 = buildStatusBadges({ ...NONE, rank: 8 }).map((b) => b.id);
+    expect(top10).toContain("topten");
+    expect(top10).not.toContain("elite");
+  });
+
+  it("only calls a profile rising when it actually moved up", () => {
+    expect(buildStatusBadges({ ...NONE, movement: 2 }).map((b) => b.id)).not.toContain("rising");
+    expect(buildStatusBadges({ ...NONE, movement: -6 }).map((b) => b.id)).not.toContain("rising");
+    expect(buildStatusBadges({ ...NONE, movement: 4 }).map((b) => b.id)).toContain("rising");
+  });
+
+  it("keeps every emblem distinct so the shelf never repeats a silhouette", () => {
+    const badges = buildStatusBadges({
+      rank: 1,
+      categoryRank: 1,
+      categoryLabel: "Larp",
+      movement: 9,
+    });
+    expect(badges.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(badges.map((b) => b.icon)).size).toBe(badges.length);
   });
 });

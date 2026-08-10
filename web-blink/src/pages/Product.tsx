@@ -29,6 +29,7 @@ import { ShareSheet } from "@/components/analysis/ShareSheet";
 import { AuthModal } from "@/components/blink/AuthModal";
 import { CTAButton } from "@/components/blink/CTAButton";
 import { PageBackground } from "@/components/blink/PageBackground";
+import { TabBar } from "@/components/app/AppShell";
 import { ScoreRing } from "@/components/blink/ScoreRing";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -305,8 +306,18 @@ export default function Product() {
     navigate(user ? "/app" : "/");
   };
 
+  // The tab bar stays for signed-in users everywhere on this route except the
+  // analysis itself, which is deliberately full-screen and cinematic. It comes
+  // back the moment the result lands.
+  const showTabBar = !!user && screen !== "analyzing";
+
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
+    <div
+      className={cn(
+        "relative min-h-screen overflow-x-hidden",
+        showTabBar && "has-app-tabbar",
+      )}
+    >
       <PageBackground />
 
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-blink-navy/50 backdrop-blur-xl">
@@ -338,7 +349,12 @@ export default function Product() {
         </div>
       </header>
 
-      <main className="px-4 pb-24 pt-20 sm:px-6 sm:pt-24">
+      <main
+        className={cn(
+          "px-4 pt-20 sm:px-6 sm:pt-24",
+          showTabBar ? "pb-[calc(7rem+env(safe-area-inset-bottom))]" : "pb-24",
+        )}
+      >
         <div className="mx-auto max-w-2xl">
           <AnimatePresence mode="wait">
             {screen === "upload" && (
@@ -429,6 +445,22 @@ export default function Product() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Persistent, exactly as in the rest of the app. `AnimatePresence` so
+          it slides away for the analysis rather than blinking out. */}
+      <AnimatePresence>
+        {showTabBar && (
+          <motion.div
+            key="tabbar"
+            initial={{ y: 90, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 90, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 320, damping: 34 }}
+          >
+            <TabBar />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AuthModal
         open={authModalOpen}

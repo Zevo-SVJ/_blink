@@ -31,7 +31,11 @@ export type BadgeIcon =
   | "movement"
   | "momentum"
   | "streak"
-  | "verified";
+  | "verified"
+  /** Status marks — earned by position rather than by activity. */
+  | "champion"
+  | "elite"
+  | "topten";
 
 export interface BadgeSpec {
   id: string;
@@ -55,6 +59,79 @@ export interface BadgeInput {
   momentumDelta: number;
   streak: number;
   verifiedCount: number;
+}
+
+/**
+ * Status earned by *position*, not by activity.
+ *
+ * These are the collectible half of the system: you can't grind them, you have
+ * to be there. They are computed separately from the record badges because
+ * they appear and disappear as the board moves, and because a profile that
+ * holds none of them should show none rather than three greyed-out ghosts —
+ * an empty shelf is honest, a shelf of locked trophies is discouraging.
+ */
+export interface StatusInput {
+  /** Current global rank, or null if unranked. */
+  rank: number | null;
+  /** Current rank within the profile's category. */
+  categoryRank: number | null;
+  /** Display label of the category, e.g. "Larp". */
+  categoryLabel: string | null;
+  /** Places gained since the last snapshot. */
+  movement: number | null;
+}
+
+export function buildStatusBadges(input: StatusInput): BadgeSpec[] {
+  const badges: BadgeSpec[] = [];
+  const { rank, categoryRank, categoryLabel, movement } = input;
+
+  if (categoryRank === 1 && categoryLabel) {
+    badges.push({
+      id: "champion",
+      label: `${categoryLabel} Icon`,
+      value: "#1",
+      detail: `First in ${categoryLabel}. Held for as long as nobody in the category outscores this profile.`,
+      shape: "shield",
+      icon: "champion",
+      grade: "elite",
+    });
+  }
+
+  if (rank !== null && rank > 0 && rank <= 3) {
+    badges.push({
+      id: "elite",
+      label: "Elite",
+      value: `#${rank}`,
+      detail: "Top three on the global board — every category, every account size.",
+      shape: "hex",
+      icon: "elite",
+      grade: "elite",
+    });
+  } else if (rank !== null && rank > 0 && rank <= 10) {
+    badges.push({
+      id: "topten",
+      label: "Top 10",
+      value: `#${rank}`,
+      detail: "Top ten on the global board.",
+      shape: "hex",
+      icon: "topten",
+      grade: "earned",
+    });
+  }
+
+  if (movement !== null && movement >= 3) {
+    badges.push({
+      id: "rising",
+      label: "Rising",
+      value: `+${movement}`,
+      detail: "Gained three or more places since the last snapshot.",
+      shape: "chevron",
+      icon: "movement",
+      grade: movement >= 5 ? "elite" : "earned",
+    });
+  }
+
+  return badges;
 }
 
 /** Thresholds at which a badge stops being routine. Deliberately demanding. */

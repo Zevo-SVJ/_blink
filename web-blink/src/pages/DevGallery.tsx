@@ -40,7 +40,7 @@ const STANDING: LeaderboardEntry = {
   streak: 5,
   verifiedCount: 11,
   rank: 7,
-  categoryRank: 2,
+  categoryRank: 1,
   movement: 6,
 };
 
