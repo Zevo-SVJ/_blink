@@ -66,6 +66,19 @@ function isMissingRelation(error: { code?: string } | null): boolean {
 }
 
 /**
+ * A malformed id — the `:id` segment of a hand-edited or truncated profile
+ * URL — is not a failure to reach the database. Postgres rejects it at parse
+ * time (`22P02`, invalid_text_representation) before any row is considered.
+ *
+ * Reporting that as an error left the page on "check your connection" with a
+ * Retry button that could never succeed, because retrying sends the same
+ * invalid id. It is a lookup that found nothing, and it reads as one.
+ */
+function isMalformedId(error: { code?: string } | null): boolean {
+  return error?.code === "22P02";
+}
+
+/**
  * Convert a *thrown* query failure into an error result.
  *
  * supabase-js rejects when the request never reaches the server, and an
@@ -186,7 +199,9 @@ export async function fetchPublicStanding(
       .maybeSingle();
 
     if (error) {
-      if (isMissingRelation(error)) return { status: "ok", data: null };
+      if (isMissingRelation(error) || isMalformedId(error)) {
+        return { status: "ok", data: null };
+      }
       console.error("[fetchPublicStanding]", error.message);
       return { status: "error", message: UNREACHABLE };
     }
