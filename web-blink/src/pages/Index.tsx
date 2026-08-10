@@ -8,6 +8,7 @@ import { Footer } from "@/components/blink/Footer";
 import { Hero } from "@/components/blink/Hero";
 import { HowItWorks } from "@/components/blink/HowItWorks";
 import { LeaderboardShowcase } from "@/components/blink/LeaderboardShowcase";
+import { ActivityToasts } from "@/components/blink/ActivityToasts";
 import { Navbar } from "@/components/blink/Navbar";
 import { PageBackground } from "@/components/blink/PageBackground";
 import { Testimonials } from "@/components/blink/Testimonials";
@@ -37,6 +38,10 @@ const Index = () => {
         <PageBackground glows />
 
         <Navbar onCTA={handleCTA} />
+
+        {/* Landing only — see the component's note. Mounted here rather than in
+            the shell so it can never follow anyone into the app. */}
+        <ActivityToasts />
         <main>
           <Hero onCTA={handleCTA} />
           <HowItWorks onCTA={handleCTA} />
