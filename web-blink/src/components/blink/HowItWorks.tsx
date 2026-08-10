@@ -37,13 +37,14 @@
  *    Every element is the screenshot, a marker, a signal, or a reading.
  */
 
-import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useCallback, useEffect, useState } from "react";
 
 import { CTAButton } from "@/components/blink/CTAButton";
 import { PerceptionCard } from "@/components/blink/PerceptionCard";
 import { Reveal } from "@/components/blink/Reveal";
 import { PERCEPTIONS } from "@/lib/blink-data";
+import { useSectionMotion } from "@/lib/use-section-motion";
 import { cn } from "@/lib/utils";
 
 type Act = "upload" | "read" | "extract" | "perceive";
@@ -87,8 +88,8 @@ const SHOT_H = 196;
 const THUMB_SCALE = 0.42;
 
 export function HowItWorks({ onCTA }: { onCTA: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { amount: 0, margin: "0px 0px 45% 0px", once: true });
+  // The ref goes on the stage below, not on the section — see `useSectionMotion`.
+  const { ref, inView } = useSectionMotion();
   const reduceMotion = useReducedMotion();
 
   const [act, setAct] = useState<Act>("upload");
@@ -102,6 +103,14 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
       return ACTS[(i + 1) % ACTS.length].id;
     });
   }, []);
+
+  // Leaving the viewport rewinds to act one, so a reader who comes back sees
+  // the story from the start rather than joining it mid-sentence.
+  useEffect(() => {
+    if (inView || held) return;
+    setAct("upload");
+    setLens(0);
+  }, [inView, held]);
 
   // Acts one to three are timed. `perceive` ends when the readings run out.
   useEffect(() => {
@@ -137,7 +146,7 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
   const current = PERCEPTIONS[lens];
 
   return (
-    <section id="how-it-works" ref={ref} className="relative px-4 py-20 sm:px-6 sm:py-28">
+    <section id="how-it-works" className="relative px-4 py-20 sm:px-6 sm:py-28">
       <div className="mx-auto max-w-3xl">
         <Reveal className="text-center">
           <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-blink-sky/70">
@@ -152,7 +161,7 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
           </p>
         </Reveal>
 
-        <div className="mx-auto mt-9 w-full max-w-[24rem] sm:mt-12">
+        <div ref={ref} className="mx-auto mt-9 w-full max-w-[24rem] sm:mt-12">
           <Rail act={act} />
 
           {/* The subject. Shrinks but is never replaced, so the readings are

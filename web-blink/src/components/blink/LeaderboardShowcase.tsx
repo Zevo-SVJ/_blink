@@ -34,14 +34,15 @@
  * diagram of your own position.
  */
 
-import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Crown, TrendingUp } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { BadgeEmblem } from "@/components/app/BadgeEmblem";
 import { CTAButton } from "@/components/blink/CTAButton";
 import { Reveal } from "@/components/blink/Reveal";
 import type { BadgeSpec } from "@/lib/badges";
+import { useSectionMotion } from "@/lib/use-section-motion";
 import { cn } from "@/lib/utils";
 
 interface Row {
@@ -131,9 +132,8 @@ const ease = [0.22, 1, 0.36, 1] as const;
 const spring = { type: "spring" as const, stiffness: 340, damping: 32 };
 
 export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  // Fires roughly a viewport early, so the story is underway on arrival.
-  const inView = useInView(ref, { amount: 0, margin: "0px 0px 65% 0px", once: true });
+  // The ref goes on the board, not on the section — see `useSectionMotion`.
+  const { ref, inView } = useSectionMotion();
   const reduceMotion = useReducedMotion();
   const [index, setIndex] = useState(0);
 
@@ -146,6 +146,12 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
    * reset looks like, and it reads as a glitch.
    */
   const [run, setRun] = useState(0);
+
+  // Leaving the viewport rewinds, so returning starts the loop cleanly rather
+  // than dropping the reader into the badge reveal with no context.
+  useEffect(() => {
+    if (!inView) setIndex(0);
+  }, [inView]);
 
   useEffect(() => {
     if (!inView) return;
@@ -180,7 +186,7 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
   }, [climbed, narrowed]);
 
   return (
-    <section id="leaderboard" ref={ref} className="relative px-4 py-20 sm:px-6 sm:py-28">
+    <section id="leaderboard" className="relative px-4 py-20 sm:px-6 sm:py-28">
       <div className="mx-auto max-w-3xl">
         <Reveal className="text-center">
           <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-blink-sky/70">
@@ -196,7 +202,7 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
         </Reveal>
 
         {/* No frame: the rows themselves are the object. */}
-        <div className="mx-auto mt-10 w-full max-w-[360px] sm:mt-14">
+        <div ref={ref} className="mx-auto mt-10 w-full max-w-[360px] sm:mt-14">
           <BoardHeader narrowed={narrowed} showWeek={past("categories")} />
 
           <div className="space-y-2">
