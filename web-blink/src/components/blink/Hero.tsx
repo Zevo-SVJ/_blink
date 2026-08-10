@@ -54,7 +54,7 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
     >
       <div className="relative z-10 mx-auto w-full max-w-xl text-center">
         <h1
-          className="blink-rise blink-rise-1 text-[2rem] font-extrabold leading-[1.02] tracking-[-0.035em] text-white min-[400px]:text-[2.25rem] sm:text-5xl lg:text-[3.5rem]"
+          className="blink-rise blink-rise-1 text-[1.75rem] font-extrabold leading-[1.04] tracking-[-0.035em] text-white min-[360px]:text-[2rem] min-[400px]:text-[2.25rem] sm:text-5xl lg:text-[3.5rem]"
         >
           See yourself the way
           <br />
@@ -105,7 +105,7 @@ function AccentPhrase() {
   const reduceMotion = useReducedMotion();
 
   return (
-    <span className="relative inline-block pb-1.5 sm:pb-2.5">
+    <span className="relative inline-block pb-2.5 sm:pb-3.5">
       <span className="relative">
         <span className="bg-gradient-to-r from-blink-sky via-white to-blink-sky bg-clip-text text-transparent">
           others see you.
