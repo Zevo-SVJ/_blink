@@ -165,8 +165,25 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
           <Rail act={act} />
 
           {/* The subject. Shrinks but is never replaced, so the readings are
-              visibly *of it*. */}
-          <div className="mt-6 flex justify-center">
+              visibly *of it*.
+
+              The row reserves the subject's *full* height for the whole
+              sequence. The box below animates its own width and height, and it
+              sits in normal flow, so when it shrank to THUMB_SCALE the section
+              lost 196 × (1 − 0.42) ≈ 114px and the document with it — measured
+              5390 → 5276. A reader parked below this point was clamped upward
+              by the browser as the page got shorter, which is the "landing
+              jumps up by itself" report.
+
+              Fixing the height here leaves the animation untouched: the box
+              still grows and shrinks exactly as before, it just no longer
+              drags the page around while it does. The box is centred in the
+              reserved space so the freed room reads as breathing room above
+              and below rather than a hole underneath. */}
+          <div
+            className="mt-6 flex items-center justify-center"
+            style={{ height: SHOT_H }}
+          >
             <motion.div
               className="relative"
               initial={false}
