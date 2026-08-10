@@ -25,6 +25,7 @@ import {
   OwnershipBanner,
   type PublicStanding,
 } from "@/components/analysis/AnalysisResult";
+import { ScoreGain } from "@/components/analysis/ScoreGain";
 import { ShareSheet } from "@/components/analysis/ShareSheet";
 import { AuthModal } from "@/components/blink/AuthModal";
 import { CTAButton } from "@/components/blink/CTAButton";
@@ -115,6 +116,8 @@ export default function Product() {
   const [revealStage, setRevealStage] = useState(0);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [progression, setProgression] = useState<RecordedAnalysis | null>(null);
+  /** Points gained on a re-scan, while the confirmation is on screen. */
+  const [gain, setGain] = useState<number | null>(null);
   const [standing, setStanding] = useState<PublicStanding | null>(null);
   const [myRank, setMyRank] = useState<number | null>(null);
   const [myStats, setMyStats] = useState<ProfileStats | null>(null);
@@ -183,6 +186,7 @@ export default function Product() {
     setUnlocked(false);
     setRevealStage(0);
     setProgression(null);
+    setGain(null);
 
     try {
       // Dev-only escape hatch for exercising the animation and both result
@@ -266,7 +270,14 @@ export default function Product() {
         const { base64 } = await resizeForUpload(sourceFile);
         const saved = await saveAnalysis(userId, analysis);
         const recorded = await recordAnalysis(userId, analysis, base64, saved?.id);
-        if (recorded.status === "ok") setProgression(recorded.data);
+        if (recorded.status === "ok") {
+          setProgression(recorded.data);
+          // Only a counted, positive move earns the moment. A flat or lower
+          // score gets the result screen and nothing else — see `ScoreGain`.
+          if (recorded.data.check.counts && recorded.data.delta > 0) {
+            setGain(recorded.data.delta);
+          }
+        }
 
         // Loaded after recording so "how to climb" reflects the analysis the
         // user is currently looking at, not the one before it.
@@ -450,6 +461,8 @@ export default function Product() {
           </AnimatePresence>
         </div>
       </main>
+
+      {gain !== null && <ScoreGain delta={gain} onDone={() => setGain(null)} />}
 
       <AuthModal
         open={authModalOpen}
