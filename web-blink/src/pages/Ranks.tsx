@@ -18,9 +18,9 @@
  */
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Crown, Info, Rocket, Trophy, UserPlus } from "lucide-react";
+import { Crown, Info, Rocket, ScanLine, Trophy, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { AddSomeoneSheet } from "@/components/app/AddSomeoneSheet";
 import { AppShell } from "@/components/app/AppShell";
@@ -28,7 +28,14 @@ import { EmptyState, ErrorState, SkeletonList } from "@/components/app/states";
 import { useAuth } from "@/hooks/useAuth";
 import { formatRank } from "@/lib/app-nav";
 import { categoryBlurb, categoryLabel, pickerCategories } from "@/lib/categories";
+import {
+  analyzedCategories,
+  fetchAnalyzedProfiles,
+  rankAnalyzed,
+  type AnalyzedProfile,
+} from "@/lib/analyzed-profiles";
 import { countryName, flagEmoji } from "@/lib/countries";
+import { fetchMySuggestions, type PendingSuggestion } from "@/lib/leaderboard-suggestions";
 import {
   fetchCategories,
   fetchLeaderboard,
@@ -40,10 +47,14 @@ import {
 import { getTier } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
 
-type Board = "standings" | "winners";
+type Board = "standings" | "winners" | "analyzed";
 
 interface BoardData {
   entries: LeaderboardEntry[];
+  /** Profiles this user has analysed. Private to them. */
+  analyzed: AnalyzedProfile[];
+  /** Handles suggested but not yet analysed. Also private to this user. */
+  pending: PendingSuggestion[];
   categories: string[];
   winners: WeeklyWinner[];
   me: LeaderboardEntry | null;
@@ -64,11 +75,20 @@ export default function Ranks() {
   const refresh = useCallback(async () => {
     setLoad({ state: "loading" });
 
-    const [entriesRes, categoriesRes, winnersRes, meRes] = await Promise.all([
+    const [entriesRes, categoriesRes, winnersRes, meRes, analyzedRes, pendingRes] =
+      await Promise.all([
       fetchLeaderboard(category),
       fetchCategories(),
       fetchWeeklyWinners(),
       user ? fetchMyStanding(user.id) : Promise.resolve({ status: "ok" as const, data: null }),
+      // Private to this user — see `analyzed-profiles`. A failure here must not
+      // take down the public board, so it degrades to an empty list.
+      user
+        ? fetchAnalyzedProfiles(user.id)
+        : Promise.resolve({ status: "ok" as const, data: [] as AnalyzedProfile[] }),
+      user
+        ? fetchMySuggestions(user.id)
+        : Promise.resolve({ status: "ok" as const, data: [] as PendingSuggestion[] }),
     ]);
 
     // The standings are the page — a failure there is a real error.
@@ -84,6 +104,8 @@ export default function Ranks() {
         categories: categoriesRes.status === "ok" ? categoriesRes.data : [],
         winners: winnersRes.status === "ok" ? winnersRes.data : [],
         me: meRes.status === "ok" ? meRes.data : null,
+        analyzed: analyzedRes.status === "ok" ? analyzedRes.data : [],
+        pending: pendingRes.status === "ok" ? pendingRes.data : [],
       },
     });
   }, [category, user]);
@@ -142,6 +164,15 @@ export default function Ranks() {
             </>
           )}
 
+          {board === "analyzed" && (
+            <AnalyzedBoard
+              profiles={load.data.analyzed}
+              pending={load.data.pending}
+              category={category}
+              onSelectCategory={setCategory}
+            />
+          )}
+
           {board === "winners" && <WinnersBoard winners={load.data.winners} />}
 
           <FairnessNote />
@@ -153,10 +184,132 @@ export default function Ranks() {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * The people this user has analysed.
+ *
+ * Same row language as the public standings so it reads as one product, with
+ * one deliberate difference: a line saying who can see it. These profiles are
+ * registered in Ranks but not published — being analysed does not put anyone
+ * on the public board — and that distinction has to be visible rather than
+ * merely true.
+ */
+function AnalyzedBoard({
+  profiles,
+  pending,
+  category,
+  onSelectCategory,
+}: {
+  profiles: AnalyzedProfile[];
+  pending: PendingSuggestion[];
+  category: string | null;
+  onSelectCategory: (c: string | null) => void;
+}) {
+  const ranked = rankAnalyzed(profiles, category);
+  // Someone already analysed is ranked; the suggestion is spent.
+  const known = new Set(profiles.map((p) => p.handle));
+  const waiting = pending.filter((s) => !known.has(s.handle));
+
+  if (profiles.length === 0 && waiting.length === 0) {
+    return (
+      <EmptyState
+        icon={ScanLine}
+        title="No profiles analyzed yet"
+        description="Analyze someone's profile and they'll be ranked here — visible only to you."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <CategoryPicker
+        present={analyzedCategories(profiles)}
+        selected={category}
+        onSelect={onSelectCategory}
+      />
+
+      <p className="text-[0.7rem] leading-relaxed text-white/35">
+        Only you can see these. Analyzing a profile ranks it for you — it does
+        not add anyone to the public leaderboard.
+      </p>
+
+      {ranked.length === 0 ? (
+        <EmptyState
+          icon={ScanLine}
+          title="Nothing in this category"
+          description="None of the profiles you've analyzed read as this archetype."
+        />
+      ) : (
+        <ul className="space-y-2">
+          {ranked.map((p, i) => (
+            <li key={p.handle}>
+              <Link
+                to={`/library/${p.analysisId}`}
+                className="flex min-h-[64px] items-center gap-3 rounded-2xl bg-white/[0.04] px-3.5 py-3 ring-1 ring-white/[0.07] transition-colors hover:bg-white/[0.07]"
+              >
+                <span className="w-7 shrink-0 text-center text-sm font-extrabold tabular-nums text-white/45">
+                  {i + 1}
+                </span>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blink-sky/15 text-sm font-extrabold text-blink-sky">
+                  {p.handle.charAt(0).toUpperCase()}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-white">
+                    @{p.handle}
+                  </span>
+                  <span className="block truncate text-[0.7rem] text-white/40">
+                    {categoryLabel(p.category) ?? "Uncategorized"}
+                    {p.runs > 1 ? ` · ${p.runs} scans` : ""}
+                  </span>
+                </span>
+                <span className="shrink-0 text-base font-extrabold tabular-nums text-white">
+                  {p.score}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {waiting.length > 0 && (
+        <div>
+          <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-white/35">
+            Suggested — not analyzed yet
+          </p>
+          <ul className="mt-2.5 space-y-2">
+            {waiting.map((s) => (
+              <li
+                key={s.handle}
+                className="flex min-h-[52px] items-center gap-3 rounded-2xl bg-white/[0.025] px-3.5 py-2.5 ring-1 ring-dashed ring-white/[0.09]"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs font-extrabold text-white/45">
+                  {s.handle.charAt(0).toUpperCase()}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-bold text-white/70">
+                  @{s.handle}
+                </span>
+                <span className="shrink-0 text-[0.65rem] font-bold uppercase tracking-[0.12em] text-white/30">
+                  Pending
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[0.7rem] leading-relaxed text-white/30">
+            A suggestion has no score until the profile is analyzed. Run an
+            analysis on their screenshot to rank them.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
 function BoardTabs({ board, onChange }: { board: Board; onChange: (b: Board) => void }) {
   const tabs: Array<{ id: Board; label: string }> = [
     { id: "standings", label: "Standings" },
-    { id: "winners", label: "Weekly winners" },
+    { id: "analyzed", label: "Analyzed" },
+    { id: "winners", label: "Winners" },
   ];
 
   return (
