@@ -118,6 +118,16 @@ export default function Product() {
   const [progression, setProgression] = useState<RecordedAnalysis | null>(null);
   /** Points gained on a re-scan, while the confirmation is on screen. */
   const [gain, setGain] = useState<number | null>(null);
+  /**
+   * Set when a finished analysis could not be written to the account.
+   *
+   * The failure mode this exists for is an expired session: React still holds
+   * a `user`, so the result renders normally, but every write 401s. The
+   * analysis then looks saved, is not in Library, and the profile never
+   * reaches Ranks — which is indistinguishable from the feature being broken.
+   * Losing someone's result is worth a sentence.
+   */
+  const [saveFailed, setSaveFailed] = useState(false);
   const [standing, setStanding] = useState<PublicStanding | null>(null);
   const [myRank, setMyRank] = useState<number | null>(null);
   const [myStats, setMyStats] = useState<ProfileStats | null>(null);
@@ -187,6 +197,7 @@ export default function Product() {
     setRevealStage(0);
     setProgression(null);
     setGain(null);
+    setSaveFailed(false);
 
     try {
       // Dev-only escape hatch for exercising the animation and both result
@@ -267,8 +278,10 @@ export default function Product() {
   const persist = useCallback(
     async (analysis: AnalysisResultType, sourceFile: File, userId: string) => {
       try {
+        setSaveFailed(false);
         const { base64 } = await resizeForUpload(sourceFile);
         const saved = await saveAnalysis(userId, analysis);
+        if (!saved) setSaveFailed(true);
         const recorded = await recordAnalysis(userId, analysis, base64, saved?.id);
         if (recorded.status === "ok") {
           setProgression(recorded.data);
@@ -284,8 +297,10 @@ export default function Product() {
         const full = await fetchFullProfile(userId, null);
         if (full.status === "ok") setMyStats(full.data.stats);
       } catch (err) {
-        // A failed save must not take down a result the user is already reading.
+        // A failed save must not take down a result the user is already
+        // reading — but it must not be invisible either.
         console.error("[persist]", err);
+        setSaveFailed(true);
       }
     },
     [],
@@ -463,6 +478,21 @@ export default function Product() {
       </main>
 
       {gain !== null && <ScoreGain delta={gain} onDone={() => setGain(null)} />}
+
+      {/* An analysis that could not be written to the account. Shown rather
+          than logged, because the alternative is a result that silently never
+          reaches Library or Ranks and looks like a broken feature. */}
+      {saveFailed && screen === "result" && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--blink-app-nav,0px)+max(env(safe-area-inset-bottom),1rem))] z-[60] flex justify-center px-4">
+          <p
+            role="alert"
+            className="pointer-events-auto max-w-sm rounded-2xl bg-amber-500/15 px-4 py-2.5 text-center text-[0.78rem] font-medium leading-relaxed text-amber-200 ring-1 ring-amber-400/25 backdrop-blur-xl"
+          >
+            This result couldn&rsquo;t be saved to your account — it won&rsquo;t
+            appear in Library or Ranks. Check your connection and analyze again.
+          </p>
+        </div>
+      )}
 
       <AuthModal
         open={authModalOpen}
