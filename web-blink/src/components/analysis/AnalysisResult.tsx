@@ -37,7 +37,7 @@
  */
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Info } from "lucide-react";
+import { Info, Sparkles } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { PerceptionCard, LENS_TINT } from "@/components/blink/PerceptionCard";
@@ -45,6 +45,7 @@ import { PerceptionReveal } from "@/components/analysis/PerceptionReveal";
 import { buildRead } from "@/lib/perception-read";
 import { ScoreRing } from "@/components/blink/ScoreRing";
 import type { AnalysisResult as Analysis, Perspective } from "@/lib/analysis";
+import { useT } from "@/lib/i18n";
 import { getVoice, type Voice } from "@/lib/ownership";
 import { computeBlinkScore, getTier } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
@@ -118,6 +119,35 @@ export function AnalysisResult({
           {actions}
         </motion.div>
       )}
+
+      {revealStage >= 5 && <AiNotice isOwn={voice.isOwn} />}
+    </div>
+  );
+}
+
+/**
+ * Who wrote this, said once, where the result ends.
+ *
+ * Article 50 of the AI Act — applicable since 2 August 2026 — requires that a
+ * person be informed when they are interacting with, or receiving output from,
+ * an AI system, in a clear and distinguishable way. Blink's entire output is
+ * model-generated, so this is not a disclaimer to bury.
+ *
+ * It is also not a banner to repeat on every card. Placed at the foot of the
+ * result it is read at the moment it means something — after the score, when
+ * the reader is deciding how much to believe it — and it says the two things
+ * that actually matter: a model wrote this, and it read one image.
+ */
+function AiNotice({ isOwn }: { isOwn: boolean }) {
+  const t = useT();
+
+  return (
+    <div className="mx-auto mt-10 flex w-full max-w-md items-start gap-2.5 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 text-left">
+      <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/35" aria-hidden />
+      <p className="text-[0.78rem] leading-relaxed text-white/45">
+        <span className="font-bold text-white/60">{t.analysis.aiGenerated}</span> ·{" "}
+        {isOwn ? t.analysis.aiNotice : t.analysis.aiNoticeOther}
+      </p>
     </div>
   );
 }

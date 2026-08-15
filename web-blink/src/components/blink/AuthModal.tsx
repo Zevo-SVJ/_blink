@@ -1,10 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Lock, Mail, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { BlinkLogo } from "@/components/blink/BlinkLogo";
 import { BRAND } from "@/lib/brand";
 import { useAuth } from "@/hooks/useAuth";
+import { useT } from "@/lib/i18n";
+import { MINIMUM_AGE } from "@/lib/legal-entity";
 
 type AuthMode = "signin" | "signup" | "forgot" | "verify";
 
@@ -28,6 +31,7 @@ export function AuthModal({
   initialMode = "signup",
 }: AuthModalProps) {
   const { signIn, signUp, signInWithGoogle, resetPassword, resendVerification, isSigningIn, error, clearError } = useAuth();
+  const t = useT();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -82,7 +86,7 @@ export function AuthModal({
     clearError();
     try {
       await resendVerification(email);
-      setInfoMessage("Verification email sent again. Check your inbox.");
+      setInfoMessage(t.auth.resent);
     } catch {
       // Error is set in the auth hook
     }
@@ -90,20 +94,20 @@ export function AuthModal({
 
   const headlines: Record<AuthMode, { title: string; subtitle: string }> = {
     signup: {
-      title: title ?? "Unlock your Blink results",
-      subtitle: subtitle ?? "Create your account to see your complete analysis.",
+      title: title ?? t.auth.signupTitle,
+      subtitle: subtitle ?? t.auth.signupSubtitle,
     },
     signin: {
-      title: "Welcome back",
-      subtitle: "Sign in to continue to Blink.",
+      title: t.auth.signinTitle,
+      subtitle: t.auth.signinSubtitle,
     },
     forgot: {
-      title: "Reset your password",
-      subtitle: "Enter your email and we'll send you a reset link.",
+      title: t.auth.forgotTitle,
+      subtitle: t.auth.forgotSubtitle,
     },
     verify: {
-      title: "Verify your email",
-      subtitle: `We sent a verification link to ${email}.`,
+      title: t.auth.verifyTitle,
+      subtitle: `${t.auth.verifySubtitle} ${email}.`,
     },
   };
 
@@ -141,7 +145,7 @@ export function AuthModal({
                 type="button"
                 onClick={onClose}
                 className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-xl text-white/40 transition-colors hover:bg-white/5 hover:text-white"
-                aria-label="Close"
+                aria-label={t.common.close}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -175,15 +179,15 @@ export function AuthModal({
                     disabled={isSigningIn}
                     className="w-full rounded-2xl bg-blink-sky py-3.5 text-sm font-bold text-blink-navy transition-all hover:scale-[1.01] disabled:opacity-60"
                   >
-                    Resend verification email
+                    {t.auth.resendVerification}
                   </button>
                   <button
                     type="button"
                     onClick={() => setMode("signin")}
                     className="flex w-full items-center justify-center gap-1.5 text-sm font-medium text-white/50 transition-colors hover:text-white"
                   >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to sign in
+                    <ArrowLeft className="h-4 w-4" aria-hidden />
+                    {t.auth.backToSignIn}
                   </button>
                 </div>
               ) : (
@@ -193,7 +197,7 @@ export function AuthModal({
                     {mode !== "forgot" && (
                       <div>
                         <label htmlFor="auth-email" className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-white/40">
-                          Email
+                          {t.common.email}
                         </label>
                         <div className="relative">
                           <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
@@ -214,7 +218,7 @@ export function AuthModal({
                     {mode !== "forgot" && (
                       <div>
                         <label htmlFor="auth-password" className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-white/40">
-                          Password
+                          {t.auth.password}
                         </label>
                         <input
                           id="auth-password"
@@ -223,7 +227,7 @@ export function AuthModal({
                           minLength={6}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          placeholder="At least 6 characters"
+                          placeholder={t.auth.passwordPlaceholder}
                           className="w-full rounded-2xl border border-white/10 bg-white/5 py-3.5 px-4 text-sm font-medium text-white placeholder:text-white/30 focus:border-blink-sky/50 focus:outline-none focus:ring-1 focus:ring-blink-sky/30"
                           autoComplete={mode === "signup" ? "new-password" : "current-password"}
                         />
@@ -233,7 +237,7 @@ export function AuthModal({
                     {mode === "forgot" && (
                       <div>
                         <label htmlFor="auth-email" className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-white/40">
-                          Email
+                          {t.common.email}
                         </label>
                         <div className="relative">
                           <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
@@ -278,11 +282,11 @@ export function AuthModal({
                             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                             className="h-4 w-4 rounded-full border-2 border-blink-navy/30 border-t-blink-navy"
                           />
-                          {mode === "signup" ? "Creating account…" : mode === "signin" ? "Signing in…" : "Sending…"}
+                          {mode === "signup" ? t.auth.creatingAccount : mode === "signin" ? t.auth.signingIn : t.auth.sending}
                         </span>
                       ) : (
                         <>
-                          {mode === "signup" ? "Create account" : mode === "signin" ? "Sign in" : "Send reset link"}
+                          {mode === "signup" ? t.auth.createAccount : mode === "signin" ? t.auth.signIn : t.auth.sendResetLink}
                         </>
                       )}
                     </button>
@@ -296,7 +300,7 @@ export function AuthModal({
                         onClick={() => { setMode("signin"); clearError(); setInfoMessage(null); }}
                         className="text-sm font-medium text-white/50 transition-colors hover:text-white"
                       >
-                        Already have an account? <span className="font-bold text-blink-sky">Sign in</span>
+                        {t.auth.haveAccount} <span className="font-bold text-blink-sky">{t.auth.signIn}</span>
                       </button>
                     )}
                     {mode === "signin" && (
@@ -306,14 +310,14 @@ export function AuthModal({
                           onClick={() => { setMode("forgot"); clearError(); setInfoMessage(null); }}
                           className="block w-full text-sm font-medium text-white/50 transition-colors hover:text-white"
                         >
-                          Forgot your password?
+                          {t.auth.forgotPassword}
                         </button>
                         <button
                           type="button"
                           onClick={() => { setMode("signup"); clearError(); setInfoMessage(null); }}
                           className="text-sm font-medium text-white/50 transition-colors hover:text-white"
                         >
-                          Don't have an account? <span className="font-bold text-blink-sky">Create one</span>
+                          {t.auth.noAccount} <span className="font-bold text-blink-sky">{t.auth.createOne}</span>
                         </button>
                       </>
                     )}
@@ -347,15 +351,27 @@ export function AuthModal({
                       className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl border border-white/15 bg-white/5 py-3.5 text-sm font-bold text-white transition-all hover:scale-[1.01] hover:bg-white/8 disabled:opacity-60"
                     >
                       <GoogleIcon />
-                      Continue with Google
+                      {t.auth.continueWithGoogle}
                     </button>
                   )}
                 </>
               )}
 
-              <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-white/30">
-                <Lock className="h-3 w-3" />
-                Your data is private and secure.
+              {/* Replaces "Your data is private and secure." — a claim with
+                  no defined meaning, sitting exactly where the two things a
+                  person actually needs before creating an account belong: the
+                  age rule, and what they are agreeing to. Both are one tap
+                  away rather than asserted. */}
+              <p className="mt-6 text-center text-xs leading-relaxed text-white/35">
+                <Lock className="mr-1 inline h-3 w-3 align-[-1px]" aria-hidden />
+                {t.auth.ageAndTerms.replace("16", String(MINIMUM_AGE))}{" "}
+                <Link to="/terms" className="text-white/55 underline underline-offset-2 hover:text-white">
+                  {t.footer.terms}
+                </Link>
+                {" · "}
+                <Link to="/privacy" className="text-white/55 underline underline-offset-2 hover:text-white">
+                  {t.footer.privacy}
+                </Link>
               </p>
             </motion.div>
           </div>

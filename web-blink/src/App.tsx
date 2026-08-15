@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppChrome } from "@/components/app/AppChrome";
 import { PageBackground } from "@/components/blink/PageBackground";
 import { AuthProvider } from "@/hooks/useAuth";
+import { I18nProvider, type Lang } from "@/lib/i18n";
 
 // The landing is the only route most visitors ever see, so it ships in the
 // initial bundle. Everything behind it — the analysis flow, the authenticated
@@ -45,6 +46,9 @@ const Legal = {
   ),
   Contact: lazy(() =>
     import("./pages/Legal").then((m) => ({ default: m.ContactPage })),
+  ),
+  Notice: lazy(() =>
+    import("./pages/Legal").then((m) => ({ default: m.LegalNotice })),
   ),
 };
 
@@ -126,23 +130,25 @@ function HashLanding() {
  * and hydration silently throws the server HTML away — which is precisely the
  * flash this build exists to remove.
  */
-export const AppTree = () => (
-  <AuthProvider>
-    <HashLanding />
-    {/* The tab bar is mounted here, once, so navigating between app
-        screens never rebuilds it. See `AppChrome`. */}
-    <AppChrome>
-      <Suspense fallback={<RouteFallback />}>
-        <Routes>{ROUTES}</Routes>
-      </Suspense>
-    </AppChrome>
-  </AuthProvider>
+export const AppTree = ({ lang }: { lang?: Lang }) => (
+  <I18nProvider initial={lang}>
+    <AuthProvider>
+      <HashLanding />
+      {/* The tab bar is mounted here, once, so navigating between app
+          screens never rebuilds it. See `AppChrome`. */}
+      <AppChrome>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>{ROUTES}</Routes>
+        </Suspense>
+      </AppChrome>
+    </AuthProvider>
+  </I18nProvider>
 );
 
-const App = () => {
+const App = ({ lang }: { lang?: Lang }) => {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AppTree />
+      <AppTree lang={lang} />
     </BrowserRouter>
   );
 };
@@ -166,6 +172,12 @@ const ROUTES = (
     <Route path="/terms" element={<Legal.Terms />} />
     <Route path="/cookies" element={<Legal.Cookies />} />
     <Route path="/contact" element={<Legal.Contact />} />
+    {/* Mentions légales — required of a French site editor by the LCEN, and
+        the page Stripe looks for when it checks who is behind the business.
+        Reachable under both names so a French visitor and a reviewer each
+        find it where they expect. */}
+    <Route path="/legal" element={<Legal.Notice />} />
+    <Route path="/mentions-legales" element={<Legal.Notice />} />
     {DevGallery && <Route path="/dev" element={<DevGallery />} />}
     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
     <Route path="*" element={<NotFound />} />

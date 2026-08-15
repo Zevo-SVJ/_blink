@@ -3,7 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { CTAButton } from "@/components/blink/CTAButton";
-import { BRAND } from "@/lib/brand";
+import { useT } from "@/lib/i18n";
 
 /**
  * Blink — hero.
@@ -24,23 +24,24 @@ import { BRAND } from "@/lib/brand";
  * gates content.
  */
 
-const TRUST = ["Free to try", "No Instagram login", "Screenshot never stored"];
-
 /**
- * Lenses cycled in the preview — the same profile, read differently.
+ * The three chips under the CTA are claims, so each one is held to the code.
  *
- * Each entry carries its whole phrase rather than just a subject, because the
- * verb has to agree: "your friends see you", not "your friends sees you".
+ * "Screenshot never stored" used to sit here. It was not true as written: the
+ * image is transmitted to an external AI provider to be read, and a SHA-256 of
+ * it is kept in `score_history` so the same capture cannot be re-submitted for
+ * points. Blink does not *store the screenshot*, which is worth saying — but
+ * "never stored" claims more than that, and a privacy promise the
+ * implementation does not keep is the one kind of copy that cannot stay.
+ *
+ * "Screenshot not kept" is the accurate version, and the FAQ and the privacy
+ * policy carry the full explanation one tap away.
  */
-const LENSES = [
-  { emoji: "❤️", phrase: "your crush sees you" },
-  { emoji: "👀", phrase: "a stranger sees you" },
-  { emoji: "🤝", phrase: "your friends see you" },
-  { emoji: "💼", phrase: "a recruiter sees you" },
-];
-
 export function Hero({ onCTA }: { onCTA: () => void }) {
   const reduceMotion = useReducedMotion();
+  const t = useT();
+
+  const TRUST = [t.hero.trustFree, t.hero.trustNoLogin, t.hero.trustNotKept];
 
   // The entrance is CSS, not JS — see `.blink-rise` in index.css. The landing
   // is prerendered, and Framer's `initial` state is what renderToString emits,
@@ -56,7 +57,7 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
         <h1
           className="blink-rise blink-rise-1 text-[1.75rem] font-extrabold leading-[1.04] tracking-[-0.035em] text-white min-[360px]:text-[2rem] min-[400px]:text-[2.25rem] sm:text-5xl lg:text-[3.5rem]"
         >
-          See yourself the way
+          {t.hero.headlineStart}
           <br />
           <AccentPhrase />
         </h1>
@@ -64,12 +65,11 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
         <p
           className="blink-rise blink-rise-2 mx-auto mt-4 max-w-sm text-balance text-[0.95rem] leading-relaxed text-white/55 sm:mt-5 sm:max-w-md sm:text-lg"
         >
-          {BRAND.name} analyzes your Instagram presence and reveals the first impression you
-          make.
+          {t.hero.subtitle}
         </p>
 
         <div className="blink-rise blink-rise-3 mt-7 flex justify-center">
-          <CTAButton label={BRAND.cta} onClick={onCTA} href="/analyze" size="lg" />
+          <CTAButton label={t.brand.cta} onClick={onCTA} href="/analyze" size="lg" />
         </div>
 
         <ul
@@ -103,12 +103,13 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
  */
 function AccentPhrase() {
   const reduceMotion = useReducedMotion();
+  const t = useT();
 
   return (
     <span className="relative inline-block pb-2.5 sm:pb-3.5">
       <span className="relative">
         <span className="bg-gradient-to-r from-blink-sky via-white to-blink-sky bg-clip-text text-transparent">
-          others see you.
+          {t.hero.headlineAccent}
         </span>
         {!reduceMotion && (
           <motion.span
@@ -148,13 +149,28 @@ function AccentPhrase() {
  */
 function MechanismPreview() {
   const reduceMotion = useReducedMotion();
+  const t = useT();
   const [lens, setLens] = useState(0);
+
+  /**
+   * The same profile, read differently.
+   *
+   * Each entry carries its whole phrase rather than just a subject, because
+   * the verb has to agree — "your friends see you", not "your friends sees
+   * you" — and French adds its own agreement on top of that.
+   */
+  const LENSES = [
+    { emoji: "❤️", phrase: t.hero.lensCrush },
+    { emoji: "👀", phrase: t.hero.lensStranger },
+    { emoji: "🤝", phrase: t.hero.lensFriends },
+    { emoji: "💼", phrase: t.hero.lensRecruiter },
+  ];
 
   useEffect(() => {
     if (reduceMotion) return;
     const timer = window.setInterval(() => setLens((i) => (i + 1) % LENSES.length), 2400);
     return () => window.clearInterval(timer);
-  }, [reduceMotion]);
+  }, [reduceMotion, LENSES.length]);
 
   const current = LENSES[lens];
 
@@ -166,7 +182,7 @@ function MechanismPreview() {
 
       <div className="min-w-0 flex-1 text-left">
         <p className="text-[0.6rem] font-bold uppercase tracking-[0.14em] text-white/30">
-          Reads as
+          {t.hero.readsAs}
         </p>
         <div className="mt-1 h-[2.75rem]">
           <AnimatePresence mode="wait" initial={false}>
@@ -179,7 +195,7 @@ function MechanismPreview() {
               className="text-[0.92rem] font-bold leading-snug text-white sm:text-base"
             >
               <span className="mr-1.5">{current.emoji}</span>
-              How {current.phrase}
+              {t.hero.lensPrefix} {current.phrase}
             </motion.p>
           </AnimatePresence>
         </div>

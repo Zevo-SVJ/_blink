@@ -44,6 +44,7 @@ import { CTAButton } from "@/components/blink/CTAButton";
 import { PerceptionCard } from "@/components/blink/PerceptionCard";
 import { Reveal } from "@/components/blink/Reveal";
 import { PERCEPTIONS } from "@/lib/blink-data";
+import { useT } from "@/lib/i18n";
 import { useSectionMotion } from "@/lib/use-section-motion";
 import { cn } from "@/lib/utils";
 
@@ -73,15 +74,11 @@ const MARKERS = [
   { id: "grid", label: "Grid", left: 0.03, top: 0.32, w: 0.94, h: 0.62 },
 ];
 
-/** The three signals the markers become. */
-const SIGNALS = ["Visual identity", "Aesthetic", "Confidence"];
+/** The three signals the markers become. Labels come from the dictionary. */
+const SIGNAL_KEYS = ["visualIdentity", "aesthetic", "confidence"] as const;
 
-/** The named steps, shown as a rail so the story has a spine. */
-const RAIL: Array<{ act: Act[]; label: string }> = [
-  { act: ["upload", "read"], label: "Your screenshot" },
-  { act: ["extract"], label: "Blink reads it" },
-  { act: ["perceive"], label: "Six perceptions" },
-];
+/** Which acts each rail segment covers. The words are translated at render. */
+const RAIL_ACTS: Act[][] = [["upload", "read"], ["extract"], ["perceive"]];
 
 const SHOT_W = 148;
 const SHOT_H = 196;
@@ -91,6 +88,7 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
   // The ref goes on the stage below, not on the section — see `useSectionMotion`.
   const { ref, inView } = useSectionMotion();
   const reduceMotion = useReducedMotion();
+  const t = useT();
 
   const [act, setAct] = useState<Act>("upload");
   const [lens, setLens] = useState(0);
@@ -144,20 +142,23 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
   const reading = act === "perceive";
   const shrunk = act === "extract" || reading;
   const current = PERCEPTIONS[lens];
+  // Layout, tone and score stay in `blink-data`; the words come from the
+  // dictionary, keyed by the same id. Adding a language cannot change how the
+  // sequence is laid out.
+  const copy = t.perceptions[current.id as keyof typeof t.perceptions];
 
   return (
     <section id="how-it-works" className="relative px-4 py-20 sm:px-6 sm:py-28">
       <div className="mx-auto max-w-3xl">
         <Reveal className="text-center">
           <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-blink-sky/70">
-            How it works
+            {t.howItWorks.eyebrow}
           </p>
           <h2 className="mt-3 text-[1.75rem] font-extrabold tracking-tight text-white sm:text-4xl">
-            One screenshot becomes a perception.
+            {t.howItWorks.heading}
           </h2>
           <p className="mx-auto mt-3 max-w-md text-[0.95rem] leading-relaxed text-white/50 sm:mt-4 sm:text-base">
-            Blink reads your profile the way a person would, then shows you what each kind
-            of person walks away with.
+            {t.howItWorks.subtitle}
           </p>
         </Reveal>
 
@@ -250,16 +251,16 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                 >
-                  {SIGNALS.map((signal, i) => (
+                  {SIGNAL_KEYS.map((key, i) => (
                     <motion.span
-                      key={signal}
+                      key={key}
                       initial={{ opacity: 0, y: -8, scale: 0.85 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
                       transition={{ ...spring, delay: i * 0.09 }}
                       className="rounded-full bg-white/[0.07] px-3 py-1.5 text-[0.7rem] font-semibold text-white/75 ring-1 ring-white/10"
                     >
-                      {signal}
+                      {t.howItWorks.signals[key]}
                     </motion.span>
                   ))}
                 </motion.div>
@@ -281,9 +282,10 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
                   <PerceptionCard
                     lensId={current.id}
                     emoji={current.emoji}
-                    title={current.title}
-                    traits={current.traits}
-                    summary={`“${current.quote}”`}
+                    kicker={t.howItWorks.sample}
+                    title={copy.title}
+                    traits={[...copy.tags]}
+                    summary={`“${copy.quote}”`}
                     compact
                   />
                 </motion.div>
@@ -302,7 +304,7 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
                   key={p.id}
                   type="button"
                   aria-pressed={isActive}
-                  aria-label={p.title}
+                  aria-label={t.perceptions[p.id as keyof typeof t.perceptions].title}
                   onClick={() => {
                     setHeld(true);
                     setAct("perceive");
@@ -330,7 +332,7 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
         </div>
 
         <Reveal delay={0.05} className="mt-9 flex justify-center">
-          <CTAButton label="See mine" onClick={onCTA} />
+          <CTAButton label={t.howItWorks.cta} onClick={onCTA} />
         </Reveal>
       </div>
     </section>
@@ -347,14 +349,20 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
  * meaning, and it fits.
  */
 function Rail({ act }: { act: Act }) {
-  const activeIndex = RAIL.findIndex((step) => step.act.includes(act));
+  const t = useT();
+  const labels = [
+    t.howItWorks.stepScreenshot,
+    t.howItWorks.stepReads,
+    t.howItWorks.stepPerceptions,
+  ];
+  const activeIndex = RAIL_ACTS.findIndex((acts) => acts.includes(act));
 
   return (
     <div className="flex flex-col items-center gap-2.5">
       <div className="flex items-center gap-1.5">
-        {RAIL.map((step, i) => (
+        {RAIL_ACTS.map((_, i) => (
           <motion.span
-            key={step.label}
+            key={i}
             className="h-[3px] rounded-full"
             animate={{
               width: i === activeIndex ? 26 : 14,
@@ -380,7 +388,7 @@ function Rail({ act }: { act: Act }) {
             transition={{ duration: 0.2 }}
             className="whitespace-nowrap text-[0.62rem] font-bold uppercase tracking-[0.16em] text-blink-sky"
           >
-            {RAIL[activeIndex]?.label}
+            {labels[activeIndex]}
           </motion.p>
         </AnimatePresence>
       </div>

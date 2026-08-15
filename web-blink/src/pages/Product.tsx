@@ -18,7 +18,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ImagePlus, Lock, RefreshCw, Share2, Trophy, User } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import {
   AnalysisResult,
@@ -51,6 +51,7 @@ import {
   type RecordedAnalysis,
 } from "@/lib/blink-profile";
 import { getMockMode, mockAnalyze } from "@/lib/dev-mock";
+import { useT } from "@/lib/i18n";
 import { fetchMyStanding, fetchScoreStanding } from "@/lib/leaderboard";
 import { getVoice, type Voice } from "@/lib/ownership";
 import { pdpAnchor } from "@/lib/pdp";
@@ -525,6 +526,8 @@ function UploadScreen({
   onDragOver: () => void;
   onDragLeave: () => void;
 }) {
+  const t = useT();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -593,9 +596,23 @@ function UploadScreen({
           )}
         </AnimatePresence>
 
-        <div className="mt-6 flex items-center justify-center gap-2 text-xs font-medium text-white/40">
-          <Lock className="h-3.5 w-3.5 shrink-0" />
-          <span>Your screenshot is analyzed and deleted. Never stored or shared.</span>
+        {/* The claim made at the moment someone hands over an image, so it is
+            the one that has to be exactly right. It used to read "analyzed and
+            deleted. Never stored or shared", and the second sentence was
+            false: the screenshot is sent to an external AI provider, which is
+            how the analysis exists at all. Saying so costs nothing and is the
+            difference between a privacy notice and a privacy claim. */}
+        <div className="mt-6 flex flex-col items-center gap-1 text-center text-xs font-medium text-white/40">
+          <span className="flex items-center gap-2">
+            <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {t.product.uploadPrivacy}
+          </span>
+          <Link
+            to="/privacy"
+            className="inline-flex min-h-[44px] items-center text-white/50 underline underline-offset-2 transition-colors hover:text-white"
+          >
+            {t.product.uploadPrivacyLink}
+          </Link>
         </div>
       </div>
     </motion.div>

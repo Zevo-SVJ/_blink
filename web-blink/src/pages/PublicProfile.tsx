@@ -43,6 +43,7 @@ import { CTAButton } from "@/components/blink/CTAButton";
 import { PageBackground } from "@/components/blink/PageBackground";
 import { useAuth } from "@/hooks/useAuth";
 import { BRAND } from "@/lib/brand";
+import { useI18n } from "@/lib/i18n";
 import { fetchPublicStanding, type LeaderboardEntry } from "@/lib/leaderboard";
 
 type Load =
@@ -207,6 +208,8 @@ function PublicShell({ title, children }: { title: string; children: React.React
  * page makes, in the same words.
  */
 function ShareCTA({ handle, onStart }: { handle: string | null; onStart: () => void }) {
+  const { lang } = useI18n();
+
   return (
     <section className="mt-12 border-t border-white/5 pt-10 text-center">
       <h2 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
@@ -219,10 +222,16 @@ function ShareCTA({ handle, onStart }: { handle: string | null; onStart: () => v
       <div className="mt-7 flex justify-center">
         <CTAButton label={BRAND.cta} size="lg" onClick={onStart} />
       </div>
-      {/* Not "no account needed": an analysis runs signed out, but the full
-          reveal asks you to sign in. Promising otherwise sets up the letdown. */}
+      {/* Two claims, both held to the code. Not "no account needed": an
+          analysis runs signed out, but the full reveal asks you to sign in,
+          and promising otherwise sets up the letdown. Not "deleted, never
+          stored" either — the image is sent to an AI provider to be read and a
+          fingerprint of it is kept, so "not kept" is the true version and the
+          privacy policy carries the rest. */}
       <p className="mt-4 text-xs text-white/30">
-        One screenshot. Analyzed and deleted, never stored.
+        {lang === "fr"
+          ? "Une capture, lue par une IA, non conservée."
+          : "One screenshot, read by an AI, not kept."}
       </p>
     </section>
   );
