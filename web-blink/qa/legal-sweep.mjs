@@ -20,12 +20,16 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
-// `networkidle` is deliberately not used anywhere below: index.html requests a
-// Google Fonts stylesheet, and on any network where that host is unreachable
-// the idle state never arrives, so every navigation burns its full timeout
-// waiting on a font. "load" plus a settle beat is what this sweep needs.
+// Navigation waits on `domcontentloaded`, never `load` or `networkidle`.
+// index.html requests a Google Fonts stylesheet, and on a network where that
+// host is unreachable the request sits there until it times out — `load` waits
+// for it and `networkidle` never arrives at all, so a sweep of 28 pages spent
+// its entire runtime waiting on a font it does not need. The markup is
+// prerendered or rendered from one bundle, so DOM plus a settle beat is the
+// real readiness signal here.
 const BASE = process.env.BASE ?? "http://127.0.0.1:4173";
 const OUT = process.env.OUT ?? "/tmp/blink-qa";
+const FULL_SHOTS = process.env.SHOTS === "full";
 mkdirSync(OUT, { recursive: true });
 
 const problems = [];
@@ -93,7 +97,7 @@ for (const lang of ["en", "fr"]) {
     console.log(`\n=== ${lang} / ${device} ===`);
 
     for (const route of ROUTES) {
-      await page.goto(`${BASE}${route}`, { waitUntil: "load" });
+      await page.goto(`${BASE}${route}`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(400);
 
       const info = await page.evaluate(() => ({
@@ -105,9 +109,17 @@ for (const lang of ["en", "fr"]) {
       }));
 
       const slug = route === "/" ? "home" : route.replace(/\//g, "");
+      // Every check in this sweep reads the DOM, so the images are for a
+      // human to look at afterwards — not evidence the script uses.
+      //
+      // That matters because a full-page capture of these pages is expensive:
+      // measured at 13s each on the legal routes, which is longer than all 28
+      // page loads put together. So the default is a viewport shot, and
+      // `SHOTS=full` asks for the tall ones when someone actually wants to
+      // read them.
       await page.screenshot({
         path: `${OUT}/${lang}-${device}-${slug}.png`,
-        fullPage: route !== "/",
+        fullPage: FULL_SHOTS && route !== "/",
       });
 
       if (info.lang !== lang) bad(`${route}: <html lang> is "${info.lang}", expected "${lang}"`);
@@ -133,7 +145,7 @@ for (const lang of ["en", "fr"]) {
     }
 
     // Footer legal links must all resolve.
-    await page.goto(`${BASE}/`, { waitUntil: "load" });
+    await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
     const legalHrefs = await page.evaluate(() =>
       Array.from(document.querySelectorAll("footer a[href^='/']")).map((a) => ({
         href: a.getAttribute("href"),
@@ -157,7 +169,7 @@ for (const lang of ["en", "fr"]) {
     const switched = await page.evaluate(() => document.documentElement.lang);
     if (switched === lang) bad("language toggle did not change the language");
     else ok(`toggle switched ${lang} → ${switched}`);
-    await page.reload({ waitUntil: "load" });
+    await page.reload({ waitUntil: "domcontentloaded" });
     const persisted = await page.evaluate(() => document.documentElement.lang);
     if (persisted !== switched) bad(`language choice did not survive reload (${persisted})`);
     else ok("choice persisted across reload");

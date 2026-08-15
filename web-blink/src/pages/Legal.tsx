@@ -97,7 +97,13 @@ function LegalLayout({
             "radial-gradient(ellipse 80% 60% at 50% 0%, hsl(220 70% 14%) 0%, hsl(220 84% 10%) 40%, hsl(220 80% 8%) 100%)",
         }}
       />
-      <header className="fixed inset-x-0 top-0 z-50 bg-white/[0.03] shadow-[0_1px_0_rgba(175,224,249,0.06)] backdrop-blur-xl">
+      {/* The tint is the page's own navy at 85%, not `white/[0.03]`.
+          A 3%-white bar is legible only while `backdrop-filter` is doing the
+          work, and where that is unsupported or disabled the first paragraph
+          of a legal page slides underneath and collides with the wordmark.
+          Blur still runs where it can; the colour is what guarantees the text
+          underneath never shows through. */}
+      <header className="fixed inset-x-0 top-0 z-50 bg-blink-navy/85 shadow-[0_1px_0_rgba(175,224,249,0.06)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
             <BlinkLogo width={28} />
