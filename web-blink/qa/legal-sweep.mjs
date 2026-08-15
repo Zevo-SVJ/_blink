@@ -20,6 +20,10 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
+// `networkidle` is deliberately not used anywhere below: index.html requests a
+// Google Fonts stylesheet, and on any network where that host is unreachable
+// the idle state never arrives, so every navigation burns its full timeout
+// waiting on a font. "load" plus a settle beat is what this sweep needs.
 const BASE = process.env.BASE ?? "http://127.0.0.1:4173";
 const OUT = process.env.OUT ?? "/tmp/blink-qa";
 mkdirSync(OUT, { recursive: true });
@@ -71,17 +75,25 @@ for (const lang of ["en", "fr"]) {
     const page = await ctx.newPage();
     const errors = [];
     page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("requestfailed", (r) => {
+      const url = r.url();
+      if (/fonts\.g(oogle|static)apis\.com/.test(url)) return;
+      errors.push(`request failed: ${url}`);
+    });
     page.on("console", (m) => {
       const text = m.text();
-      // Hydration mismatches are the specific failure this design avoids, so
-      // they are collected rather than ignored.
+      // A blocked Google Fonts request is the network this sweep runs on, not
+      // a defect in Blink — the stylesheet is deliberately non-blocking. Every
+      // other console error counts, and hydration warnings count double: a
+      // mismatch is the specific failure the language design exists to avoid.
+      if (/ERR_CONNECTION|fonts\.g(oogle|static)apis/.test(text)) return;
       if (m.type() === "error" || /hydrat/i.test(text)) errors.push(text);
     });
 
     console.log(`\n=== ${lang} / ${device} ===`);
 
     for (const route of ROUTES) {
-      await page.goto(`${BASE}${route}`, { waitUntil: "networkidle" });
+      await page.goto(`${BASE}${route}`, { waitUntil: "load" });
       await page.waitForTimeout(400);
 
       const info = await page.evaluate(() => ({
@@ -121,7 +133,7 @@ for (const lang of ["en", "fr"]) {
     }
 
     // Footer legal links must all resolve.
-    await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+    await page.goto(`${BASE}/`, { waitUntil: "load" });
     const legalHrefs = await page.evaluate(() =>
       Array.from(document.querySelectorAll("footer a[href^='/']")).map((a) => ({
         href: a.getAttribute("href"),
@@ -145,7 +157,7 @@ for (const lang of ["en", "fr"]) {
     const switched = await page.evaluate(() => document.documentElement.lang);
     if (switched === lang) bad("language toggle did not change the language");
     else ok(`toggle switched ${lang} → ${switched}`);
-    await page.reload({ waitUntil: "networkidle" });
+    await page.reload({ waitUntil: "load" });
     const persisted = await page.evaluate(() => document.documentElement.lang);
     if (persisted !== switched) bad(`language choice did not survive reload (${persisted})`);
     else ok("choice persisted across reload");

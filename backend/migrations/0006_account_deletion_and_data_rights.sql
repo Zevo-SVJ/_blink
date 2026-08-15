@@ -69,6 +69,63 @@ create policy "analyses self delete"
   using (auth.uid() = user_id);
 
 -- ---------------------------------------------------------------------------
+-- Assert the boundaries the app relies on
+-- ---------------------------------------------------------------------------
+--
+-- `analyses` and `profiles` were created outside this migrations directory, so
+-- their policies are not reviewable here — and `profiles` holds email
+-- addresses. Rather than assume, the intended rules are restated below.
+--
+-- Every statement is idempotent and none of them widens access: each one is
+-- "this row is readable and writable by the user it belongs to, and by nobody
+-- else". If the live policies already say that, this changes nothing. If a
+-- policy is missing, or was left permissive during development, this is what
+-- closes it — which matters most for `profiles`, where the failure mode is a
+-- readable list of every user's email address.
+-- ---------------------------------------------------------------------------
+
+alter table public.profiles enable row level security;
+
+drop policy if exists "profiles self read" on public.profiles;
+create policy "profiles self read"
+  on public.profiles for select
+  using (auth.uid() = id);
+
+drop policy if exists "profiles self insert" on public.profiles;
+create policy "profiles self insert"
+  on public.profiles for insert
+  with check (auth.uid() = id);
+
+drop policy if exists "profiles self update" on public.profiles;
+create policy "profiles self update"
+  on public.profiles for update
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
+
+drop policy if exists "profiles self delete" on public.profiles;
+create policy "profiles self delete"
+  on public.profiles for delete
+  using (auth.uid() = id);
+
+-- Analyses are private to their author. A third-party read is written *about*
+-- someone else but is never readable *by* them, or by anyone else.
+drop policy if exists "analyses self read" on public.analyses;
+create policy "analyses self read"
+  on public.analyses for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "analyses self insert" on public.analyses;
+create policy "analyses self insert"
+  on public.analyses for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "analyses self update" on public.analyses;
+create policy "analyses self update"
+  on public.analyses for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
 -- Erase everything belonging to the caller
 -- ---------------------------------------------------------------------------
 
