@@ -282,19 +282,3 @@
     animation: none;
   }
 }
-
-/*
-  Rork's "Built with Rork" badge.
-
-  Injected at serve time by a `data-rork-watermark` script into
-  `#rork-watermark-badge` — a fixed, max-z-index pill in the bottom-right
-  corner. The ID is stable and set by the injector itself, so it is a far
-  safer hook than any generated class name.
-
-  Hidden with CSS only: the script still runs and the element is still
-  created, so nothing about Rork's own behaviour changes. Nothing else in the
-  document matches this selector.
-*/
-#rork-watermark-badge {
-  display: none !important;
-}
