@@ -43,6 +43,7 @@ import { CTAButton } from "@/components/blink/CTAButton";
 import { PageBackground } from "@/components/blink/PageBackground";
 import { useAuth } from "@/hooks/useAuth";
 import { BRAND } from "@/lib/brand";
+import { useBackTo } from "@/lib/app-nav";
 import { useI18n } from "@/lib/i18n";
 import { fetchPublicStanding, type LeaderboardEntry } from "@/lib/leaderboard";
 
@@ -57,6 +58,9 @@ export default function PublicProfile() {
   const { user, isLoading: authLoading } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
+  // A public profile is opened from Ranks, from Library, or from a link
+  // somebody sent. Only the last of those has no history to return to.
+  const goBack = useBackTo("/ranks");
   const [load, setLoad] = useState<Load>({ state: "loading" });
 
   const refresh = useCallback(async () => {
@@ -142,11 +146,11 @@ export default function PublicProfile() {
       action={
         <button
           type="button"
-          onClick={() => navigate("/ranks")}
+          onClick={goBack}
           className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-2 text-xs font-bold text-white/80 transition-colors hover:bg-white/[0.1]"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-          {t.app.tabRanks}
+          {t.common.back}
         </button>
       }
     >

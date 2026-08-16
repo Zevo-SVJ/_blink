@@ -1,37 +1,55 @@
 /**
  * Blink — who legally operates this site.
  *
- * ## Why this file exists, and why most of it is `null`
+ * ## The situation this file encodes
  *
- * French law (LCEN, art. 6-III) requires a site's editor to identify itself:
- * name, legal form, address, registration number, VAT number where applicable,
- * the publication director, and the host's name and address. Stripe asks for
- * the same facts during account activation and compares them against what the
- * website says.
+ * Blink is run by a private individual, not a company. There is no registered
+ * business, no SIREN, no VAT number, no share capital and no RCS entry — and
+ * the service is free. That is a real and perfectly ordinary legal position,
+ * not a gap to be papered over with a plausible-looking company block.
  *
- * None of that can be guessed. A plausible-looking company name, a made-up
- * SIREN or an invented address would be worse than an empty page: it is a
- * false statement to consumers, and a mismatch with the Stripe application is
- * exactly what stalls an activation review.
+ * French law recognises it directly. Under the LCEN (art. 6 III-2), a person
+ * publishing a site **non-professionally** may keep their name and home address
+ * off the page, provided they have given those details to their host and the
+ * site publishes the host's identity instead. That is the regime `nonProfessional`
+ * selects, and it is what makes the legal notice *complete* today rather than a
+ * page of "to be completed" fields.
  *
- * So every unknown field is `null`, and the legal notice renders what is
- * genuinely known while saying plainly that the rest is pending. Fill these in
- * and the page completes itself — no other file needs to change.
+ * ## What changes when Blink starts charging
  *
- * Each `null` below is also an item in the "before Stripe" list in the audit
- * report.
+ * The moment there is a paid plan, the activity becomes professional, the
+ * exemption no longer applies, and the operator must publish full
+ * identification — name (or company), address, registration number, VAT status
+ * where applicable, and a named publication director. Switching `mode` to
+ * `"professional"` makes the legal notice demand exactly those fields, and
+ * nothing else in the app needs to change.
+ *
+ * Nothing here is ever invented. A field that is unknown stays `null` and the
+ * page says so.
  */
 
+export type OperatorMode = "nonProfessional" | "professional";
+
 export interface LegalEntity {
-  /** Registered name of the person or company operating Blink. */
+  /**
+   * Which regime applies.
+   *
+   * `nonProfessional` — an individual, no business activity, nothing sold.
+   *   Personal details are lodged with the host rather than published.
+   * `professional` — anything sold, or a registered business. Full public
+   *   identification required.
+   */
+  mode: OperatorMode;
+
+  /** Registered name of the person or company. Published only when professional. */
   name: string | null;
-  /** e.g. "Entrepreneur individuel", "SASU", "SAS". */
+  /** e.g. "Entrepreneur individuel", "SASU", "SAS". Professional only. */
   legalForm: string | null;
-  /** Full registered address, as it appears on the registration record. */
+  /** Full registered address. Professional only. */
   address: string | null;
   /** SIREN (9 digits) or SIRET (14 digits). */
   registrationNumber: string | null;
-  /** RCS city, when the operator is registered with one. */
+  /** RCS city, when registered with one. */
   rcsCity: string | null;
   /** Intra-EU VAT number, or null when not VAT-registered. */
   vatNumber: string | null;
@@ -44,10 +62,14 @@ export interface LegalEntity {
 }
 
 /**
- * TODO(blink): supplied by the operator before Stripe submission.
- * Every field here is deliberately unset — see the note above.
+ * The current operator.
+ *
+ * TODO(blink): when a paid plan launches, set `mode: "professional"` and fill
+ * in the identification fields. Until then every one of them is legitimately
+ * absent, and the legal notice explains why rather than showing blanks.
  */
 export const ENTITY: LegalEntity = {
+  mode: "nonProfessional",
   name: null,
   legalForm: null,
   address: null,
@@ -59,9 +81,62 @@ export const ENTITY: LegalEntity = {
   phone: null,
 };
 
-/** True once the operator's identification is complete enough to publish. */
+/**
+ * Is the notice complete for the regime that applies?
+ *
+ * A non-professional site is complete once the host is published — the
+ * operator's own details are lodged with the host, not with the reader. A
+ * professional one needs the full identification block.
+ */
 export function entityIsPublished(entity: LegalEntity = ENTITY): boolean {
+  if (entity.mode === "nonProfessional") return hostIsPublished();
   return Boolean(entity.name && entity.address && entity.registrationNumber);
+}
+
+/**
+ * The host, whose identity a French site must publish in every case.
+ *
+ * This is the one piece the non-professional regime cannot do without, and it
+ * is a fact about a third party — so it is left null until confirmed from the
+ * provider rather than guessed from a website footer.
+ *
+ * TODO(blink): fill in from Rork's own legal notice / terms.
+ */
+export interface Host {
+  /** Trading name, as shown to users. Known. */
+  name: string;
+  /** Registered corporate name. */
+  legalName: string | null;
+  /** Registered address. */
+  address: string | null;
+  /** What they actually host for Blink. */
+  role: { en: string; fr: string };
+}
+
+export const HOSTS: Host[] = [
+  {
+    name: "Rork",
+    legalName: null,
+    address: null,
+    role: {
+      en: "Hosts the website and operates the gateway that reaches the AI model",
+      fr: "Héberge le site et opère la passerelle vers le modèle d'IA",
+    },
+  },
+  {
+    name: "Supabase",
+    legalName: null,
+    address: null,
+    role: {
+      en: "Hosts the database, accounts and file storage",
+      fr: "Héberge la base de données, les comptes et le stockage de fichiers",
+    },
+  },
+];
+
+/** True once at least the primary host is fully identified. */
+export function hostIsPublished(): boolean {
+  return HOSTS.every((h) => h.legalName && h.address);
 }
 
 /**
@@ -70,8 +145,8 @@ export function entityIsPublished(entity: LegalEntity = ENTITY): boolean {
  * One real, monitored mailbox rather than three invented aliases. The page
  * previously advertised `support@`, `privacy@` and `hello@` at a domain Blink
  * does not operate — mail to any of them would have bounced, which for a
- * privacy request is a compliance failure and for Stripe is unreachable
- * support.
+ * privacy request is a compliance failure and for a payment provider is
+ * unreachable support.
  */
 export const CONTACT = {
   /** Support, privacy requests and legal notices all land here today. */
@@ -81,6 +156,16 @@ export const CONTACT = {
   /** Statutory maximum for a data-subject request under the GDPR. */
   privacyResponseMonths: 1,
 } as const;
+
+/**
+ * Whether Blink currently sells anything.
+ *
+ * Read by the terms and the legal notice so the free-product statement can
+ * never drift from reality: there is no payment code in this repository, no
+ * price and no checkout. Flipping this to `true` without adding terms of sale
+ * is meant to be uncomfortable — the pages will start asking for them.
+ */
+export const SELLS_ANYTHING = false;
 
 /**
  * Processors Blink relies on. These are facts about the current deployment,

@@ -50,9 +50,17 @@ const browser = await chromium.launch(
 );
 
 for (const lang of ["en", "fr"]) {
+  // The widths that actually break layouts: 320 is the narrowest phone still
+  // in use, 430 the widest, 768 the tablet seam where the desktop nav takes
+  // over, and 1920 where a centred column can start to look abandoned.
   for (const [device, viewport] of [
-    ["mobile", { width: 390, height: 844 }],
-    ["desktop", { width: 1280, height: 900 }],
+    ["320", { width: 320, height: 780 }],
+    ["375", { width: 375, height: 812 }],
+    ["390", { width: 390, height: 844 }],
+    ["430", { width: 430, height: 932 }],
+    ["768", { width: 768, height: 1024 }],
+    ["1280", { width: 1280, height: 900 }],
+    ["1920", { width: 1920, height: 1080 }],
   ]) {
     const ctx = await browser.newContext({ viewport });
     // Detection reads `navigator.languages` first, so that is what the test
@@ -131,7 +139,7 @@ for (const lang of ["en", "fr"]) {
     );
     if (links.length < 5) bad(`footer exposes ${links.length} legal links, expected 5`);
     for (const link of links) {
-      if (device === "mobile" && link.h < 44) {
+      if (Number(device) <= 430 && link.h < 44) {
         bad(`footer link "${link.text}" is ${Math.round(link.h)}px tall (min 44)`);
       }
       const res = await page.request.get(`${BASE}${link.href}`);

@@ -5,6 +5,11 @@
 **Status:** implemented where the repository allows; everything else is listed
 as an open item with the decision or information it needs.
 
+> **Blink is run by a private individual, not a company.** No SIREN, no VAT
+> number, no share capital, no RCS entry, and the service is free. Nothing in
+> this repository claims otherwise, and French law has a specific regime for
+> exactly this position — see §2.
+>
 > This is an engineering audit, not legal advice, and nothing here says Blink is
 > "compliant". It says: here is what the product actually does, here is what the
 > law asks of that, here is what was changed, and here is what is still open.
@@ -54,9 +59,10 @@ you → landing (static, no trackers)
 
 | Requirement | Verdict | Note |
 |---|---|---|
-| Mentions légales page, reachable site-wide | **PARTIAL** | Page exists at `/mentions-legales` and `/legal`, linked in the footer. Operator identity is **pending** — see §11. |
-| Host name and address | **PARTIAL** | Named (Rork, Supabase); full corporate names and addresses pending confirmation. |
-| Directeur de la publication | **OPEN** | Needs a named person. |
+| Mentions légales page, reachable site-wide | **PASS** | `/mentions-legales` and `/legal`, linked in the footer. Blink is published by a private individual, non-professionally, and the notice says exactly that — see the box below. |
+| Operator identification | **PASS for the current regime** | Under LCEN art. 6 III-2 a non-professional publisher may keep their name and address off the site, provided those details are lodged with the host. That is the position the notice states. It changes the day Blink charges for anything. |
+| Host name and address | **OPEN** | Rork and Supabase are named; their full corporate names and addresses are still to be confirmed. This is the one field the non-professional regime cannot do without — see §11. |
+| Directeur de la publication | **N/A while non-professional** | Required once the activity is professional. |
 | Privacy policy | **PASS** | Rewritten from the implementation. |
 | Cookie information | **PASS** | Real audit; see §8. |
 | CGU / Terms | **PASS** | Rewritten to match the product. |
@@ -194,23 +200,24 @@ does not exist — that is the fabrication this audit exists to avoid.
 
 Nothing below can be invented, and each blocks a specific item above.
 
-**Identity — blocks mentions légales, privacy controller, payment activation**
-1. Legal name of the operator (person or company)
-2. Legal form (entrepreneur individuel, SASU, SAS…)
-3. Registered address
-4. SIREN or SIRET
-5. RCS city, if registered
-6. Intra-EU VAT number, or confirmation that none applies
-7. Share capital, if a company
-8. Directeur de la publication (a named person)
+**Hosting — the one thing genuinely blocking the legal notice**
+1. Full corporate name and registered address of **Rork** (from their own legal
+   notice or terms)
+2. Full corporate name and registered address of **Supabase**'s operating entity
+3. Confirmation that you have given your own name and address **to the host** —
+   the non-professional exemption depends on it
 
-→ fill in `web-blink/src/lib/legal-entity.ts`; every page completes itself.
+→ fill in `HOSTS` in `web-blink/src/lib/legal-entity.ts`; the page completes itself.
 
-**Hosting and processors — blocks the transfer section**
-9. Full corporate name and address of the web host, and of Supabase's operating entity
-10. Deployment regions for Supabase, Rork and the AI providers
-11. Confirmation that each provider's DPA has been accepted, and whether SCCs apply
-12. Whether the AI providers train on submitted images under the current plan
+**Only when you start charging** — set `ENTITY.mode = "professional"` and supply:
+legal name, legal form, registered address, SIREN/SIRET, RCS city, VAT number,
+share capital if a company, and a named directeur de la publication. The legal
+notice switches to demanding exactly those fields on its own.
+
+**Processors — blocks the transfer section**
+4. Deployment regions for Supabase, Rork and the AI providers
+5. Confirmation that each provider's DPA has been accepted, and whether SCCs apply
+6. Whether the AI providers train on submitted images under the current plan
     (the policy deliberately does not claim they do not)
 
 **Decisions only you can make**
@@ -235,10 +242,11 @@ Nothing below can be invented, and each blocks a specific item above.
 
 Stated rather than glossed:
 
-- **The app screens are still English-only.** Landing, authentication, settings
-  and all legal pages are bilingual. Library, Ranks, Profile, onboarding and the
-  analysis result prose are not yet — the machinery is in place, the strings are
-  not written.
+- **The authenticated app could not be exercised in a browser here.** There are
+  no Supabase credentials in this environment, so Home, Library, Ranks, Profile
+  and the analysis result were verified by type-checking, unit tests and code
+  review rather than by clicking through them. Everything a signed-out visitor
+  can reach was driven in a real browser.
 - **The deployed site was not verified from here.** This environment's network
   policy blocks `blink-ig.rork.app`. Everything was verified against a local
   production build instead: same bundle, same prerender, not the same server.

@@ -14,6 +14,7 @@ import { AnalysisResult } from "@/components/analysis/AnalysisResult";
 import { ShareSheet } from "@/components/analysis/ShareSheet";
 import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/hooks/useAuth";
+import { useBackTo } from "@/lib/app-nav";
 import { useT } from "@/lib/i18n";
 import { EmptyState, ErrorState, SkeletonList } from "@/components/app/states";
 import { fetchAnalysisById, type SavedAnalysis } from "@/lib/analysis";
@@ -33,6 +34,9 @@ export default function AnalysisDetail() {
   const { user } = useAuth();
   const t = useT();
   const navigate = useNavigate();
+  // Reachable from Library *and* from the Ranks analysed board, so Back has
+  // to mean "where I came from", not one hardcoded screen.
+  const goBack = useBackTo("/library");
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [standing, setStanding] = useState<{ rank: number; total: number } | null>(null);
   const [shareRank, setShareRank] = useState<number | null>(null);
@@ -132,10 +136,10 @@ export default function AnalysisDetail() {
           action={
             <button
               type="button"
-              onClick={() => navigate("/library")}
+              onClick={goBack}
               className="rounded-2xl bg-blink-sky px-6 py-3 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.02]"
             >
-              Back to Library
+              {t.common.back}
             </button>
           }
         />

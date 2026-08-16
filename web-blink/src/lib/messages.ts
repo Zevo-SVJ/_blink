@@ -295,6 +295,8 @@ const en = {
     back: "Back",
     unlockTitle: "Unlock your Blink results",
     unlockSubtitle: "Create your account to see the complete analysis.",
+    dropzone: "Upload profile screenshot",
+    dropzoneFormats: "PNG, JPG, WEBP — max {mb}MB",
     uploadTitle: "Show us a profile.",
     uploadBody:
       "Upload a screenshot of an Instagram profile and Blink will analyze the first impression it gives.",
@@ -811,6 +813,8 @@ const fr: Messages = {
     back: "Retour",
     unlockTitle: "Débloque tes résultats Blink",
     unlockSubtitle: "Crée ton compte pour voir l'analyse complète.",
+    dropzone: "Dépose la capture du profil",
+    dropzoneFormats: "PNG, JPG, WEBP — {mb} Mo max",
     uploadTitle: "Montre-nous un profil.",
     uploadBody:
       "Envoie la capture d'un profil Instagram et Blink analysera la première impression qu'il donne.",

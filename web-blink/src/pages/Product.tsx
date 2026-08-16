@@ -50,6 +50,7 @@ import {
   recordAnalysis,
   type RecordedAnalysis,
 } from "@/lib/blink-profile";
+import { useBackTo } from "@/lib/app-nav";
 import { getMockMode, mockAnalyze } from "@/lib/dev-mock";
 import { useI18n, useT } from "@/lib/i18n";
 import { fetchMyStanding, fetchScoreStanding } from "@/lib/leaderboard";
@@ -323,19 +324,25 @@ export default function Product() {
 
   const inAnalysisMode = screen === "analyzing" || screen === "result";
 
+  /*
+    Back steps *within* the flow before it leaves it: from the preview, back
+    means "pick a different screenshot", not "abandon this". Only from the
+    upload screen, or from a finished analysis, does it leave — and then it
+    returns to wherever the user actually came from (Home, Ranks, the tab bar,
+    the landing) rather than always Home. `leaveFlow` handles the case where
+    there is nothing to return to, which is a direct link to /analyze.
+  */
+  const leaveFlow = useBackTo(user ? "/app" : "/");
+
   const goBack = () => {
-    if (screen === "result" || screen === "analyzing") {
-      // Don't strand the user on a finished analysis.
-      navigate(user ? "/app" : "/");
-      return;
-    }
     if (screen === "preview") {
       clearImage();
       setScreen("upload");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
-    navigate(user ? "/app" : "/");
+    // Includes a finished analysis: don't strand the user on a result.
+    leaveFlow();
   };
 
   // The tab bar is mounted by `AppChrome` and is already on screen when this
@@ -358,12 +365,24 @@ export default function Product() {
 
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-blink-navy/50 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+          {/* The label is `hidden sm:inline` by design — on a phone this is an
+              arrow and nothing else. That left the control with no accessible
+              name at exactly the width where most people use it: a screen
+              reader announced "button". `aria-label` carries the same word the
+              sighted label would, so the button is named at every width
+              without changing what is drawn. */}
           <button
             type="button"
             onClick={goBack}
-            className="group flex items-center gap-2 text-sm font-semibold text-white/60 transition-colors hover:text-white"
+            aria-label={
+              screen === "preview" ? t.product.change : user ? t.product.home : t.product.back
+            }
+            className="group flex min-h-[44px] items-center gap-2 text-sm font-semibold text-white/60 transition-colors hover:text-white"
           >
-            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+            <ArrowLeft
+              className="h-4 w-4 transition-transform group-hover:-translate-x-0.5"
+              aria-hidden
+            />
             <span className="hidden sm:inline">
               {screen === "preview" ? t.product.change : user ? t.product.home : t.product.back}
             </span>
@@ -578,9 +597,9 @@ function UploadScreen({
         >
           <div className="flex flex-col items-center">
             <ProfilePlaceholder />
-            <p className="mt-5 text-sm font-bold text-white">Upload profile screenshot</p>
+            <p className="mt-5 text-sm font-bold text-white">{t.product.dropzone}</p>
             <p className="mt-1 text-xs font-medium text-white/45">
-              PNG, JPG, WEBP — max {MAX_SIZE_MB}MB
+              {t.product.dropzoneFormats.replace("{mb}", String(MAX_SIZE_MB))}
             </p>
           </div>
         </div>

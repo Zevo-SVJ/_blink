@@ -66,6 +66,60 @@ for (const shared of [...enOnly].filter((s) => frOnly.has(s))) {
   frOnly.delete(shared);
 }
 
+/**
+ * English words that should never survive on a French page.
+ *
+ * The dictionary comparison above only catches a string that *made it into*
+ * `MESSAGES.en`. It is blind to the worse case: a string hardcoded in a
+ * component and never translated at all — which is exactly how "Upload profile
+ * screenshot" sat on the French analyse screen while every automated check
+ * passed. A screenshot caught it; this list is so the next one does not need
+ * a human eye.
+ *
+ * Each entry is a word that is unambiguous in this product: it means English,
+ * and it is not a brand name, a file format or a term French borrows. Matched
+ * whole-word and case-insensitively.
+ */
+const ENGLISH_MARKERS = [
+  "upload",
+  "screenshot",
+  "loading",
+  "settings",
+  "library",
+  "back to",
+  "sign in",
+  "sign up",
+  "log in",
+  "your profile",
+  "analyze",
+  "leaderboard",
+  "welcome",
+  "search",
+  "delete",
+  "download",
+  "share your",
+  "save image",
+];
+
+/**
+ * English that is *correct* on a French page, and why.
+ *
+ * Removed from the marker list after each one fired as a false positive:
+ *
+ *  - `continue` — also a French word ("disponibilité continue"), so it can
+ *    never be a reliable signal.
+ *  - `close` — likewise ("clore" → "close").
+ *  - `analysis` — too close to "analyse"; `analyze` alone is decisive.
+ *  - `share` on its own — the privacy policy quotes the Californian
+ *    "Do Not Sell or Share" mechanism by its statutory name, which must stay
+ *    in English to be recognisable. `share your` catches the UI string
+ *    without catching the citation.
+ *
+ * Brand names, file formats and protocol words (Instagram, Blink, PNG, JPG,
+ * WebP, localStorage, HTTPS, JSON) are English everywhere and are simply not
+ * in the list.
+ */
+
 const ROUTES = ["/", "/privacy", "/terms", "/cookies", "/legal", "/contact", "/analyze"];
 
 const browser = await chromium.launch(
@@ -99,6 +153,17 @@ for (const [lang, foreign, name] of [
       if (text.includes(phrase)) {
         bad(`${route}: ${name} leaked — "${phrase.slice(0, 60)}"`);
         leaks++;
+      }
+    }
+
+    // The hardcoded-string case, which the dictionary comparison cannot see.
+    if (lang === "fr") {
+      for (const marker of ENGLISH_MARKERS) {
+        const re = new RegExp(`\\b${marker.replace(/ /g, "\\s+")}\\b`, "i");
+        if (re.test(text)) {
+          bad(`${route}: untranslated English — "${marker}"`);
+          leaks++;
+        }
       }
     }
   }

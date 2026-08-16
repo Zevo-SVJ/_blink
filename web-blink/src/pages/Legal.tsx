@@ -33,9 +33,10 @@ import { useI18n, type Lang } from "@/lib/i18n";
 import {
   CONTACT,
   ENTITY,
+  HOSTS,
   MINIMUM_AGE,
   SUBPROCESSORS,
-  entityIsPublished,
+  hostIsPublished,
 } from "@/lib/legal-entity";
 
 // ---------------------------------------------------------------------------
@@ -313,33 +314,40 @@ function privacySections(lang: Lang): Section[] {
       {
         id: "responsable",
         heading: "1. Responsable de traitement",
-        blocks: entityIsPublished()
-          ? [
-              p(
-                `${ENTITY.name} est responsable du traitement des données décrites dans cette politique.`,
-              ),
-              p(ENTITY.address ?? ""),
-              p(
-                <>
-                  Contact : <Mail />
-                </>,
-              ),
-            ]
-          : [
-              p(
-                <>
-                  L'identification complète de l'éditeur figure dans les{" "}
-                  <A to="/mentions-legales">mentions légales</A>. Elle est en cours de
-                  finalisation et sera publiée dès qu'elle sera disponible.
-                </>,
-              ),
-              p(
-                <>
-                  En attendant, toute demande relative à tes données peut être adressée à{" "}
-                  <Mail />, qui est une adresse réellement relevée.
-                </>,
-              ),
-            ],
+        blocks:
+          ENTITY.mode === "nonProfessional"
+            ? [
+                p(
+                  "Blink est édité par un particulier, à titre non professionnel. C'est cette personne qui est responsable du traitement des données décrites ici.",
+                ),
+                p(
+                  <>
+                    Son nom et son adresse ne sont pas publiés sur le site — le régime
+                    applicable aux éditeurs non professionnels le permet, ces éléments étant
+                    communiqués à l'hébergeur. Voir les{" "}
+                    <A to="/mentions-legales">mentions légales</A>.
+                  </>,
+                ),
+                p(
+                  <>
+                    Toute demande relative à tes données s'exerce à l'adresse <Mail />, qui est
+                    réellement relevée. Si tu as besoin de l'identité complète du responsable de
+                    traitement pour saisir la CNIL, écris à cette adresse et elle te sera
+                    communiquée.
+                  </>,
+                ),
+              ]
+            : [
+                p(
+                  `${ENTITY.name} est responsable du traitement des données décrites dans cette politique.`,
+                ),
+                p(ENTITY.address ?? ""),
+                p(
+                  <>
+                    Contact : <Mail />
+                  </>,
+                ),
+              ],
       },
       {
         id: "donnees",
@@ -576,31 +584,37 @@ function privacySections(lang: Lang): Section[] {
     {
       id: "controller",
       heading: "1. Who is responsible",
-      blocks: entityIsPublished()
-        ? [
-            p(`${ENTITY.name} is the controller for the processing described here.`),
-            p(ENTITY.address ?? ""),
-            p(
-              <>
-                Contact: <Mail />
-              </>,
-            ),
-          ]
-        : [
-            p(
-              <>
-                The operator's full identification is published in the{" "}
-                <A to="/legal">legal notice</A>. It is being finalised and will appear there as
-                soon as it is available.
-              </>,
-            ),
-            p(
-              <>
-                In the meantime, any request about your data can be sent to <Mail />, which is a
-                real, monitored address.
-              </>,
-            ),
-          ],
+      blocks:
+        ENTITY.mode === "nonProfessional"
+          ? [
+              p(
+                "Blink is published by a private individual, non-professionally. That person is the controller for the processing described here.",
+              ),
+              p(
+                <>
+                  Their name and address are not published on the site — the regime for
+                  non-professional publishers allows that, with those details lodged with the
+                  host instead. See the <A to="/legal">legal notice</A>.
+                </>,
+              ),
+              p(
+                <>
+                  Any request about your data is exercised at <Mail />, which is a real,
+                  monitored address. If you need the controller's full identity in order to
+                  complain to a supervisory authority, write to that address and it will be
+                  given to you.
+                </>,
+              ),
+            ]
+          : [
+              p(`${ENTITY.name} is the controller for the processing described here.`),
+              p(ENTITY.address ?? ""),
+              p(
+                <>
+                  Contact: <Mail />
+                </>,
+              ),
+            ],
     },
     {
       id: "data",
@@ -1361,12 +1375,25 @@ export function CookiePolicy() {
  */
 function noticeSections(lang: Lang): Section[] {
   const fr = lang === "fr";
-  const rows: React.ReactNode[][] = [];
+  const pending = fr ? "À confirmer" : "To be confirmed";
+  const nonPro = ENTITY.mode === "nonProfessional";
 
+  /**
+   * The host block, which a French site must publish in every case — and which
+   * is the *whole* published identification when the editor is a private
+   * individual publishing non-professionally.
+   */
+  const hostRows: React.ReactNode[][] = HOSTS.map((h) => [
+    h.name,
+    h.legalName ?? pending,
+    h.address ?? pending,
+  ]);
+
+  /** The full identification block, required only once Blink is professional. */
+  const entityRows: React.ReactNode[][] = [];
   const row = (label: string, value: string | null) => {
-    rows.push([label, value ?? (fr ? "À compléter" : "To be completed")]);
+    entityRows.push([label, value ?? pending]);
   };
-
   row(fr ? "Éditeur du site" : "Site operator", ENTITY.name);
   row(fr ? "Forme juridique" : "Legal form", ENTITY.legalForm);
   row(fr ? "Adresse" : "Address", ENTITY.address);
@@ -1383,32 +1410,54 @@ function noticeSections(lang: Lang): Section[] {
     return [
       {
         id: "editeur",
-        heading: "Éditeur",
-        blocks: [
-          ...(entityIsPublished()
-            ? []
-            : [
-                note(
-                  "L'identification légale de l'éditeur est en cours de finalisation et sera publiée ici. Aucune information n'est inventée en attendant : les champs non renseignés sont indiqués comme tels.",
-                ),
-              ]),
-          table([" ", " "], rows),
-          p(
-            <>
-              Contact : <Mail />
-            </>,
-          ),
-        ],
+        heading: "Éditeur du site",
+        blocks: nonPro
+          ? [
+              p(
+                "Blink est édité par un particulier, à titre non professionnel. Il ne s'agit pas d'une société : il n'existe ni raison sociale, ni SIREN ou SIRET, ni numéro de TVA, ni capital social, ni immatriculation au RCS, et le service est gratuit.",
+              ),
+              p(
+                "Conformément à l'article 6 III-2 de la LCEN, un éditeur non professionnel peut ne pas publier son nom et son adresse personnelle, à condition d'avoir communiqué ces éléments à son hébergeur, qui les tient à la disposition de l'autorité judiciaire. C'est le régime applicable ici, et l'identité de l'hébergeur est publiée ci-dessous.",
+              ),
+              p(
+                <>
+                  Pour toute question, réclamation ou demande relative à tes données :{" "}
+                  <Mail />. Cette adresse est réellement relevée.
+                </>,
+              ),
+              note(
+                "Dès que Blink proposera une offre payante, l'activité deviendra professionnelle : cette exemption cessera de s'appliquer et l'identification complète de l'éditeur sera publiée ici, avec les conditions générales de vente correspondantes.",
+              ),
+            ]
+          : [
+              table([" ", " "], entityRows),
+              p(
+                <>
+                  Contact : <Mail />
+                </>,
+              ),
+            ],
       },
       {
         id: "hebergeur",
-        heading: "Hébergement",
+        heading: "Hébergeurs",
+        blocks: [
+          table(["Prestataire", "Raison sociale", "Adresse"], hostRows),
+          ...(hostIsPublished()
+            ? []
+            : [
+                note(
+                  "Les raisons sociales et adresses complètes des hébergeurs sont en cours de vérification auprès de chaque prestataire et seront publiées ici. Aucune information n'est inventée en attendant.",
+                ),
+              ]),
+        ],
+      },
+      {
+        id: "prix",
+        heading: "Nature du service",
         blocks: [
           p(
-            "Le site est hébergé par Rork. Les données de compte, la base de données et le stockage de fichiers sont opérés par Supabase.",
-          ),
-          note(
-            "Les raisons sociales et adresses complètes des hébergeurs, telles qu'exigées par la LCEN, seront ajoutées ici une fois vérifiées auprès de chaque prestataire.",
+            "Blink est gratuit. Aucune offre payante, aucun abonnement et aucun moyen de paiement ne sont proposés à ce jour, et le service ne collecte aucun paiement.",
           ),
         ],
       },
@@ -1449,32 +1498,54 @@ function noticeSections(lang: Lang): Section[] {
   return [
     {
       id: "operator",
-      heading: "Operator",
-      blocks: [
-        ...(entityIsPublished()
-          ? []
-          : [
-              note(
-                "The operator's legal identification is being finalised and will be published here. Nothing is invented in the meantime: fields that are not yet known are marked as such.",
-              ),
-            ]),
-        table([" ", " "], rows),
-        p(
-          <>
-            Contact: <Mail />
-          </>,
-        ),
-      ],
+      heading: "Site operator",
+      blocks: nonPro
+        ? [
+            p(
+              "Blink is published by a private individual, non-professionally. It is not a company: there is no registered business name, no company or VAT number, no share capital, no companies-register entry, and the service is free.",
+            ),
+            p(
+              "Under French law (LCEN, art. 6 III-2) a non-professional publisher may withhold their name and home address from the site, provided those details have been given to the host, who holds them for the judicial authority. That is the regime in force here, and the host's identity is published below.",
+            ),
+            p(
+              <>
+                For any question, complaint or request about your data: <Mail />. It is a real,
+                monitored address.
+              </>,
+            ),
+            note(
+              "As soon as Blink offers anything paid, the activity becomes professional: this exemption stops applying, and full identification of the operator will be published here alongside the corresponding terms of sale.",
+            ),
+          ]
+        : [
+            table([" ", " "], entityRows),
+            p(
+              <>
+                Contact: <Mail />
+              </>,
+            ),
+          ],
     },
     {
       id: "hosting",
-      heading: "Hosting",
+      heading: "Hosts",
+      blocks: [
+        table(["Provider", "Legal name", "Address"], hostRows),
+        ...(hostIsPublished()
+          ? []
+          : [
+              note(
+                "The hosts' full corporate names and addresses are being confirmed with each provider and will be published here. Nothing is invented in the meantime.",
+              ),
+            ]),
+      ],
+    },
+    {
+      id: "price",
+      heading: "What the service is",
       blocks: [
         p(
-          "The site is hosted by Rork. Account data, the database and file storage are operated by Supabase.",
-        ),
-        note(
-          "The hosts' full corporate names and addresses, as required by French law, will be added here once confirmed with each provider.",
+          "Blink is free. There is no paid plan, no subscription and no payment method at this time, and the service takes no payments.",
         ),
       ],
     },
