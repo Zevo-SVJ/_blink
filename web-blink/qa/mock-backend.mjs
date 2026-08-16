@@ -454,6 +454,27 @@ function predicate(column, expression) {
     }
 }
 
+/**
+ * Return only the selected columns, as PostgREST does.
+ *
+ * Without this the double handed back whole rows whatever the select list
+ * said, which quietly made the "migration not applied" path look healthier
+ * than it is: a client that retried its query *without* the missing column
+ * still received that column in the response, so a feature that depends on it
+ * appeared to work. Projecting is what makes the fallback path testable.
+ */
+function project(rows, params) {
+  const select = params.get("select");
+  if (!select || select.includes("*")) return rows;
+
+  const columns = select.split(",").map((s) => s.trim()).filter(Boolean);
+  return rows.map((row) => {
+    const out = {};
+    for (const column of columns) if (column in row) out[column] = row[column];
+    return out;
+  });
+}
+
 function applyQuery(rows, params) {
   let out = [...rows];
 
@@ -497,10 +518,18 @@ function missingColumn(table, params) {
   const known = new Set(Object.keys(db[table]?.[0] ?? {}));
   if (known.size === 0) return null;
 
+  /*
+    `DROP_COLUMNS=leaderboard_suggestions.category` — table-qualified, because
+    a bare column name pretends every table is missing it, which is not a state
+    any real database has ever been in. The point of this switch is to
+    reproduce one unapplied migration, not a broken schema.
+  */
   const dropped = (process.env.DROP_COLUMNS ?? "")
     .split(",")
     .map((s) => s.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((entry) => entry.startsWith(`${table}.`))
+    .map((entry) => entry.slice(table.length + 1));
 
   for (const column of select.split(",").map((s) => s.trim())) {
     if (dropped.includes(column)) {
@@ -636,7 +665,7 @@ async function handle(req, res) {
       const bad = missingColumn(table, url.searchParams);
       if (bad) return send(res, 400, bad);
 
-      const rows = applyQuery(db[table], url.searchParams);
+      const rows = project(applyQuery(db[table], url.searchParams), url.searchParams);
       if (wantsObject) return send(res, 200, rows[0] ?? null);
       return send(res, 200, rows);
     }

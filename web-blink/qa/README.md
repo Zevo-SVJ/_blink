@@ -68,6 +68,19 @@ the artefact that ships, and it is the one that can differ.
 | `nav-scroll.mjs` | Does a profile open at its top, and does Back return you exactly where you were? |
 | `badge-and-consistency.mjs` | Who carries the claimed mark, and does every view of the board agree with every other? |
 
+## Reproducing an unapplied migration
+
+The client degrades rather than crashing when a migration has not been run, and
+that path needs testing too — it is what production looks like between a deploy
+and a visit to the SQL editor.
+
+```sh
+DROP_COLUMNS=leaderboard_suggestions.category node qa/mock-backend.mjs
+```
+
+Table-qualified on purpose: a bare column name would pretend every table is
+missing it, which is not a state a real database has ever been in.
+
 ## Notes for writing new ones
 
 - **Wait on `domcontentloaded`.** The app requests Google Fonts; where that host
