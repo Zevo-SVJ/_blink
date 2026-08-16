@@ -1,5 +1,5 @@
 /**
- * "How to climb" — the concrete ways to move up, as a deck.
+ * t.climb.title — the concrete ways to move up, as a deck.
  *
  * This used to be a stack of accordions: six closed rows, each hiding the two
  * sentences that made it worth doing. Nobody opens six accordions. As a deck
@@ -38,6 +38,8 @@ import {
 } from "@/lib/climb";
 import type { ProfileStats } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
+import type { Messages } from "@/lib/messages";
 
 interface ActionCard {
   id: string;
@@ -60,11 +62,11 @@ interface ActionCard {
   priority: boolean;
 }
 
-function pathCard(path: ClimbPath): ActionCard {
+function pathCard(path: ClimbPath, t: Messages): ActionCard {
   return {
     id: `path-${path.id}`,
     track: path.track,
-    kind: path.priority ? "Start here" : path.kind,
+    kind: path.priority ? t.climb.startHere : path.kind,
     title: path.title,
     whatToTry: path.whatToTry,
     why: path.why,
@@ -75,14 +77,14 @@ function pathCard(path: ClimbPath): ActionCard {
   };
 }
 
-function recommendationCard(text: string, i: number): ActionCard {
+function recommendationCard(text: string, i: number, t: Messages): ActionCard {
   return {
     id: `rec-${i}`,
     track: "perception",
-    kind: "Read off your screenshot",
+    kind: t.climb.readOff,
     title: text,
     whatToTry:
-      "Blink saw this on your last upload. Make the change, upload a new screenshot, and it counts towards your rank.",
+      t.climb.body,
     why: null,
     notNeeded: null,
     impact: null,
@@ -106,6 +108,7 @@ export function ClimbSection({
   identity?: ClimbIdentity;
   onAnalyze?: () => void;
 }) {
+  const t = useT();
   const [seen, setSeen] = useState(false);
   const [index, setIndex] = useState(0);
 
@@ -114,9 +117,13 @@ export function ClimbSection({
     // `getClimbPaths` already sorts priority first and optional last; keeping
     // that order and slotting the recommendations behind the priority items
     // means the first card is always this user's actual next step.
-    const priority = paths.filter((p) => p.priority).map(pathCard);
-    const rest = paths.filter((p) => !p.priority).map(pathCard);
-    return [...priority, ...recommendations.map(recommendationCard), ...rest];
+    const priority = paths.filter((p) => p.priority).map((p) => pathCard(p, t));
+    const rest = paths.filter((p) => !p.priority).map((p) => pathCard(p, t));
+    return [
+      ...priority,
+      ...recommendations.map((text, i) => recommendationCard(text, i, t)),
+      ...rest,
+    ];
   }, [stats, recommendations, identity]);
 
   const activeTrack = cards[index]?.track ?? null;
@@ -193,6 +200,8 @@ export function ClimbSection({
 }
 
 function ActionCardBody({ card }: { card: ActionCard }) {
+  const t = useT();
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -226,7 +235,7 @@ function ActionCardBody({ card }: { card: ActionCard }) {
 
       {card.why && (
         <p className="mt-2.5 text-[0.75rem] leading-relaxed text-white/40">
-          <span className="font-bold text-white/55">Why this helps. </span>
+          <span className="font-bold text-white/55">{t.climb.whyThisHelps} </span>
           {card.why}
         </p>
       )}
@@ -235,7 +244,7 @@ function ActionCardBody({ card }: { card: ActionCard }) {
           collapsed away or left to the reader to infer. */}
       {card.notNeeded && (
         <p className="mt-2 text-[0.75rem] leading-relaxed text-emerald-300/60">
-          <span className="font-bold">You don&rsquo;t need to change. </span>
+          <span className="font-bold">{t.climb.noNeedToChange} </span>
           {card.notNeeded}
         </p>
       )}

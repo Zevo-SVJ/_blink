@@ -20,6 +20,7 @@ import {
   toShareCardData,
   type ShareFormat,
 } from "@/lib/share-card";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export function ShareSheet({
@@ -33,6 +34,7 @@ export function ShareSheet({
   result: AnalysisResult;
   rank?: number | null;
 }) {
+  const t = useT();
   const [format, setFormat] = useState<ShareFormat>("story");
   const [variantIndex, setVariantIndex] = useState(0);
   const [preview, setPreview] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export function ShareSheet({
       setPreview(canvas.toDataURL("image/png"));
     } catch (err) {
       console.error("[ShareSheet] draw failed", err);
-      setError("Blink couldn't build the card. Try again.");
+      setError(t.share.buildFailed);
     }
   }, [open, spec, variant, result, rank]);
 
@@ -80,13 +82,13 @@ export function ShareSheet({
       const file = new File([blob], `blink-${result.handle ?? "result"}.png`, {
         type: "image/png",
       });
-      await navigator.share({ files: [file], title: "My Blink result" });
-      flash("Shared");
+      await navigator.share({ files: [file], title: t.share.shareTitle });
+      flash(t.share.shared);
     } catch (err) {
       // A user dismissing the OS sheet is not a failure.
       if (err instanceof DOMException && err.name === "AbortError") return;
       console.error("[ShareSheet] share failed", err);
-      setError("Sharing isn't available here — try downloading instead.");
+      setError(t.share.unavailable);
     } finally {
       setBusy(false);
     }
@@ -104,10 +106,10 @@ export function ShareSheet({
       a.download = `blink-${result.handle ?? "result"}-${format}.png`;
       a.click();
       URL.revokeObjectURL(url);
-      flash("Saved");
+      flash(t.share.saved);
     } catch (err) {
       console.error("[ShareSheet] download failed", err);
-      setError("Blink couldn't save the card. Try again.");
+      setError(t.share.saveFailed);
     } finally {
       setBusy(false);
     }
@@ -129,7 +131,7 @@ export function ShareSheet({
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Share your Blink result"
+            aria-label={t.share.dialogTitle}
             initial={{ opacity: 0, y: 40, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.98 }}
@@ -138,11 +140,11 @@ export function ShareSheet({
             style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1.25rem)" }}
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-white">Share your result</h2>
+              <h2 className="text-base font-bold text-white">{t.share.title}</h2>
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={t.app.close}
                 className="rounded-xl p-2 text-white/40 transition-colors hover:bg-white/[0.06] hover:text-white"
               >
                 <X className="h-4 w-4" />
@@ -273,7 +275,7 @@ export function ShareSheet({
                 )}
               >
                 {done ? <Check className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-                {done ?? "Save image"}
+                {done ?? t.share.saveImage}
               </button>
             </div>
 

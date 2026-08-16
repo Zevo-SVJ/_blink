@@ -19,6 +19,7 @@ import { PageBackground } from "@/components/blink/PageBackground";
 import { useAuth } from "@/hooks/useAuth";
 import { APP_NAV_LINKS, isNavActive } from "@/lib/app-nav";
 import { BRAND } from "@/lib/brand";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -111,6 +112,8 @@ export function AppShell({
 }
 
 export function AppShellLoading() {
+  const t = useT();
+
   return (
     <div className="flex min-h-screen items-center justify-center">
       <PageBackground />
@@ -119,7 +122,7 @@ export function AppShellLoading() {
         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
         className="h-8 w-8 rounded-full border-2 border-blink-sky/30 border-t-blink-sky"
       />
-      <span className="sr-only">Loading</span>
+      <span className="sr-only">{t.app.loading}</span>
     </div>
   );
 }
@@ -131,6 +134,7 @@ export function AppShellLoading() {
 function TopNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const t = useT();
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-blink-navy/60 backdrop-blur-xl">
@@ -165,7 +169,7 @@ function TopNav() {
                         transition={{ type: "spring", stiffness: 420, damping: 36 }}
                       />
                     )}
-                    <span className="relative">{item.label}</span>
+                    <span className="relative">{t.app[item.labelKey]}</span>
                   </button>
                 </li>
               );
@@ -179,7 +183,7 @@ function TopNav() {
           className="flex items-center gap-2 rounded-full bg-blink-sky px-4 py-2 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.03] active:scale-[0.98]"
         >
           <ScanLine className="h-4 w-4" />
-          Analyze
+          {t.app.tabAnalyze}
         </button>
       </div>
     </header>

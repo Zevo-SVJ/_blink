@@ -37,6 +37,7 @@ import {
   suggestProfile,
   type SuggestionResult,
 } from "@/lib/leaderboard-suggestions";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type Phase = "form" | "reading" | "sending" | "done";
@@ -52,6 +53,7 @@ export function AddSomeoneSheet({
   onClose: () => void;
 }) {
   const { user } = useAuth();
+  const t = useT();
   const reduceMotion = useReducedMotion();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -95,7 +97,7 @@ export function AddSomeoneSheet({
     setError(null);
 
     if (!ACCEPTED.includes(file.type)) {
-      setError("That file isn't an image Blink can read. PNG, JPG or WebP.");
+      setError(t.addSomeone.notImage);
       return;
     }
     if (file.size > MAX_MB * 1024 * 1024) {
@@ -122,7 +124,7 @@ export function AddSomeoneSheet({
   const submit = useCallback(async () => {
     const clean = normaliseHandle(handle);
     if (!clean) {
-      setError("That doesn't look like an Instagram username.");
+      setError(t.addSomeone.notHandle);
       return;
     }
 
@@ -180,7 +182,7 @@ export function AddSomeoneSheet({
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Add someone to the leaderboard"
+            aria-label={t.addSomeone.dialogTitle}
             initial={reduceMotion ? { opacity: 0 } : { y: "100%" }}
             animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { y: "100%" }}
@@ -215,7 +217,7 @@ export function AddSomeoneSheet({
                     <button
                       type="button"
                       onClick={onClose}
-                      aria-label="Close"
+                      aria-label={t.app.close}
                       className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white"
                     >
                       <X className="h-4 w-4" />
@@ -280,7 +282,7 @@ export function AddSomeoneSheet({
                         id="suggest-note"
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
-                        placeholder="Their grid is unreal"
+                        placeholder={t.addSomeone.notePlaceholder}
                         maxLength={140}
                         className="mt-2 min-h-[48px] w-full rounded-2xl bg-white/[0.05] px-3.5 text-base text-white outline-none ring-1 ring-white/[0.09] placeholder:text-white/25 focus:ring-blink-sky/50"
                       />
@@ -314,7 +316,7 @@ export function AddSomeoneSheet({
                         : "bg-white/[0.06] text-white/30",
                     )}
                   >
-                    {phase === "sending" ? "Adding…" : "Add to leaderboard"}
+                    {phase === "sending" ? t.addSomeone.adding : t.addSomeone.submit}
                   </motion.button>
 
                   <input
@@ -347,6 +349,8 @@ function ScreenshotField({
   reading: boolean;
   onPick: () => void;
 }) {
+  const t = useT();
+
   return (
     <button
       type="button"
@@ -377,14 +381,14 @@ function ScreenshotField({
 
       <span className="min-w-0">
         <span className="block text-sm font-bold text-white">
-          {reading ? "Reading the username…" : preview ? "Screenshot added" : "Add a screenshot"}
+          {reading ? t.addSomeone.reading : preview ? t.addSomeone.screenshotAdded : t.addSomeone.addScreenshot}
         </span>
         <span className="mt-0.5 block text-[0.75rem] leading-relaxed text-white/45">
           {reading
-            ? "Looking for the @ in the image"
+            ? t.addSomeone.lookingForHandle
             : preview
-              ? "Tap to choose a different one"
-              : "Optional — we'll try to read the username from it"}
+              ? t.addSomeone.tapToChange
+              : t.addSomeone.screenshotHint}
         </span>
       </span>
     </button>
@@ -411,6 +415,7 @@ export function Confirmation({
   result: SuggestionResult | null;
   handle: string | null;
 }) {
+  const t = useT();
   const reduceMotion = useReducedMotion();
   const pending = result?.status === "needs-setup";
   const duplicate = result?.status === "duplicate";
@@ -461,7 +466,7 @@ export function Confirmation({
         transition={{ delay: 0.45 }}
         className="mt-5 text-lg font-extrabold tracking-tight text-white"
       >
-        {duplicate ? "Already suggested" : "Added to the leaderboard"}
+        {duplicate ? t.addSomeone.already : t.addSomeone.added}
       </motion.p>
 
       <motion.p

@@ -27,6 +27,8 @@ import { AppShell } from "@/components/app/AppShell";
 import { EmptyState, ErrorState, SkeletonList } from "@/components/app/states";
 import { useAuth } from "@/hooks/useAuth";
 import { formatRank } from "@/lib/app-nav";
+import { isClaimed, VerifiedMark } from "@/components/app/VerifiedMark";
+import { useT } from "@/lib/i18n";
 import { categoryBlurb, categoryLabel, pickerCategories } from "@/lib/categories";
 import {
   analyzedCategories,
@@ -71,6 +73,7 @@ export default function Ranks() {
   const [adding, setAdding] = useState(false);
   const [category, setCategory] = useState<string | null>(null);
   const [load, setLoad] = useState<Load>({ state: "loading" });
+  const t = useT();
 
   const refresh = useCallback(async () => {
     setLoad({ state: "loading" });
@@ -116,8 +119,8 @@ export default function Ranks() {
 
   return (
     <AppShell
-      title="Leaderboard"
-      subtitle="Ranked by how optimized a profile is. Not by followers."
+      title={t.ranksPage.title}
+      subtitle={t.ranksPage.subtitle}
       wide
       action={
         <button
@@ -125,8 +128,8 @@ export default function Ranks() {
           onClick={() => setAdding(true)}
           className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-white/[0.06] px-3.5 text-xs font-bold text-white/80 ring-1 ring-white/10 transition-colors hover:bg-white/[0.11]"
         >
-          <UserPlus className="h-3.5 w-3.5" />
-          Add someone
+          <UserPlus className="h-3.5 w-3.5" aria-hidden />
+          {t.ranksPage.addSomeone}
         </button>
       }
     >
@@ -204,6 +207,7 @@ function AnalyzedBoard({
   category: string | null;
   onSelectCategory: (c: string | null) => void;
 }) {
+  const t = useT();
   const ranked = rankAnalyzed(profiles, category);
   // Someone already analysed is ranked; the suggestion is spent.
   const known = new Set(profiles.map((p) => p.handle));
@@ -213,8 +217,8 @@ function AnalyzedBoard({
     return (
       <EmptyState
         icon={ScanLine}
-        title="No profiles analyzed yet"
-        description="Analyze someone's profile and they'll be ranked here — visible only to you."
+        title={t.ranksPage.emptyAnalyzedTitle}
+        description={t.ranksPage.analyzedEmptyBody}
       />
     );
   }
@@ -235,8 +239,8 @@ function AnalyzedBoard({
       {ranked.length === 0 ? (
         <EmptyState
           icon={ScanLine}
-          title="Nothing in this category"
-          description="None of the profiles you've analyzed read as this archetype."
+          title={t.ranksPage.emptyCategoryTitle}
+          description={t.ranksPage.emptyCategoryBody}
         />
       ) : (
         <ul className="space-y-2">
@@ -252,13 +256,18 @@ function AnalyzedBoard({
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blink-sky/15 text-sm font-extrabold text-blink-sky">
                   {p.handle.charAt(0).toUpperCase()}
                 </span>
+                {/* No `VerifiedMark` here, and there must never be one.
+                    These rows are people someone *analysed*; nobody has
+                    proved they control the account. The mark means "the owner
+                    claimed this profile through Blink", which is exactly what
+                    an analysed stranger has not done. */}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-bold text-white">
                     @{p.handle}
                   </span>
                   <span className="block truncate text-[0.7rem] text-white/40">
-                    {categoryLabel(p.category) ?? "Uncategorized"}
-                    {p.runs > 1 ? ` · ${p.runs} scans` : ""}
+                    {categoryLabel(p.category) ?? t.ranksPage.uncategorized}
+                    {p.runs > 1 ? ` · ${p.runs} ${t.ranksPage.scans}` : ""}
                   </span>
                 </span>
                 <span className="shrink-0 text-base font-extrabold tabular-nums text-white">
@@ -273,7 +282,7 @@ function AnalyzedBoard({
       {waiting.length > 0 && (
         <div>
           <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-white/35">
-            Suggested — not analyzed yet
+            {t.ranksPage.suggested}
           </p>
           <ul className="mt-2.5 space-y-2">
             {waiting.map((s) => (
@@ -306,10 +315,11 @@ function AnalyzedBoard({
 // ---------------------------------------------------------------------------
 
 function BoardTabs({ board, onChange }: { board: Board; onChange: (b: Board) => void }) {
+  const t = useT();
   const tabs: Array<{ id: Board; label: string }> = [
-    { id: "standings", label: "Standings" },
-    { id: "analyzed", label: "Analyzed" },
-    { id: "winners", label: "Winners" },
+    { id: "standings", label: t.ranksPage.tabStandings },
+    { id: "analyzed", label: t.ranksPage.tabAnalyzed },
+    { id: "winners", label: t.ranksPage.tabWinners },
   ];
 
   return (
@@ -362,6 +372,7 @@ function CategoryPicker({
   selected: string | null;
   onSelect: (category: string | null) => void;
 }) {
+  const t = useT();
   const categories = pickerCategories(present);
   const populated = new Set(present.map((c) => c.toLowerCase()));
   const blurb = categoryBlurb(selected);
@@ -372,7 +383,7 @@ function CategoryPicker({
       <div className="relative">
         <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
           <CategoryChip
-            label="All"
+            label={t.ranksPage.all}
             active={selected === null}
             populated
             onClick={() => onSelect(null)}
@@ -462,6 +473,7 @@ function StandingsBoard({
   currentUserId?: string;
 }) {
   const navigate = useNavigate();
+  const t = useT();
   const byCategory = category !== null;
   if (entries.length === 0) return <LaunchState category={category} />;
 
@@ -484,7 +496,7 @@ function StandingsBoard({
 
       {me && !inList && (
         <>
-          <p className="pt-2 text-center text-xs font-semibold text-white/30">Your position</p>
+          <p className="pt-2 text-center text-xs font-semibold text-white/30">{t.ranksPage.yourPosition}</p>
           <RankRow
             entry={me}
             position={byCategory ? me.categoryRank : me.rank}
@@ -517,8 +529,9 @@ function RankRow({
   isMe: boolean;
   onOpen: () => void;
 }) {
+  const t = useT();
   const tier = getTier(entry.score);
-  const name = entry.handle ? `@${entry.handle}` : (entry.displayName ?? "Anonymous");
+  const name = entry.handle ? `@${entry.handle}` : (entry.displayName ?? t.publicProfile.anonymous);
   const secondary = entry.handle ? entry.displayName : null;
 
   return (
@@ -552,6 +565,13 @@ function RankRow({
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5 truncate text-sm font-bold text-white">
           <span className="truncate">{name}</span>
+          {/* Every row on this board is a profile whose owner claimed it — the
+              `leaderboard` view filters to `verified_count > 0` — so the mark
+              is driven by the same predicate rather than assumed from the
+              board. Unlabelled: in a list of fifty rows the mark is repetition
+              for a screen reader, and the row's own label already names the
+              profile. */}
+          {isClaimed(entry) && <VerifiedMark size={12} labelled={false} />}
           {entry.country && (
             <span
               className="shrink-0"
@@ -563,7 +583,7 @@ function RankRow({
           )}
           {isMe && (
             <span className="shrink-0 rounded-full bg-blink-sky px-1.5 py-0.5 text-[0.58rem] font-bold text-blink-navy">
-              You
+              {t.ranksPage.you}
             </span>
           )}
         </p>
@@ -612,16 +632,17 @@ function RowAvatar({ url, name }: { url: string | null; name: string }) {
 
 /** ↑ / ↓ / — places moved since the last rank snapshot. */
 function Movement({ movement }: { movement: number | null }) {
+  const t = useT();
   if (movement === null) {
     return (
-      <span className="w-8 shrink-0 text-center text-xs text-white/20" title="No movement recorded yet">
+      <span className="w-8 shrink-0 text-center text-xs text-white/20" title={t.ranksPage.noMovement}>
         —
       </span>
     );
   }
   if (movement === 0) {
     return (
-      <span className="w-8 shrink-0 text-center text-xs text-white/30" title="Held position">
+      <span className="w-8 shrink-0 text-center text-xs text-white/30" title={t.ranksPage.heldPosition}>
         —
       </span>
     );
@@ -638,9 +659,10 @@ function Movement({ movement }: { movement: number | null }) {
         up ? "text-emerald-300" : "text-amber-300",
         surging && (up ? "bg-emerald-400/12" : "bg-amber-400/12"),
       )}
-      title={`${up ? "Up" : "Down"} ${Math.abs(movement)} ${
-        Math.abs(movement) === 1 ? "place" : "places"
-      } since the last snapshot`}
+      title={(up ? t.ranksPage.movedUp : t.ranksPage.movedDown).replace(
+        "{n}",
+        String(Math.abs(movement)),
+      )}
     >
       {up ? "↑" : "↓"}
       {Math.abs(movement)}
@@ -653,6 +675,7 @@ function Movement({ movement }: { movement: number | null }) {
 /** Shown instead of a board when nobody is ranked yet. */
 function LaunchState({ category }: { category: string | null }) {
   const navigate = useNavigate();
+  const t = useT();
   const label = categoryLabel(category);
 
   return (
@@ -661,18 +684,19 @@ function LaunchState({ category }: { category: string | null }) {
         <Rocket className="h-6 w-6 text-blink-sky" />
       </div>
       <p className="mt-4 text-base font-bold text-white">
-        {label ? `Nobody is ranked in ${label} yet` : "The board is still filling up"}
+        {label
+          ? t.ranksPage.launchTitleCategory.replace("{category}", label)
+          : t.ranksPage.launchTitle}
       </p>
       <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-white/50">
-        Blink only ranks real, verified profiles — so the board starts empty rather than
-        with placeholder names.
+        {t.ranksPage.launchBody}
       </p>
 
       <ol className="mx-auto mt-5 max-w-xs space-y-2.5 text-left">
         {[
-          "Analyze your own profile to get a Blink Score.",
-          "Turn on leaderboard visibility in your profile.",
-          "Improve, re-upload, and climb as changes are verified.",
+          t.ranksPage.launchStep1,
+          t.ranksPage.launchStep2,
+          t.ranksPage.launchStep3,
         ].map((step, i) => (
           <li key={i} className="flex gap-3">
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blink-sky/20 text-[0.65rem] font-bold text-blink-sky">
@@ -695,12 +719,13 @@ function LaunchState({ category }: { category: string | null }) {
 }
 
 function WinnersBoard({ winners }: { winners: WeeklyWinner[] }) {
+  const t = useT();
   if (winners.length === 0) {
     return (
       <EmptyState
         icon={Trophy}
-        title="No winners yet"
-        description="Each week Blink crowns the biggest verified improvement overall and in every category. The first results land after a full week of analyses."
+        title={t.ranksPage.noWinnersTitle}
+        description={t.ranksPage.noWinnersBody}
       />
     );
   }
@@ -736,7 +761,8 @@ function WinnersBoard({ winners }: { winners: WeeklyWinner[] }) {
 }
 
 function WinnerCard({ winner, overall = false }: { winner: WeeklyWinner; overall?: boolean }) {
-  const name = winner.handle ? `@${winner.handle}` : (winner.displayName ?? "Anonymous");
+  const t = useT();
+  const name = winner.handle ? `@${winner.handle}` : (winner.displayName ?? t.publicProfile.anonymous);
 
   return (
     <div
@@ -765,13 +791,15 @@ function WinnerCard({ winner, overall = false }: { winner: WeeklyWinner; overall
         <p className="text-sm font-extrabold tabular-nums text-emerald-300">
           +{winner.improvement}
         </p>
-        <p className="text-[0.65rem] text-white/30">score {winner.score}</p>
+        <p className="text-[0.65rem] text-white/30">{t.ranksPage.score} {winner.score}</p>
       </div>
     </div>
   );
 }
 
 function FairnessNote() {
+  const t = useT();
+
   return (
     <div className="flex gap-3 rounded-2xl bg-white/[0.02] p-4 ring-1 ring-white/[0.06]">
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-white/30" />

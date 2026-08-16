@@ -18,6 +18,7 @@ import { motion } from "framer-motion";
 import { ACCEPTED_AVATAR_TYPES, uploadAvatar } from "@/lib/avatar";
 import type { IdentityDraft } from "@/lib/identity";
 import { COUNTRIES, flagEmoji } from "@/lib/countries";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /** 16px minimum — anything smaller makes iOS Safari zoom on focus. */
@@ -49,6 +50,8 @@ export function IdentityFields({
     onChange({ avatarUrl: res.url });
   };
 
+  const t = useT();
+
   return (
     <div className="space-y-4">
       {/* Picture */}
@@ -72,24 +75,24 @@ export function IdentityFields({
             className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3.5 py-2 text-xs font-bold text-white/80 transition-colors hover:bg-white/[0.1] disabled:opacity-50"
           >
             <Camera className="h-3.5 w-3.5" />
-            {uploading ? "Uploading…" : draft.avatarUrl ? "Change picture" : "Add picture"}
+            {uploading ? t.identity.uploading : draft.avatarUrl ? t.identity.changePicture : t.identity.addPicture}
           </button>
-          <p className="mt-1.5 text-[0.7rem] text-white/35">Optional. Shown on the leaderboard.</p>
+          <p className="mt-1.5 text-[0.7rem] text-white/35">{t.identity.pictureHint}</p>
         </div>
       </div>
 
-      <Field label="Display name">
+      <Field label={t.identity.displayName}>
         <input
           value={draft.displayName}
           onChange={(e) => onChange({ displayName: e.target.value })}
           maxLength={40}
-          placeholder="Your name"
+          placeholder={t.identity.yourName}
           autoComplete="name"
           className={INPUT_CLASS}
         />
       </Field>
 
-      <Field label="Instagram username">
+      <Field label={t.identity.instagramUsername}>
         <div className="flex items-center rounded-xl border border-white/10 bg-white/[0.04] focus-within:border-blink-sky/40">
           <span className="pl-3.5 text-[16px] text-white/35">@</span>
           <input
@@ -106,7 +109,7 @@ export function IdentityFields({
         </div>
       </Field>
 
-      <Field label="Instagram link" hint="Optional">
+      <Field label={t.identity.instagramLink} hint={t.app.optional}>
         <input
           value={draft.instagramUrl}
           onChange={(e) => onChange({ instagramUrl: e.target.value })}
@@ -119,7 +122,7 @@ export function IdentityFields({
         />
       </Field>
 
-      <Field label="Country">
+      <Field label={t.identity.country}>
         <select
           value={draft.country}
           onChange={(e) => onChange({ country: e.target.value })}
@@ -152,7 +155,7 @@ export function IdentityFields({
               Show me on the leaderboard
             </span>
             <span className="block text-[0.7rem] text-white/35">
-              {draft.isPublic ? "Your profile is public" : "Only you can see your score"}
+              {draft.isPublic ? t.identity.publicOn : t.identity.publicOff}
             </span>
           </span>
         </span>

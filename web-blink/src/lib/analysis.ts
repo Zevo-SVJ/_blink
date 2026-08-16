@@ -14,6 +14,7 @@ import {
   type ProfileOwnership,
   type SubjectGender,
 } from "@/lib/ownership";
+import { DEFAULT_LANG, type Lang } from "@/lib/i18n";
 import { normaliseSupabaseUrl, supabase } from "@/lib/supabase";
 
 // Ownership lives in its own module, but it is part of an analysis result's
@@ -92,17 +93,42 @@ export type AnalysisErrorCode =
   /** The image contains content Blink won't analyze. */
   | "UNSAFE_CONTENT";
 
-export const ERROR_MESSAGES: Record<AnalysisErrorCode, string> = {
-  INVALID_IMAGE: "Upload a screenshot of your Instagram profile.",
-  ANALYSIS_FAILED: "Something went wrong while reading your profile. Try again.",
-  UNSUPPORTED_SCREENSHOT: "Make sure your profile is clearly visible in the screenshot.",
-  NETWORK_ERROR: "Blink lost connection. Try again.",
-  IMAGE_TOO_LARGE: "That image is too large. Try a smaller screenshot.",
-  TIMEOUT: "Analysis is taking longer than expected. Try again.",
-  NOT_INSTAGRAM:
-    "That doesn't look like an Instagram profile. Upload a screenshot of a profile page — the one showing the username, profile picture and post grid.",
-  UNSAFE_CONTENT: "Blink can't analyze that image. Try a different screenshot.",
+const ERROR_TEXT: Record<Lang, Record<AnalysisErrorCode, string>> = {
+  en: {
+    INVALID_IMAGE: "Upload a screenshot of your Instagram profile.",
+    ANALYSIS_FAILED: "Something went wrong while reading your profile. Try again.",
+    UNSUPPORTED_SCREENSHOT: "Make sure your profile is clearly visible in the screenshot.",
+    NETWORK_ERROR: "Blink lost connection. Try again.",
+    IMAGE_TOO_LARGE: "That image is too large. Try a smaller screenshot.",
+    TIMEOUT: "Analysis is taking longer than expected. Try again.",
+    NOT_INSTAGRAM:
+      "That doesn't look like an Instagram profile. Upload a screenshot of a profile page — the one showing the username, profile picture and post grid.",
+    UNSAFE_CONTENT: "Blink can't analyze that image. Try a different screenshot.",
+  },
+  fr: {
+    INVALID_IMAGE: "Envoie une capture d'écran de ton profil Instagram.",
+    ANALYSIS_FAILED: "Un problème est survenu pendant la lecture du profil. Réessaie.",
+    UNSUPPORTED_SCREENSHOT: "Vérifie que le profil est bien visible sur la capture.",
+    NETWORK_ERROR: "Blink a perdu la connexion. Réessaie.",
+    IMAGE_TOO_LARGE: "Cette image est trop lourde. Essaie une capture plus petite.",
+    TIMEOUT: "L'analyse prend plus de temps que prévu. Réessaie.",
+    NOT_INSTAGRAM:
+      "Ça ne ressemble pas à un profil Instagram. Envoie la capture d'une page de profil — celle qui montre le pseudo, la photo de profil et la grille de publications.",
+    UNSAFE_CONTENT: "Blink ne peut pas analyser cette image. Essaie une autre capture.",
+  },
 };
+
+/** Messages for a language. Callers inside React use `useT()`-adjacent hooks. */
+export function errorMessages(lang: Lang = DEFAULT_LANG): Record<AnalysisErrorCode, string> {
+  return ERROR_TEXT[lang];
+}
+
+/**
+ * English messages, kept as a named export because `AnalysisError` is thrown
+ * from non-React code that has no language context. Anything rendered to a
+ * user goes through `errorMessages(lang)` at the call site instead.
+ */
+export const ERROR_MESSAGES: Record<AnalysisErrorCode, string> = ERROR_TEXT.en;
 
 /** Refusals are the user's to fix, so they read as guidance rather than failure. */
 export function isRefusal(code: AnalysisErrorCode): boolean {

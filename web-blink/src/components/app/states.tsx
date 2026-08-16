@@ -17,6 +17,7 @@ import { AlertCircle, RefreshCw, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 export function Spinner({ className }: { className?: string }) {
   return (
@@ -32,22 +33,26 @@ export function Spinner({ className }: { className?: string }) {
   );
 }
 
-export function LoadingState({ label = "Loading…" }: { label?: string }) {
+export function LoadingState({ label }: { label?: string }) {
+  const t = useT();
+
   return (
     <div
       className="flex items-center gap-3 rounded-2xl bg-white/[0.035] p-5 ring-1 ring-white/[0.07]"
       role="status"
     >
       <Spinner />
-      <span className="text-sm text-white/50">{label}</span>
+      <span className="text-sm text-white/50">{label ?? t.app.loading}</span>
     </div>
   );
 }
 
 /** Skeleton rows for list screens, so the layout doesn't jump on load. */
 export function SkeletonList({ rows = 3 }: { rows?: number }) {
+  const t = useT();
+
   return (
-    <div className="space-y-3" role="status" aria-label="Loading">
+    <div className="space-y-3" role="status" aria-label={t.app.loading}>
       {Array.from({ length: rows }).map((_, i) => (
         <div
           key={i}

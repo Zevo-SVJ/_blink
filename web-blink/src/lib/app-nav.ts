@@ -27,18 +27,21 @@ import {
 
 export interface NavDestination {
   path: string;
-  label: string;
+  labelKey: "tabHome" | "tabLibrary" | "tabAnalyze" | "tabRanks" | "tabProfile";
   icon: LucideIcon;
   /** Rendered as the accented centre action rather than a plain tab. */
   primary?: boolean;
 }
 
 export const APP_NAV: NavDestination[] = [
-  { path: "/app", label: "Home", icon: Home },
-  { path: "/library", label: "Library", icon: LayoutGrid },
-  { path: "/analyze", label: "Analyze", icon: ScanLine, primary: true },
-  { path: "/ranks", label: "Ranks", icon: Trophy },
-  { path: "/profile", label: "Profile", icon: User },
+  // `labelKey` indexes `messages.app`; the label itself is resolved at render
+  // so the tab bar speaks the reader's language without this module — which is
+  // plain data, imported by non-React code — needing a language context.
+  { path: "/app", labelKey: "tabHome", icon: Home },
+  { path: "/library", labelKey: "tabLibrary", icon: LayoutGrid },
+  { path: "/analyze", labelKey: "tabAnalyze", icon: ScanLine, primary: true },
+  { path: "/ranks", labelKey: "tabRanks", icon: Trophy },
+  { path: "/profile", labelKey: "tabProfile", icon: User },
 ];
 
 /** The destinations shown in the desktop pill nav — no primary action. */

@@ -35,7 +35,7 @@ import { ScoreRing } from "@/components/blink/ScoreRing";
 import { useAuth } from "@/hooks/useAuth";
 import {
   AnalysisError,
-  ERROR_MESSAGES,
+  errorMessages,
   analyzeProfile,
   getAnalysisMessages,
   isRefusal,
@@ -51,7 +51,7 @@ import {
   type RecordedAnalysis,
 } from "@/lib/blink-profile";
 import { getMockMode, mockAnalyze } from "@/lib/dev-mock";
-import { useT } from "@/lib/i18n";
+import { useI18n, useT } from "@/lib/i18n";
 import { fetchMyStanding, fetchScoreStanding } from "@/lib/leaderboard";
 import { getVoice, type Voice } from "@/lib/ownership";
 import { pdpAnchor } from "@/lib/pdp";
@@ -136,6 +136,10 @@ export default function Product() {
   const previewUrlRef = useRef<string>("");
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { lang, t } = useI18n();
+  // Error copy follows the reader's language; `AnalysisError` still carries the
+  // English text for logs, which is where it belongs.
+  const errors = errorMessages(lang);
 
   // Kept in a ref so the unmount cleanup always revokes the current URL
   // without needing `previewUrl` in its dependency list.
@@ -164,11 +168,11 @@ export default function Product() {
       setError(null);
       setErrorCode(null);
       if (!ACCEPTED_TYPES.includes(selectedFile.type)) {
-        setError(ERROR_MESSAGES.INVALID_IMAGE);
+        setError(errors.INVALID_IMAGE);
         return;
       }
       if (selectedFile.size > MAX_SIZE_MB * 1024 * 1024) {
-        setError(ERROR_MESSAGES.IMAGE_TOO_LARGE);
+        setError(errors.IMAGE_TOO_LARGE);
         return;
       }
       const url = URL.createObjectURL(selectedFile);
@@ -181,11 +185,11 @@ export default function Product() {
       };
       img.onerror = () => {
         URL.revokeObjectURL(url);
-        setError(ERROR_MESSAGES.INVALID_IMAGE);
+        setError(errors.INVALID_IMAGE);
       };
       img.src = url;
     },
-    [clearImage],
+    [clearImage, errors],
   );
 
   const handleAnalyze = async () => {
@@ -224,7 +228,7 @@ export default function Product() {
           : err instanceof Error && err.message === "IMAGE_TOO_LARGE"
             ? "IMAGE_TOO_LARGE"
             : "ANALYSIS_FAILED";
-      setError(ERROR_MESSAGES[code]);
+      setError(errors[code]);
       setErrorCode(code);
       setScreen("preview");
     }
@@ -361,7 +365,7 @@ export default function Product() {
           >
             <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
             <span className="hidden sm:inline">
-              {screen === "preview" ? "Change" : user ? "Home" : "Back"}
+              {screen === "preview" ? t.product.change : user ? t.product.home : t.product.back}
             </span>
           </button>
 
@@ -498,8 +502,8 @@ export default function Product() {
       <AuthModal
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        title="Unlock your Blink results"
-        subtitle="Create your account to see the complete analysis."
+        title={t.product.unlockTitle}
+        subtitle={t.product.unlockSubtitle}
       />
     </div>
   );
@@ -540,11 +544,10 @@ function UploadScreen({
         <ImagePlus className="h-8 w-8 text-blink-sky" />
       </div>
       <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-        Show us a profile.
+        {t.product.uploadTitle}
       </h1>
       <p className="mt-4 max-w-sm text-base leading-relaxed text-white/55">
-        Upload a screenshot of an Instagram profile and Blink will analyze the first
-        impression it gives.
+        {t.product.uploadBody}
       </p>
 
       <div className="mt-10 w-full max-w-sm">
@@ -653,6 +656,8 @@ function PreviewScreen({
   onRetry: () => void;
   onChange: () => void;
 }) {
+  const t = useT();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -664,7 +669,7 @@ function PreviewScreen({
       <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
         Your screenshot
       </h1>
-      <p className="mt-2 text-sm text-white/50">Looks good?</p>
+      <p className="mt-2 text-sm text-white/50">{t.product.looksGood}</p>
 
       {/* Bounded on both axes so any aspect ratio fits without stretching. */}
       <div
@@ -673,7 +678,7 @@ function PreviewScreen({
       >
         <img
           src={previewUrl}
-          alt="Your profile screenshot"
+          alt={t.product.screenshotAlt}
           className="block h-auto w-auto min-w-0 rounded-2xl border border-white/10 object-contain shadow-xl"
           style={{ maxHeight: STAGE_HEIGHT, maxWidth: STAGE_MAX_WIDTH }}
         />
@@ -712,7 +717,7 @@ function PreviewScreen({
               )}
             >
               <RefreshCw className="h-4 w-4" />
-              {refused ? "Choose another screenshot" : "Try again"}
+              {refused ? t.product.chooseAnother : t.product.tryAgain}
             </button>
           </motion.div>
         )}
@@ -720,7 +725,7 @@ function PreviewScreen({
 
       {!error && (
         <div className="mt-8 flex w-full max-w-sm flex-col gap-3">
-          <CTAButton label="Analyze this profile" onClick={onAnalyze} size="lg" className="w-full" />
+          <CTAButton label={t.product.analyzeThis} onClick={onAnalyze} size="lg" className="w-full" />
           <button
             type="button"
             onClick={onChange}
@@ -789,7 +794,8 @@ export function AnalysisScreen({
   const imgRef = useRef<HTMLImageElement>(null);
   const stageTimers = useRef<number[]>([]);
 
-  const messages = getAnalysisMessages(ownership);
+  const { lang, t } = useI18n();
+  const messages = getAnalysisMessages(ownership, lang);
 
   /**
    * Map the avatar's position in the *image* onto the *displayed* element.
@@ -1037,7 +1043,7 @@ export function AnalysisScreen({
             <img
               ref={imgRef}
               src={previewUrl}
-              alt="The profile being analyzed"
+              alt={t.product.analyzingAlt}
               className="block h-auto w-auto object-contain"
               style={{ maxHeight: STAGE_HEIGHT, maxWidth: STAGE_MAX_WIDTH }}
               draggable={false}
@@ -1149,7 +1155,7 @@ export function AnalysisScreen({
               transition={{ duration: 0.3 }}
               className="min-w-0 flex-1 truncate text-xs font-medium text-white/60 sm:text-sm"
             >
-              {messages[messageIdx] ?? "Analyzing…"}
+              {messages[messageIdx] ?? t.product.analyzing}
             </motion.p>
           </AnimatePresence>
           <span className="shrink-0 text-xs font-bold tabular-nums text-white/40">
@@ -1298,7 +1304,8 @@ function ResultScreen({
   onUnlock: () => (() => void) | void;
   onAnalyzeAnother: () => void;
 }) {
-  const voice = getVoice(result.ownership, result.subjectGender);
+  const { lang } = useI18n();
+  const voice = getVoice(result.ownership, result.subjectGender, lang);
 
   if (!unlocked) return <LockedResult result={result} voice={voice} onUnlock={onUnlock} />;
 
@@ -1347,6 +1354,7 @@ function ProgressionCard({
   progression: RecordedAnalysis | null;
   result: AnalysisResultType;
 }) {
+  const t = useT();
   const score = progression?.score ?? computeBlinkScore(result).total;
 
   if (!progression) {
@@ -1378,7 +1386,7 @@ function ProgressionCard({
           check.counts ? "text-emerald-300/80" : "text-amber-300/80",
         )}
       >
-        {check.counts ? "Verified — this counts" : "Not counted"}
+        {check.counts ? t.product.counts : t.product.notCounted}
       </p>
 
       <div className="mt-2 flex items-baseline gap-3">
@@ -1397,7 +1405,7 @@ function ProgressionCard({
 
       <p className="mt-1.5 text-xs leading-relaxed text-white/55">
         {check.counts
-          ? "Your rank has been updated from this screenshot."
+          ? t.product.rankUpdated
           : check.message}
       </p>
     </div>
@@ -1482,6 +1490,7 @@ function LockedResult({
   voice: Voice;
   onUnlock: () => (() => void) | void;
 }) {
+  const t = useT();
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1554,7 +1563,7 @@ function LockedResult({
             </p>
             <p className="mt-1 text-xs text-white/40">
               {voice.isOwn
-                ? "See how your profile comes across — and what you can do about it."
+                ? t.product.lockedBody
                 : `See how ${voice.subject} comes across to different people.`}
             </p>
 
@@ -1564,9 +1573,9 @@ function LockedResult({
               className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-blink-sky px-8 py-3.5 text-sm font-bold text-blink-navy transition-all hover:scale-[1.02] hover:bg-[hsl(var(--blink-sky-2))]"
             >
               <Lock className="h-4 w-4" />
-              Unlock the results
+              {t.product.unlock}
             </button>
-            <p className="mt-3 text-xs text-white/30">Free — create an account or sign in</p>
+            <p className="mt-3 text-xs text-white/30">{t.product.lockedFree}</p>
           </div>
         </div>
       </div>

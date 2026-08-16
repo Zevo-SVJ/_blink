@@ -18,6 +18,7 @@ import {
   type SavedAnalysis,
 } from "@/lib/analysis";
 import { categoryLabel } from "@/lib/categories";
+import { useI18n, useT } from "@/lib/i18n";
 import { getVoice } from "@/lib/ownership";
 import { computeBlinkScore, getTier } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ type Load =
 
 export default function Library() {
   const navigate = useNavigate();
+  const t = useT();
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [filter, setFilter] = useState<Filter>("all");
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -44,10 +46,10 @@ export default function Library() {
       console.error("[Library]", err);
       setLoad({
         state: "error",
-        message: "Blink couldn't load your analyses. Check your connection and try again.",
+        message: t.library.loadFailed,
       });
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void refresh();
@@ -71,7 +73,7 @@ export default function Library() {
   );
 
   return (
-    <AppShell title="Library" subtitle="Every profile you've analyzed.">
+    <AppShell title={t.library.title} subtitle={t.library.subtitle}>
       {load.state === "loading" && <SkeletonList rows={4} />}
 
       {load.state === "error" && (
@@ -81,8 +83,8 @@ export default function Library() {
       {load.state === "ready" && analyses.length === 0 && (
         <EmptyState
           icon={LayoutGrid}
-          title="No analyses yet"
-          description="Analyze a profile to start building your library."
+          title={t.library.emptyTitle}
+          description={t.library.emptyBody}
           action={
             <button
               type="button"
@@ -130,10 +132,11 @@ function FilterTabs({
   filter: Filter;
   onChange: (f: Filter) => void;
 }) {
+  const t = useT();
   const tabs: Array<{ id: Filter; label: string }> = [
-    { id: "all", label: "All" },
-    { id: "own", label: "Your profile" },
-    { id: "other", label: "Others" },
+    { id: "all", label: t.ranksPage.all },
+    { id: "own", label: t.library.yours },
+    { id: "other", label: t.library.others },
   ];
 
   return (
@@ -178,7 +181,8 @@ function AnalysisRow({
   onOpen: () => void;
   onDelete: () => void;
 }) {
-  const voice = getVoice(analysis.ownership, analysis.result.subjectGender);
+  const { lang } = useI18n();
+  const voice = getVoice(analysis.ownership, analysis.result.subjectGender, lang);
   const score = computeBlinkScore(analysis.result).total;
   const category = categoryLabel(analysis.result.category?.category);
   const handle = analysis.result.handle;
