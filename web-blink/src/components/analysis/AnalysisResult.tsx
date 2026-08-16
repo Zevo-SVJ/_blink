@@ -48,7 +48,7 @@ import type { AnalysisResult as Analysis, Perspective } from "@/lib/analysis";
 import { useI18n, useT } from "@/lib/i18n";
 import type { Messages } from "@/lib/messages";
 import { getVoice, type Voice } from "@/lib/ownership";
-import { computeBlinkScore, getTier } from "@/lib/ranking";
+import { computeBlinkScore, getTier, tierLabel } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
 
 export interface PublicStanding {
@@ -457,7 +457,7 @@ function PublicResult({
           </Group>
           <Group title={t.analysis.standing}>
             <div className="flex items-stretch">
-              <Fact label={t.analysis.blinkScore} value={String(score)} sub={tier.label} accent />
+              <Fact label={t.analysis.blinkScore} value={String(score)} sub={tierLabel(tier, t)} accent />
               <Fact
                 label={t.analysis.leaderboard}
                 value={standing ? `#${standing.rank}` : "—"}
@@ -639,7 +639,7 @@ function ImprovementPlan({ result }: { result: Analysis }) {
   return (
     <Group title={t.analysis.topMoves}>
       <p className="text-xs leading-relaxed text-white/50">
-        You&rsquo;re at <span className="font-bold text-white/80">{score}</span> — {tier.label}.
+        You&rsquo;re at <span className="font-bold text-white/80">{score}</span> — {tierLabel(tier, t)}.
         Make these changes on Instagram, then upload a fresh screenshot so Blink can verify
         them and move your rank.
       </p>

@@ -242,11 +242,16 @@ notice switches to demanding exactly those fields on its own.
 
 Stated rather than glossed:
 
-- **The authenticated app could not be exercised in a browser here.** There are
-  no Supabase credentials in this environment, so Home, Library, Ranks, Profile
-  and the analysis result were verified by type-checking, unit tests and code
-  review rather than by clicking through them. Everything a signed-out visitor
-  can reach was driven in a real browser.
+- **No live backend.** There are no Supabase credentials in this environment,
+  so nothing was verified against the real database. Ranks *is* exercised in a
+  real browser — `src/test/ranks-analyzed.browser.test.tsx` renders the actual
+  page with the Supabase client mocked at the module boundary, and asserts the
+  analysed profile is on the board, in its category, marked private, unmarked
+  as claimed, deduplicated and still there after a remount. What that cannot
+  cover is the network round trip and RLS behaviour of the real project.
+- **The deployed Rork site was never opened.** This environment's network
+  policy blocks it. Everything was tested against a local production build:
+  same bundle, same prerender, not the same server.
 - **The deployed site was not verified from here.** This environment's network
   policy blocks `blink-ig.rork.app`. Everything was verified against a local
   production build instead: same bundle, same prerender, not the same server.

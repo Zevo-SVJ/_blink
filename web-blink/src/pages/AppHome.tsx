@@ -19,7 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useT } from "@/lib/i18n";
 import { fetchFullProfile, type FullProfile } from "@/lib/blink-profile";
 import { fetchMyStanding } from "@/lib/leaderboard";
-import { pointsToNextTier } from "@/lib/ranking";
+import { pointsToNextTier, tierLabel } from "@/lib/ranking";
 
 type Load =
   | { state: "loading" }
@@ -125,7 +125,7 @@ function StandingSummary({ data, rank }: { data: FullProfile; rank: number | nul
           <p className="mt-1 text-4xl font-extrabold tabular-nums tracking-tight text-white">
             {stats.score}
           </p>
-          <p className="mt-1 text-sm font-semibold text-blink-sky">{stats.tier.label}</p>
+          <p className="mt-1 text-sm font-semibold text-blink-sky">{tierLabel(stats.tier, t)}</p>
         </div>
         <MomentumPill momentum={stats.momentum} />
       </div>
@@ -142,7 +142,7 @@ function StandingSummary({ data, rank }: { data: FullProfile; rank: number | nul
         <p className="mt-4 text-xs leading-relaxed text-white/45">
           {t.home.toNextTier
             .replace("{points}", String(next.points))
-            .replace("{tier}", next.tier.label)}
+            .replace("{tier}", tierLabel(next.tier, t))}
         </p>
       )}
 

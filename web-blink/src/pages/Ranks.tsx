@@ -28,7 +28,7 @@ import { EmptyState, ErrorState, SkeletonList } from "@/components/app/states";
 import { useAuth } from "@/hooks/useAuth";
 import { formatRank } from "@/lib/app-nav";
 import { isClaimed, VerifiedMark } from "@/components/app/VerifiedMark";
-import { useT } from "@/lib/i18n";
+import { useI18n, useT } from "@/lib/i18n";
 import { categoryBlurb, categoryLabel, pickerCategories } from "@/lib/categories";
 import {
   analyzedCategories,
@@ -46,7 +46,7 @@ import {
   type LeaderboardEntry,
   type WeeklyWinner,
 } from "@/lib/leaderboard";
-import { getTier } from "@/lib/ranking";
+import { getTier, tierLabel } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
 
 type Board = "standings" | "winners" | "analyzed";
@@ -153,13 +153,20 @@ export default function Ranks() {
         <div className="mt-5 space-y-5">
           {board === "standings" && (
             <>
+              {/* A category holding only profiles you analysed still has
+                  something in it, so it counts as "present" — otherwise the
+                  board you can actually fill would look permanently empty. */}
               <CategoryPicker
-                present={load.data.categories}
+                present={[
+                  ...load.data.categories,
+                  ...analyzedCategories(load.data.analyzed),
+                ]}
                 selected={category}
                 onSelect={setCategory}
               />
               <StandingsBoard
                 entries={load.data.entries}
+                analyzed={load.data.analyzed}
                 me={load.data.me}
                 category={category}
                 currentUserId={user?.id}
@@ -266,7 +273,7 @@ function AnalyzedBoard({
                     @{p.handle}
                   </span>
                   <span className="block truncate text-[0.7rem] text-white/40">
-                    {categoryLabel(p.category) ?? t.ranksPage.uncategorized}
+                    {categoryLabel(p.category, t) ?? t.ranksPage.uncategorized}
                     {p.runs > 1 ? ` · ${p.runs} ${t.ranksPage.scans}` : ""}
                   </span>
                 </span>
@@ -375,7 +382,7 @@ function CategoryPicker({
   const t = useT();
   const categories = pickerCategories(present);
   const populated = new Set(present.map((c) => c.toLowerCase()));
-  const blurb = categoryBlurb(selected);
+  const blurb = categoryBlurb(selected, t);
 
   return (
     <div>
@@ -391,7 +398,7 @@ function CategoryPicker({
           {categories.map((c) => (
             <CategoryChip
               key={c.id}
-              label={c.label}
+              label={categoryLabel(c.id, t) ?? c.label}
               active={selected === c.id}
               populated={populated.has(c.id)}
               onClick={() => onSelect(c.id)}
@@ -463,11 +470,14 @@ function CategoryChip({
 
 function StandingsBoard({
   entries,
+  analyzed,
   me,
   category,
   currentUserId,
 }: {
   entries: LeaderboardEntry[];
+  /** Profiles this user analysed. Visible to them, and to nobody else. */
+  analyzed: AnalyzedProfile[];
   me: LeaderboardEntry | null;
   category: string | null;
   currentUserId?: string;
@@ -475,24 +485,61 @@ function StandingsBoard({
   const navigate = useNavigate();
   const t = useT();
   const byCategory = category !== null;
-  if (entries.length === 0) return <LaunchState category={category} />;
+
+  /*
+    People you analysed belong on the board you actually look at.
+
+    They used to live only behind the "Analyzed" tab, which made the whole
+    feature effectively invisible: you analysed someone, went to Ranks, and
+    they were not there. So they are merged into the standings — under All and
+    inside their category — and ordered by the same score.
+
+    This does not publish anyone. These rows come from `analyses`, which is
+    self-read under RLS: they are in *your* board because you created them, and
+    another user's board cannot contain them. The row says so, carries no
+    claimed mark, and opens the analysis rather than a public profile.
+  */
+  const mine = rankAnalyzed(analyzed, category);
+  const isEmpty = entries.length === 0 && mine.length === 0;
+  if (isEmpty) return <LaunchState category={category} />;
 
   const inList = me ? entries.some((e) => e.id === me.id) : false;
 
+  /**
+   * One list, ordered by score, with each row remembering what it is.
+   *
+   * Merging on score rather than concatenating is the point: a profile you
+   * analysed at 890 sits above a public one at 700, which is what makes the
+   * board readable as a single ranking instead of two lists stapled together.
+   */
+  const rows = [
+    ...entries.map((entry) => ({ kind: "public" as const, score: entry.score, entry })),
+    ...mine.map((profile) => ({ kind: "mine" as const, score: profile.score, profile })),
+  ].sort((a, b) => b.score - a.score);
+
   return (
     <div className="space-y-2">
-      {entries.map((entry, i) => (
-        <RankRow
-          key={entry.id}
-          entry={entry}
-          position={byCategory ? entry.categoryRank : entry.rank}
-          index={i}
-          isMe={entry.id === currentUserId}
-          onOpen={() =>
-            navigate(entry.id === currentUserId ? "/profile" : `/u/${entry.id}`)
-          }
-        />
-      ))}
+      {rows.map((row, i) =>
+        row.kind === "public" ? (
+          <RankRow
+            key={row.entry.id}
+            entry={row.entry}
+            position={byCategory ? row.entry.categoryRank : row.entry.rank}
+            index={i}
+            isMe={row.entry.id === currentUserId}
+            onOpen={() =>
+              navigate(row.entry.id === currentUserId ? "/profile" : `/u/${row.entry.id}`)
+            }
+          />
+        ) : (
+          <AnalyzedRow
+            key={`analyzed-${row.profile.handle}`}
+            profile={row.profile}
+            position={i + 1}
+            index={i}
+          />
+        ),
+      )}
 
       {me && !inList && (
         <>
@@ -507,6 +554,79 @@ function StandingsBoard({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * A profile *you* analysed, on the standings board.
+ *
+ * Deliberately the same row language as `RankRow` — same height, same rhythm,
+ * same score treatment — because it is the same ranking. Three things differ,
+ * and each is load-bearing:
+ *
+ *  - **No claimed mark, ever.** Nobody has proved they control this account.
+ *  - **A "private" chip**, because this row is in your board only. Without it
+ *    a user would reasonably read a stranger as publicly ranked, which would
+ *    be a claim Blink cannot make about someone who never opted in.
+ *  - **It opens the analysis**, not a public profile, since there is no public
+ *    profile to open.
+ */
+function AnalyzedRow({
+  profile,
+  position,
+  index,
+}: {
+  profile: AnalyzedProfile;
+  position: number;
+  index: number;
+}) {
+  const t = useT();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        type: "spring",
+        stiffness: 320,
+        damping: 32,
+        delay: Math.min(index * 0.03, 0.25),
+      }}
+    >
+      <Link
+        to={`/library/${profile.analysisId}`}
+        className="flex min-h-[64px] w-full items-center gap-3 rounded-2xl bg-white/[0.03] px-3 py-2.5 ring-1 ring-white/[0.06] transition-colors hover:bg-white/[0.06] sm:gap-4 sm:px-4"
+      >
+        <span className="w-7 shrink-0 text-center text-sm font-extrabold tabular-nums text-white/45">
+          {position}
+        </span>
+
+        <span
+          aria-hidden
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blink-sky/12 text-sm font-extrabold text-blink-sky"
+        >
+          {profile.handle.charAt(0).toUpperCase()}
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-bold text-white">@{profile.handle}</span>
+            {/* Never a VerifiedMark here — see the note above. */}
+            <span className="shrink-0 rounded-full bg-white/[0.07] px-1.5 py-0.5 text-[0.55rem] font-bold uppercase tracking-[0.08em] text-white/40">
+              {t.ranksPage.privateRow}
+            </span>
+          </span>
+          <span className="mt-0.5 block truncate text-xs text-white/40">
+            {categoryLabel(profile.category, t) ?? t.ranksPage.uncategorized}
+            {profile.runs > 1 ? ` · ${profile.runs} ${t.ranksPage.scans}` : ""}
+          </span>
+        </span>
+
+        <span className="w-11 shrink-0 text-right text-base font-extrabold tabular-nums text-white sm:w-14 sm:text-lg">
+          {profile.score}
+        </span>
+      </Link>
+    </motion.div>
   );
 }
 
@@ -589,8 +709,8 @@ function RankRow({
         </p>
         <p className="mt-0.5 truncate text-xs text-white/40">
           {secondary ? `${secondary} · ` : ""}
-          {tier.label}
-          {entry.category ? ` · ${categoryLabel(entry.category)}` : ""}
+          {tierLabel(tier, t)}
+          {entry.category ? ` · ${categoryLabel(entry.category, t)}` : ""}
         </p>
       </div>
 
@@ -676,7 +796,7 @@ function Movement({ movement }: { movement: number | null }) {
 function LaunchState({ category }: { category: string | null }) {
   const navigate = useNavigate();
   const t = useT();
-  const label = categoryLabel(category);
+  const label = categoryLabel(category, t);
 
   return (
     <div className="rounded-3xl bg-white/[0.035] p-7 text-center ring-1 ring-white/[0.07]">
@@ -719,7 +839,7 @@ function LaunchState({ category }: { category: string | null }) {
 }
 
 function WinnersBoard({ winners }: { winners: WeeklyWinner[] }) {
-  const t = useT();
+  const { lang, t } = useI18n();
   if (winners.length === 0) {
     return (
       <EmptyState
@@ -742,8 +862,11 @@ function WinnersBoard({ winners }: { winners: WeeklyWinner[] }) {
         return (
           <section key={week}>
             <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-white/40">
-              Week of{" "}
-              {new Date(week).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              {t.ranksPage.weekOf}{" "}
+              {new Date(week).toLocaleDateString(lang === "fr" ? "fr-FR" : "en-US", {
+                month: "short",
+                day: "numeric",
+              })}
             </h3>
             {overall && <WinnerCard winner={overall} overall />}
             {categoryWinners.length > 0 && (
@@ -783,7 +906,9 @@ function WinnerCard({ winner, overall = false }: { winner: WeeklyWinner; overall
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-bold text-white">{name}</p>
         <p className="mt-0.5 text-xs text-white/40">
-          {overall ? "Overall winner" : `${categoryLabel(winner.category)} winner`}
+          {overall
+            ? t.ranksPage.overallWinner
+            : t.ranksPage.categoryWinner.replace("{category}", categoryLabel(winner.category, t) ?? "")}
         </p>
       </div>
 
@@ -804,10 +929,7 @@ function FairnessNote() {
     <div className="flex gap-3 rounded-2xl bg-white/[0.02] p-4 ring-1 ring-white/[0.06]">
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-white/30" />
       <p className="text-xs leading-relaxed text-white/40">
-        Blink ranks profile optimization and perception — never follower count, reach or
-        fame. A 200-follower account can sit above a celebrity if its profile reads more
-        clearly. Positions only move on a verified analysis of a new screenshot, so
-        opening the app never earns progress.
+        {t.ranksPage.fairness}
       </p>
     </div>
   );

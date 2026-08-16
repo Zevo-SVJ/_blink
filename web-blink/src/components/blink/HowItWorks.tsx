@@ -268,29 +268,74 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
             </AnimatePresence>
           </div>
 
-          {/* Act four: the readings. */}
-          <div className="mt-2 min-h-[11.5rem]">
-            <AnimatePresence mode="popLayout">
-              {reading && (
-                <motion.div
-                  key={current.id}
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -14 }}
-                  transition={spring}
-                >
+          {/*
+            Act four: the readings.
+
+            The box reserves the height of the *tallest* perception at the
+            current width, so cycling lenses never resizes it.
+
+            This used to be `min-h-[11.5rem]` — 184px — which is shorter than
+            every real card (196px at 390px wide) and far shorter than the
+            longest one when the text wraps (283px at 320px). So the container
+            grew when a longer perception arrived, the section grew with it,
+            the document grew, and a reader parked below was nudged. Measured
+            across both languages at 320/375/390/430/768, the requirement moves
+            between 196px and 283px, so no single fixed height is correct.
+
+            Instead, all six cards occupy one grid cell: an invisible sizing
+            layer establishes the height (the cell is as tall as its tallest
+            child), and the animated card is laid over it in the same cell.
+            The box is therefore always exactly as tall as the tallest card can
+            be at this width, in this language, and never changes as the
+            sequence runs. The animation itself is untouched — same component,
+            same spring, same properties.
+          */}
+          <div className="mt-2 grid">
+            <div aria-hidden className="invisible grid [grid-area:1/1]">
+              {PERCEPTIONS.map((p) => {
+                const sizing = t.perceptions[p.id as keyof typeof t.perceptions];
+                return (
                   <PerceptionCard
-                    lensId={current.id}
-                    emoji={current.emoji}
+                    key={p.id}
+                    lensId={p.id}
+                    emoji={p.emoji}
                     kicker={t.howItWorks.sample}
-                    title={copy.title}
-                    traits={[...copy.tags]}
-                    summary={`“${copy.quote}”`}
+                    title={sizing.title}
+                    traits={[...sizing.tags]}
+                    summary={`“${sizing.quote}”`}
                     compact
+                    // Stacked on top of each other rather than in a column, so
+                    // the layer is as tall as the tallest card, not their sum.
+                    className="[grid-area:1/1]"
                   />
-                </motion.div>
-              )}
-            </AnimatePresence>
+                );
+              })}
+            </div>
+
+            <div className="grid [grid-area:1/1]">
+              <AnimatePresence mode="popLayout">
+                {reading && (
+                  <motion.div
+                    key={current.id}
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -14 }}
+                    transition={spring}
+                    className="[grid-area:1/1]"
+                  >
+                    <PerceptionCard
+                      lensId={current.id}
+                      emoji={current.emoji}
+                      kicker={t.howItWorks.sample}
+                      title={copy.title}
+                      traits={[...copy.tags]}
+                      summary={`“${copy.quote}”`}
+                      compact
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
           {/* Jump straight to a lens. Also the progress indicator. */}

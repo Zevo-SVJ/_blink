@@ -404,6 +404,7 @@ const en = {
     emptyCategoryTitle: "Nothing in this category",
     emptyCategoryBody: "None of the profiles you've analyzed read as this archetype.",
     uncategorized: "Uncategorized",
+    privateRow: "Private",
     scans: "scans",
     suggested: "Suggested — not analyzed yet",
     you: "You",
@@ -425,8 +426,11 @@ const en = {
     noWinnersBody:
       "Each week Blink crowns the biggest verified improvement overall and in every category. The first results land after a full week of analyses.",
     fairness:
-      "Blink ranks profile optimization and perception — never follower count, reach or fame. A 200-follower account can sit above a celebrity if its profile reads more clearly. Positions only move on a verified analysis of a new screenshot, so",
+      "Blink ranks profile optimization and perception — never follower count, reach or fame. A 200-follower account can sit above a celebrity if its profile reads more clearly. Positions only move on a verified analysis of a new screenshot, so opening the app never earns progress.",
     score: "score",
+    weekOf: "Week of",
+    overallWinner: "Overall winner",
+    categoryWinner: "{category} winner",
 
   },
 
@@ -533,6 +537,45 @@ const en = {
     notAvailableBody: "This profile is private, or it isn't on the leaderboard yet.",
     backToRanks: "Back to Ranks",
     anonymous: "Anonymous",
+  },
+
+  /**
+   * Ids stay in the database; only these words change per language.
+   * Keyed by the same ids `lib/categories`, `lib/ranking` and `lib/badges`
+   * already use, so a language can never introduce a new category or tier.
+   */
+  categories: {
+    larp: { label: "Larp", blurb: "Genuinely high status, deliberately understated. Signals wealth without ever explaining it." },
+    creator: { label: "Creator", blurb: "Built around an audience. The output is the point." },
+    entrepreneur: { label: "Entrepreneur", blurb: "Building something, and says so. Credibility over mystique." },
+    artist: { label: "Artist", blurb: "The work speaks first. Identity sits behind it." },
+    fitness: { label: "Fitness", blurb: "Training and progress as the visual language." },
+    fashion: { label: "Fashion", blurb: "Styling and taste do the communicating." },
+    lifestyle: { label: "Lifestyle", blurb: "A life presented as one coherent aesthetic." },
+    personal: { label: "Personal", blurb: "An ordinary account, not built for an audience." },
+  },
+
+  tiers: {
+    unread: { label: "Unread", meaning: "The profile hasn't decided what it's saying yet." },
+    emerging: { label: "Emerging", meaning: "A direction is forming, but it reads inconsistently." },
+    defined: { label: "Defined", meaning: "The impression is clear and holds together." },
+    sharp: { label: "Sharp", meaning: "Deliberate. Every element is pulling the same way." },
+    magnetic: { label: "Magnetic", meaning: "Reads as intentional within seconds." },
+    iconic: { label: "Iconic", meaning: "Nothing is accidental. The impression is unmistakable." },
+  },
+
+  badges: {
+    elite: "Elite",
+    topten: "Top 10",
+    rising: "Rising",
+    bestRank: "Best rank",
+    peakScore: "Peak score",
+    movement: "Movement",
+    momentum: "Momentum",
+    streak: "Streak",
+    verified: "Verified",
+    noChange: "No change yet",
+    sinceLast: "since last update",
   },
 
   legalPages: {
@@ -920,6 +963,7 @@ const fr: Messages = {
     emptyCategoryTitle: "Rien dans cette catégorie",
     emptyCategoryBody: "Aucun des profils que tu as analysés ne correspond à cet archétype.",
     uncategorized: "Sans catégorie",
+    privateRow: "Privé",
     scans: "analyses",
     suggested: "Suggérés — pas encore analysés",
     you: "Toi",
@@ -941,8 +985,11 @@ const fr: Messages = {
     noWinnersBody:
       "Chaque semaine, Blink couronne la plus forte progression vérifiée au général et dans chaque catégorie. Les premiers résultats arrivent après une semaine complète d'analyses.",
     fairness:
-      "Blink classe l'optimisation et la perception d'un profil — jamais le nombre d'abonnés, la portée ou la notoriété. Un compte de 200 abonnés peut devancer une célébrité si son profil se lit plus clairement. Les positions ne bougent que sur une analyse vérifiée d'une nouvelle capture, donc",
+      "Blink classe l'optimisation et la perception d'un profil — jamais le nombre d'abonnés, la portée ou la notoriété. Un compte de 200 abonnés peut devancer une célébrité si son profil se lit plus clairement. Les positions ne bougent que sur une analyse vérifiée d'une nouvelle capture : ouvrir l'app ne fait pas monter le score.",
     score: "score",
+    weekOf: "Semaine du",
+    overallWinner: "Vainqueur général",
+    categoryWinner: "Vainqueur {category}",
 
   },
 
@@ -1049,6 +1096,40 @@ const fr: Messages = {
     notAvailableBody: "Ce profil est privé, ou il n'est pas encore au classement.",
     backToRanks: "Retour au classement",
     anonymous: "Anonyme",
+  },
+
+  categories: {
+    larp: { label: "Larp", blurb: "Statut élevé, volontairement discret. Signale la richesse sans jamais l'expliquer." },
+    creator: { label: "Créateur", blurb: "Construit autour d'une audience. Le contenu est le sujet." },
+    entrepreneur: { label: "Entrepreneur", blurb: "Construit quelque chose, et le dit. Crédibilité plutôt que mystère." },
+    artist: { label: "Artiste", blurb: "L'œuvre parle en premier. L'identité vient après." },
+    fitness: { label: "Fitness", blurb: "L'entraînement et la progression comme langage visuel." },
+    fashion: { label: "Mode", blurb: "Le style et le goût font passer le message." },
+    lifestyle: { label: "Lifestyle", blurb: "Une vie présentée comme une esthétique cohérente." },
+    personal: { label: "Personnel", blurb: "Un compte ordinaire, pas fait pour une audience." },
+  },
+
+  tiers: {
+    unread: { label: "Illisible", meaning: "Le profil n'a pas encore décidé ce qu'il raconte." },
+    emerging: { label: "Émergent", meaning: "Une direction se dessine, mais elle manque de constance." },
+    defined: { label: "Défini", meaning: "L'impression est claire et tient debout." },
+    sharp: { label: "Net", meaning: "Assumé. Chaque élément tire dans le même sens." },
+    magnetic: { label: "Magnétique", meaning: "Se lit comme intentionnel en quelques secondes." },
+    iconic: { label: "Iconique", meaning: "Rien n'est laissé au hasard. L'impression est unique." },
+  },
+
+  badges: {
+    elite: "Élite",
+    topten: "Top 10",
+    rising: "En hausse",
+    bestRank: "Meilleur rang",
+    peakScore: "Score record",
+    movement: "Progression",
+    momentum: "Élan",
+    streak: "Série",
+    verified: "Vérifiées",
+    noChange: "Aucun changement",
+    sinceLast: "depuis la dernière mise à jour",
   },
 
   legalPages: {

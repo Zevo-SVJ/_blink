@@ -181,10 +181,10 @@ function AnalysisRow({
   onOpen: () => void;
   onDelete: () => void;
 }) {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const voice = getVoice(analysis.ownership, analysis.result.subjectGender, lang);
   const score = computeBlinkScore(analysis.result).total;
-  const category = categoryLabel(analysis.result.category?.category);
+  const category = categoryLabel(analysis.result.category?.category, t);
   const handle = analysis.result.handle;
 
   return (

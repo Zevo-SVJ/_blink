@@ -121,7 +121,7 @@ describe("climb tracks", () => {
       rank: 12,
       bestRank: 12,
       category: "larp",
-      momentum: { direction: "up" as const, delta: 20, label: "+20" },
+      momentum: { direction: "up" as const, delta: 20, label: "+20", key: "delta" as const },
       streak: 3,
       weeklyWins: 1,
       verifiedCount: 4,

@@ -31,7 +31,7 @@ import { buildBadges, buildStatusBadges } from "@/lib/badges";
 import { categoryLabel } from "@/lib/categories";
 import { countryName, flagEmoji } from "@/lib/countries";
 import type { LeaderboardEntry } from "@/lib/leaderboard";
-import { MAX_SCORE, getTier } from "@/lib/ranking";
+import { MAX_SCORE, getTier, tierLabel } from "@/lib/ranking";
 import { isClaimed, VerifiedMark } from "@/components/app/VerifiedMark";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -79,17 +79,20 @@ export function PublicProfileCard({
   // Only claim a category standing when there is an actual row in that board.
   const categoryClaim =
     view.standing?.category && view.standing.categoryRank > 0
-      ? { label: categoryLabel(view.standing.category)!, rank: view.standing.categoryRank }
+      ? { label: categoryLabel(view.standing.category, t)!, rank: view.standing.categoryRank }
       : null;
 
   // Status first, and only when actually held — a shelf of locked trophies
   // reads as failure, an absent shelf reads as "not yet".
-  const status = buildStatusBadges({
-    rank: view.standing?.rank ?? null,
-    categoryRank: categoryClaim?.rank ?? null,
-    categoryLabel: categoryClaim?.label ?? null,
-    movement: view.standing?.movement ?? null,
-  });
+  const status = buildStatusBadges(
+    {
+      rank: view.standing?.rank ?? null,
+      categoryRank: categoryClaim?.rank ?? null,
+      categoryLabel: categoryClaim?.label ?? null,
+      movement: view.standing?.movement ?? null,
+    },
+    t,
+  );
 
   const badges = buildBadges(
     {
@@ -101,6 +104,7 @@ export function PublicProfileCard({
       verifiedCount: view.verifiedCount,
     },
     isMe,
+    t,
   );
 
   return (
@@ -150,7 +154,7 @@ export function PublicProfileCard({
             {view.score}
           </span>
           <span className="text-sm font-bold uppercase tracking-[0.12em] text-blink-sky">
-            {tier.label}
+            {tierLabel(tier, t)}
           </span>
         </div>
 

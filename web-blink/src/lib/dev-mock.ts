@@ -17,9 +17,35 @@ export function getMockMode(search: string): "own" | "other" | null {
   return value === "own" || value === "other" ? value : null;
 }
 
-export async function mockAnalyze(mode: "own" | "other"): Promise<AnalysisResult> {
-  await new Promise((resolve) => setTimeout(resolve, 4200));
+/**
+ * How long the stub pretends to think.
+ *
+ * A real vision call takes 15-30 seconds (see `ANALYSIS_TIMEOUT_MS`), and the
+ * analysing animation is staged to run for about nine. At the old 4.2s the
+ * stub resolved *during* the animation, so the result screen replaced the
+ * targeting sequence halfway through — which made the mock useless for looking
+ * at the part of the flow it exists to exercise, and produced a race in
+ * `qa/animations.mjs`.
+ *
+ * Overridable from the URL (`?mock=own&delay=1000`) for anyone who wants the
+ * result screen quickly instead.
+ */
+const MOCK_DELAY_MS = 11_000;
+
+export async function mockAnalyze(
+  mode: "own" | "other",
+  delayMs: number = MOCK_DELAY_MS,
+): Promise<AnalysisResult> {
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
   return buildSample(mode);
+}
+
+/** Reads `?delay=` off the URL, for the dev flow only. */
+export function getMockDelay(search: string): number | undefined {
+  if (!import.meta.env.DEV) return undefined;
+  const raw = new URLSearchParams(search).get("delay");
+  const parsed = raw === null ? NaN : Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 /**

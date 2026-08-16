@@ -51,7 +51,7 @@ import {
   type RecordedAnalysis,
 } from "@/lib/blink-profile";
 import { useBackTo } from "@/lib/app-nav";
-import { getMockMode, mockAnalyze } from "@/lib/dev-mock";
+import { getMockDelay, getMockMode, mockAnalyze } from "@/lib/dev-mock";
 import { useI18n, useT } from "@/lib/i18n";
 import { fetchMyStanding, fetchScoreStanding } from "@/lib/leaderboard";
 import { getVoice, type Voice } from "@/lib/ownership";
@@ -210,7 +210,7 @@ export default function Product() {
       // variants without live credentials. Compiled out of production builds.
       const mock = import.meta.env.DEV ? getMockMode(window.location.search) : null;
       if (mock) {
-        setResult(await mockAnalyze(mock));
+        setResult(await mockAnalyze(mock, getMockDelay(window.location.search)));
         return;
       }
 
@@ -1124,6 +1124,9 @@ export function AnalysisScreen({
             {target && locating && (
               <motion.span
                 aria-hidden
+                // Handle for `qa/animations.mjs`, which measures this reticle
+                // against the avatar's real position on screen.
+                data-pdp-target=""
                 className="pointer-events-none absolute rounded-full ring-2 ring-blink-sky"
                 style={{
                   left: target.localX - target.localRadius,

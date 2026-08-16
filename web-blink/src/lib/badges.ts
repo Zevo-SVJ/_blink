@@ -22,6 +22,8 @@
  * decision in one place and can be tested.
  */
 
+import type { Messages } from "@/lib/messages";
+
 export type EmblemShape = "shield" | "hex" | "disc" | "chevron";
 export type BadgeGrade = "locked" | "earned" | "elite";
 
@@ -81,7 +83,7 @@ export interface StatusInput {
   movement: number | null;
 }
 
-export function buildStatusBadges(input: StatusInput): BadgeSpec[] {
+export function buildStatusBadges(input: StatusInput, t?: Messages): BadgeSpec[] {
   const badges: BadgeSpec[] = [];
   const { rank, categoryRank, categoryLabel, movement } = input;
 
@@ -100,7 +102,7 @@ export function buildStatusBadges(input: StatusInput): BadgeSpec[] {
   if (rank !== null && rank > 0 && rank <= 3) {
     badges.push({
       id: "elite",
-      label: "Elite",
+      label: t?.badges.elite ?? "Elite",
       value: `#${rank}`,
       detail: "Top three on the global board — every category, every account size.",
       shape: "hex",
@@ -110,7 +112,7 @@ export function buildStatusBadges(input: StatusInput): BadgeSpec[] {
   } else if (rank !== null && rank > 0 && rank <= 10) {
     badges.push({
       id: "topten",
-      label: "Top 10",
+      label: t?.badges.topten ?? "Top 10",
       value: `#${rank}`,
       detail: "Top ten on the global board.",
       shape: "hex",
@@ -122,7 +124,7 @@ export function buildStatusBadges(input: StatusInput): BadgeSpec[] {
   if (movement !== null && movement >= 3) {
     badges.push({
       id: "rising",
-      label: "Rising",
+      label: t?.badges.rising ?? "Rising",
       value: `+${movement}`,
       detail: "Gained three or more places since the last snapshot.",
       shape: "chevron",
@@ -155,14 +157,14 @@ function movementValue(movement: number | null): string {
   return movement > 0 ? `+${movement}` : String(movement);
 }
 
-export function buildBadges(input: BadgeInput, isMe: boolean): BadgeSpec[] {
+export function buildBadges(input: BadgeInput, isMe: boolean, t?: Messages): BadgeSpec[] {
   const who = isMe ? "your" : "their";
   const { bestRank, peakScore, movement, momentumDelta, streak, verifiedCount } = input;
 
   return [
     {
       id: "best",
-      label: "Best rank",
+      label: t?.badges.bestRank ?? "Best rank",
       value: bestRank === null || bestRank <= 0 ? "—" : `#${bestRank}`,
       detail: `The highest position ${who} profile has held. It never drops, even when the current rank does.`,
       shape: "shield",
@@ -171,7 +173,7 @@ export function buildBadges(input: BadgeInput, isMe: boolean): BadgeSpec[] {
     },
     {
       id: "peak",
-      label: "Peak score",
+      label: t?.badges.peakScore ?? "Peak score",
       value: peakScore > 0 ? String(peakScore) : "—",
       detail: `The highest verified Blink Score ${who} profile has reached.`,
       shape: "hex",
@@ -180,7 +182,7 @@ export function buildBadges(input: BadgeInput, isMe: boolean): BadgeSpec[] {
     },
     {
       id: "movement",
-      label: "Movement",
+      label: t?.badges.movement ?? "Movement",
       value: movementValue(movement),
       detail:
         movement === null
@@ -195,7 +197,7 @@ export function buildBadges(input: BadgeInput, isMe: boolean): BadgeSpec[] {
     },
     {
       id: "momentum",
-      label: "Momentum",
+      label: t?.badges.momentum ?? "Momentum",
       value: momentumDelta > 0 ? `+${momentumDelta}` : String(momentumDelta),
       detail:
         "Points gained or lost since the previous verified analysis. Only a new screenshot moves it.",
@@ -205,7 +207,7 @@ export function buildBadges(input: BadgeInput, isMe: boolean): BadgeSpec[] {
     },
     {
       id: "streak",
-      label: "Streak",
+      label: t?.badges.streak ?? "Streak",
       value: `${streak}w`,
       detail: "Consecutive weeks with a verified analysis. Opening the app doesn't count.",
       shape: "disc",
@@ -214,7 +216,7 @@ export function buildBadges(input: BadgeInput, isMe: boolean): BadgeSpec[] {
     },
     {
       id: "verified",
-      label: "Verified",
+      label: t?.badges.verified ?? "Verified",
       value: String(verifiedCount),
       detail: "Profile changes Blink has confirmed from a new screenshot.",
       shape: "hex",

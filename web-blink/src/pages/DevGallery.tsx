@@ -54,7 +54,7 @@ const STATS: ProfileStats = {
   rank: 7,
   bestRank: 7,
   category: "larp",
-  momentum: { direction: "up", delta: 44, label: "+44 since last update" },
+  momentum: { key: "delta" as const, direction: "up", delta: 44, label: "+44 since last update" },
   streak: 5,
   weeklyWins: 3,
   verifiedCount: 11,

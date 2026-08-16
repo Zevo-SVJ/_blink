@@ -17,6 +17,8 @@
  * to null, and it runs on the write path as well as the read path.
  */
 
+import type { Messages } from "@/lib/messages";
+
 export interface CategoryDef {
   /** Stored value — lowercase, stable. */
   id: string;
@@ -128,14 +130,27 @@ export function normaliseCategory(raw: string | null | undefined): string | null
  * values, so they are folded here too rather than surfacing a board that
  * doesn't exist.
  */
-export function categoryLabel(id: string | null | undefined): string | null {
+export function categoryLabel(
+  id: string | null | undefined,
+  t?: Messages,
+): string | null {
   const canonical = normaliseCategory(id);
-  return canonical ? (BY_ID.get(canonical)?.label ?? null) : null;
+  if (!canonical) return null;
+  // The dictionary is keyed by the same canonical ids, so a language can never
+  // introduce a category that does not exist on a board. Without `t` — from
+  // non-React callers — the English label in `CATEGORIES` is the fallback.
+  const translated = t?.categories[canonical as keyof Messages["categories"]]?.label;
+  return translated ?? BY_ID.get(canonical)?.label ?? null;
 }
 
-export function categoryBlurb(id: string | null | undefined): string | null {
+export function categoryBlurb(
+  id: string | null | undefined,
+  t?: Messages,
+): string | null {
   const canonical = normaliseCategory(id);
-  return canonical ? (BY_ID.get(canonical)?.blurb ?? null) : null;
+  if (!canonical) return null;
+  const translated = t?.categories[canonical as keyof Messages["categories"]]?.blurb;
+  return translated ?? BY_ID.get(canonical)?.blurb ?? null;
 }
 
 /**
