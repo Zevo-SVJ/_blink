@@ -17,7 +17,14 @@
     />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/brand/hero-visual.jpg" />
-    <meta property="og:url" content="https://blink.app" />
+    <!--
+      The deployed origin, per `rork.json`'s webSlug. It used to claim
+      https://blink.app — a domain Blink does not operate, which made every
+      shared link resolve somewhere else and contradicted the site's own
+      identity. TODO(blink): update if a custom domain is attached, and keep it
+      identical to the URL given to payment and identity providers.
+    -->
+    <meta property="og:url" content="https://blink-ig.rork.app" />
     <meta property="og:site_name" content="Blink" />
 
     <!-- Twitter / X -->

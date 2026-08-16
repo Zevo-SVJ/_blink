@@ -7,7 +7,7 @@
  */
 
 import { motion } from "framer-motion";
-import { ArrowRight, Camera, LayoutGrid, Trophy, User } from "lucide-react";
+import { ArrowRight, Camera } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -16,9 +16,10 @@ import { ErrorState, SkeletonList } from "@/components/app/states";
 import { MomentumPill, StatGrid, StatTile } from "@/components/app/stats";
 import { formatRank } from "@/lib/app-nav";
 import { useAuth } from "@/hooks/useAuth";
+import { useT } from "@/lib/i18n";
 import { fetchFullProfile, type FullProfile } from "@/lib/blink-profile";
 import { fetchMyStanding } from "@/lib/leaderboard";
-import { pointsToNextTier } from "@/lib/ranking";
+import { pointsToNextTier, tierLabel } from "@/lib/ranking";
 
 type Load =
   | { state: "loading" }
@@ -28,6 +29,7 @@ type Load =
 export default function AppHome() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const t = useT();
   const [load, setLoad] = useState<Load>({ state: "loading" });
 
   const refresh = useCallback(async () => {
@@ -53,8 +55,8 @@ export default function AppHome() {
 
   return (
     <AppShell
-      title={firstName ? `Hey, ${firstName}` : "Welcome to Blink"}
-      subtitle="See how a profile comes across — and make yours read the way you want."
+      title={firstName ? t.home.greeting.replace("{name}", firstName) : t.home.welcome}
+      subtitle={t.home.subtitle}
     >
       <div className="space-y-6">
         {/* Primary action */}
@@ -69,9 +71,9 @@ export default function AppHome() {
             <Camera className="h-6 w-6 text-blink-navy" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-base font-extrabold text-blink-navy">Analyze a profile</p>
+            <p className="text-base font-extrabold text-blink-navy">{t.home.analyzeTitle}</p>
             <p className="mt-0.5 text-xs font-medium text-blink-navy/65">
-              Upload a screenshot — yours or anyone&rsquo;s
+              {t.home.analyzeSubtitle}
             </p>
           </div>
           <ArrowRight className="h-5 w-5 shrink-0 text-blink-navy/50 transition-transform group-hover:translate-x-0.5" />
@@ -87,12 +89,11 @@ export default function AppHome() {
           <StandingSummary data={load.data} rank={load.rank} />
         )}
 
-        {/* Shortcuts */}
-        <div className="grid grid-cols-3 gap-3">
-          <Shortcut icon={LayoutGrid} label="Library" onClick={() => navigate("/library")} />
-          <Shortcut icon={Trophy} label="Ranks" onClick={() => navigate("/ranks")} />
-          <Shortcut icon={User} label="Profile" onClick={() => navigate("/profile")} />
-        </div>
+        {/* Library, Ranks and Profile used to sit here as a row of three
+            shortcuts. They are the three destinations already permanently on
+            screen in the tab bar, one thumb-width below — so the row restated
+            the navigation instead of adding to it, and pushed the standing
+            summary further from the fold on a phone. The tab bar is untouched. */}
       </div>
     </AppShell>
   );
@@ -100,17 +101,14 @@ export default function AppHome() {
 
 function StandingSummary({ data, rank }: { data: FullProfile; rank: number | null }) {
   const navigate = useNavigate();
+  const t = useT();
   const { stats } = data;
 
   if (stats.verifiedCount === 0) {
     return (
       <section className="rounded-3xl border border-white/[0.07] bg-white/[0.03] p-6">
-        <p className="text-sm font-bold text-white">You don&rsquo;t have a Blink Score yet</p>
-        <p className="mt-2 text-sm leading-relaxed text-white/50">
-          Upload a screenshot of your own profile — the one showing{" "}
-          <span className="font-semibold text-white/70">Edit profile</span> — and Blink
-          will score how well it reads, then show you what to change.
-        </p>
+        <p className="text-sm font-bold text-white">{t.home.noScoreTitle}</p>
+        <p className="mt-2 text-sm leading-relaxed text-white/50">{t.home.noScoreBody}</p>
       </section>
     );
   }
@@ -122,28 +120,29 @@ function StandingSummary({ data, rank }: { data: FullProfile; rank: number | nul
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-white/40">
-            Blink Score
+            {t.home.blinkScore}
           </p>
           <p className="mt-1 text-4xl font-extrabold tabular-nums tracking-tight text-white">
             {stats.score}
           </p>
-          <p className="mt-1 text-sm font-semibold text-blink-sky">{stats.tier.label}</p>
+          <p className="mt-1 text-sm font-semibold text-blink-sky">{tierLabel(stats.tier, t)}</p>
         </div>
         <MomentumPill momentum={stats.momentum} />
       </div>
 
       <div className="mt-5">
         <StatGrid>
-          <StatTile label="Rank" value={formatRank(rank)} accent />
-          <StatTile label="Best" value={formatRank(stats.bestRank)} />
-          <StatTile label="Streak" value={`${stats.streak}w`} />
+          <StatTile label={t.home.rank} value={formatRank(rank)} accent />
+          <StatTile label={t.home.best} value={formatRank(stats.bestRank)} />
+          <StatTile label={t.home.streak} value={`${stats.streak}w`} />
         </StatGrid>
       </div>
 
       {next && (
         <p className="mt-4 text-xs leading-relaxed text-white/45">
-          {next.points} points to <span className="font-bold text-white/70">{next.tier.label}</span>.
-          A higher rank means a more optimized profile.
+          {t.home.toNextTier
+            .replace("{points}", String(next.points))
+            .replace("{tier}", tierLabel(next.tier, t))}
         </p>
       )}
 
@@ -152,32 +151,9 @@ function StandingSummary({ data, rank }: { data: FullProfile; rank: number | nul
         onClick={() => navigate("/profile")}
         className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-blink-sky transition-opacity hover:opacity-80"
       >
-        View full profile
-        <ArrowRight className="h-4 w-4" />
+        {t.home.viewFullProfile}
+        <ArrowRight className="h-4 w-4" aria-hidden />
       </button>
     </section>
-  );
-}
-
-function Shortcut({
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  icon: typeof Trophy;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      whileTap={{ scale: 0.95 }}
-      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-      className="flex flex-col items-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.06]"
-    >
-      <Icon className="h-5 w-5 text-white/60" />
-      <span className="text-xs font-semibold text-white/70">{label}</span>
-    </motion.button>
   );
 }

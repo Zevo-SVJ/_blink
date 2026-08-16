@@ -37,7 +37,7 @@
  */
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Info } from "lucide-react";
+import { Info, Sparkles } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { PerceptionCard, LENS_TINT } from "@/components/blink/PerceptionCard";
@@ -45,8 +45,10 @@ import { PerceptionReveal } from "@/components/analysis/PerceptionReveal";
 import { buildRead } from "@/lib/perception-read";
 import { ScoreRing } from "@/components/blink/ScoreRing";
 import type { AnalysisResult as Analysis, Perspective } from "@/lib/analysis";
+import { useI18n, useT } from "@/lib/i18n";
+import type { Messages } from "@/lib/messages";
 import { getVoice, type Voice } from "@/lib/ownership";
-import { computeBlinkScore, getTier } from "@/lib/ranking";
+import { computeBlinkScore, getTier, tierLabel } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
 
 export interface PublicStanding {
@@ -83,7 +85,8 @@ export function AnalysisResult({
   climb?: ReactNode;
   actions?: ReactNode;
 }) {
-  const voice = getVoice(result.ownership, result.subjectGender);
+  const { lang } = useI18n();
+  const voice = getVoice(result.ownership, result.subjectGender, lang);
   const score = computeBlinkScore(result).total;
 
   return (
@@ -118,6 +121,35 @@ export function AnalysisResult({
           {actions}
         </motion.div>
       )}
+
+      {revealStage >= 5 && <AiNotice isOwn={voice.isOwn} />}
+    </div>
+  );
+}
+
+/**
+ * Who wrote this, said once, where the result ends.
+ *
+ * Article 50 of the AI Act — applicable since 2 August 2026 — requires that a
+ * person be informed when they are interacting with, or receiving output from,
+ * an AI system, in a clear and distinguishable way. Blink's entire output is
+ * model-generated, so this is not a disclaimer to bury.
+ *
+ * It is also not a banner to repeat on every card. Placed at the foot of the
+ * result it is read at the moment it means something — after the score, when
+ * the reader is deciding how much to believe it — and it says the two things
+ * that actually matter: a model wrote this, and it read one image.
+ */
+function AiNotice({ isOwn }: { isOwn: boolean }) {
+  const t = useT();
+
+  return (
+    <div className="mx-auto mt-10 flex w-full max-w-md items-start gap-2.5 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 text-left">
+      <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/35" aria-hidden />
+      <p className="text-[0.78rem] leading-relaxed text-white/45">
+        <span className="font-bold text-white/60">{t.analysis.aiGenerated}</span> ·{" "}
+        {isOwn ? t.analysis.aiNotice : t.analysis.aiNoticeOther}
+      </p>
     </div>
   );
 }
@@ -220,6 +252,7 @@ interface Segment {
  * `/analyze` (no tab bar) and in the Library (tab bar present).
  */
 function Segments({ segments }: { segments: Segment[] }) {
+  const t = useT();
   const [active, setActive] = useState(segments[0]?.id);
   const reduceMotion = useReducedMotion();
 
@@ -256,7 +289,7 @@ function Segments({ segments }: { segments: Segment[] }) {
         else you can go.
       */}
       <nav
-        aria-label="Analysis sections"
+        aria-label={t.analysis.sections}
         className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-4"
         style={{
           bottom: "calc(var(--blink-app-nav, 0px) + max(env(safe-area-inset-bottom), 0.75rem))",
@@ -324,10 +357,11 @@ function OwnResult({
   progression?: ReactNode;
   climb?: ReactNode;
 }) {
+  const t = useT();
   const segments: Segment[] = [
     {
       id: "perception",
-      label: "Perception",
+      label: t.analysis.perception,
       render: () => (
         <PerspectiveSelector
           perspectives={result.perspectives}
@@ -338,7 +372,7 @@ function OwnResult({
     },
     {
       id: "signals",
-      label: "Signals",
+      label: t.analysis.signals,
       render: () => (
         <>
           <Group title={voice.signalsHeading}>
@@ -369,11 +403,11 @@ function OwnResult({
   if (revealStage >= 7) {
     segments.push({
       id: "actions",
-      label: "Actions",
+      label: t.analysis.actions,
       render: () => (
         <div className="space-y-8">
           {result.nextMove && (
-            <Group title="Your next move">
+            <Group title={t.analysis.nextMove}>
               <p className="text-[0.95rem] font-medium leading-relaxed text-white/85">
                 {result.nextMove}
               </p>
@@ -408,28 +442,29 @@ function PublicResult({
   score: number;
   standing: PublicStanding | null;
 }) {
+  const t = useT();
   const tier = getTier(score);
   const category = result.category?.category;
 
   const segments: Segment[] = [
     {
       id: "perception",
-      label: "Perception",
+      label: t.analysis.perception,
       render: () => (
         <>
           <Group title={`How a crush sees ${voice.object} 👀`}>
             <CrushLens result={result} />
           </Group>
-          <Group title="Standing">
+          <Group title={t.analysis.standing}>
             <div className="flex items-stretch">
-              <Fact label="Blink Score" value={String(score)} sub={tier.label} accent />
+              <Fact label={t.analysis.blinkScore} value={String(score)} sub={tierLabel(tier, t)} accent />
               <Fact
-                label="Leaderboard"
+                label={t.analysis.leaderboard}
                 value={standing ? `#${standing.rank}` : "—"}
-                sub={standing ? `of ${standing.total} ranked` : "Not ranked yet"}
+                sub={standing ? t.analysis.ofRanked.replace("{total}", String(standing.total)) : t.analysis.notRanked}
               />
               {category && (
-                <Fact label="Category" value={categoryTitle(category)} sub="Archetype" />
+                <Fact label={t.analysis.category} value={categoryTitle(category)} sub={t.analysis.archetype} />
               )}
             </div>
           </Group>
@@ -438,9 +473,9 @@ function PublicResult({
     },
     {
       id: "signals",
-      label: "Signals",
+      label: t.analysis.signals,
       render: () => (
-        <Group title="Public perception signals">
+        <Group title={t.analysis.publicSignals}>
           <div className="space-y-5">
             {result.signals.map((signal) => (
               <SignalBar key={signal.label} signal={signal} />
@@ -597,13 +632,14 @@ function PointList({
  * reopening from the Library, for instance.
  */
 function ImprovementPlan({ result }: { result: Analysis }) {
+  const t = useT();
   const score = computeBlinkScore(result).total;
   const tier = getTier(score);
 
   return (
-    <Group title="Your highest-impact next moves">
+    <Group title={t.analysis.topMoves}>
       <p className="text-xs leading-relaxed text-white/50">
-        You&rsquo;re at <span className="font-bold text-white/80">{score}</span> — {tier.label}.
+        You&rsquo;re at <span className="font-bold text-white/80">{score}</span> — {tierLabel(tier, t)}.
         Make these changes on Instagram, then upload a fresh screenshot so Blink can verify
         them and move your rank.
       </p>
@@ -621,20 +657,22 @@ function ImprovementPlan({ result }: { result: Analysis }) {
   );
 }
 
-function signalLabel(score: number): string {
-  if (score >= 7.5) return "Strong";
-  if (score >= 5.5) return "Moderate";
-  if (score >= 3.5) return "Developing";
-  return "Low";
+function signalLabel(score: number, t: Messages): string {
+  if (score >= 7.5) return t.analysis.strong;
+  if (score >= 5.5) return t.analysis.moderate;
+  if (score >= 3.5) return t.analysis.developing;
+  return t.analysis.emerging;
 }
 
 function SignalBar({ signal }: { signal: { label: string; score: number; description: string } }) {
+  const t = useT();
+
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-semibold text-white/90">{signal.label}</span>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="text-xs font-medium text-white/45">{signalLabel(signal.score)}</span>
+          <span className="text-xs font-medium text-white/45">{signalLabel(signal.score, t)}</span>
           <span className="text-sm font-bold tabular-nums text-blink-sky">
             {signal.score.toFixed(1)}
           </span>
@@ -657,12 +695,15 @@ function SignalBar({ signal }: { signal: { label: string; score: number; descrip
 
 const PERSPECTIVE_ORDER: Perspective["id"][] = ["crush", "stranger", "friends", "recruiter"];
 
-const LENS_KICKER: Record<Perspective["id"], string> = {
-  crush: "The one you actually wanted",
-  stranger: "Three seconds, cold",
-  friends: "People who know you",
-  recruiter: "Someone checking you out",
-};
+/** Kicker per lens, resolved at render so it follows the reader's language. */
+function lensKicker(id: Perspective["id"], t: Messages): string {
+  return {
+    crush: t.analysis.lensCrush,
+    stranger: t.analysis.lensStranger,
+    friends: t.analysis.lensFriends,
+    recruiter: t.analysis.lensRecruiter,
+  }[id];
+}
 
 function PerspectiveSelector({
   perspectives,
@@ -673,6 +714,7 @@ function PerspectiveSelector({
   signals: Analysis["signals"];
   voice: Voice;
 }) {
+  const t = useT();
   const [selected, setSelected] = useState<Perspective["id"]>("crush");
   const current = perspectives[selected];
   // Recomputed per perspective on purpose: which signals matter, and which of
@@ -732,7 +774,7 @@ function PerspectiveSelector({
           <PerceptionCard
             lensId={selected}
             emoji={current.emoji}
-            kicker={LENS_KICKER[selected]}
+            kicker={lensKicker(selected, t)}
             title={voice.perspectiveTitle(selected)}
             traits={[]}
             // Both now belong to the reveal: the summary is its first beat and

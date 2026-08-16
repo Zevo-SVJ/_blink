@@ -143,6 +143,52 @@ export const TESTIMONIALS: Testimonial[] = [
   { id: "34", handle: "yasmin.k", age: 24, initial: "Y", text: "did not expect a screenshot to read me like that", likes: 1045, hue: 265 },
 ];
 
+/**
+ * The same reactions, in French.
+ *
+ * Only the text is translated: handle, age, avatar hue and like count stay
+ * shared, so both languages render an identical wall — same cards, same
+ * rhythm, same two rows. Written in the register these would actually be
+ * written in, not converted word by word; "nah this is actually accurate" is
+ * "non mais c'est vraiment ça", not "non c'est réellement exact".
+ */
+export const TESTIMONIALS_FR: Record<string, string> = {
+  "1": "non mais c'est vraiment ça 😭",
+  "2": "frr COMMENT il a deviné 💀",
+  "3": "ok le truc du crush est fou",
+  "4": "attendezzz",
+  "5": "le mien a dit mystérieuse et ma copine a dit que je suis juste timide 😭",
+  "6": "8,7 c'est généreux mdr",
+  "7": "ça m'a vraiment fait changer ma photo de profil",
+  "8": "vas-y lance le tien maintenant",
+  "9": "la vue recruteur ça pique... faut que je refasse ma bio",
+  "10": "je pensais que ce serait cringe mais c'est bizarrement motivant",
+  "11": "ça a un peu changé ma façon de poster",
+  "12": "envoyé à mes potes et maintenant ils m'épargnent rien",
+  "13": "mon red flag c'était « trop léché »... juste",
+  "14": "pourquoi celui de l'inconnu tombe toujours juste ??",
+  "15": "wesh",
+  "16": "j'ai eu 8,4 et j'ai jamais été aussi confiant",
+  "17": "je vais faire comme si j'avais pas vu la partie crush merci",
+  "18": "le green flag était vraiment mignon 🥹",
+  "19": "impossible qu'il ait capté ça",
+  "20": "sceptique au début franchement mais c'est plutôt vrai",
+  "21": "j'ai passé mon ex, pour la science",
+  "22": "blink c'est de l'astrologie socialement acceptable",
+  "23": "mes potes ont dit que le mien était trop juste pour être drôle",
+  "24": "8,2 ?? j'emmène ça chez mon psy",
+  "25": "bien plus utile que n'importe quel outil de stats insta",
+  "26": "j'ai ouvert avant même d'avoir fini de lire la page",
+  "27": "maintenant j'analyse le profil de tout le monde",
+  "28": "le test « inconnu » est brutal mais mérité",
+  "29": "comment ça mystérieux je suis un livre ouvert",
+  "30": "la seule chose qui m'a fait mettre à jour mes stories en 2 ans",
+  "31": "j'ai 300 abonnés et je suis au-dessus de quelqu'un qui en a 90k. je m'en remets pas",
+  "32": "montré à ma mère. elle est d'accord avec le red flag. dévastée",
+  "33": "je pensais sincèrement qu'il allait dire un truc gentil",
+  "34": "je m'attendais pas à me faire lire comme ça par une capture d'écran",
+};
+
 export interface FAQ {
   id: string;
   question: string;

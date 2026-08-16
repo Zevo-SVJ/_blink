@@ -18,6 +18,7 @@
  */
 
 import type { Perspective } from "@/lib/analysis";
+import { DEFAULT_LANG, type Lang } from "@/lib/i18n";
 
 export type ProfileOwnership = "own" | "other" | "uncertain";
 
@@ -116,95 +117,207 @@ export interface Voice {
   weaknessesLabel: string;
 }
 
-const PERSPECTIVE_TITLES: Record<
-  Perspective["id"],
-  { own: string; other: (object: string) => string }
-> = {
-  crush: {
-    own: "How your crush sees you",
-    other: (o) => `How a crush sees ${o}`,
+/**
+ * The four grammatical situations every line here has to handle.
+ *
+ * English mostly gets away with substituting an object word into a sentence —
+ * "How a crush sees him". French does not: the object pronoun moves in front
+ * of the verb and changes shape, so "voit lui" is wrong where "le voit" is
+ * right, and a template with a hole in it produces broken French every time.
+ *
+ * Naming the four cases and writing each sentence out per case is what makes
+ * both languages correct. It also documents the rule the product actually
+ * follows: a real person's pronouns are only used when the profile said them
+ * in words, and `neutral` is what everything else gets.
+ */
+type VoiceCase = "own" | "male" | "female" | "neutral";
+
+interface VoiceStrings {
+  Subject: string;
+  possessive: string;
+  pronoun: string;
+  object: string;
+  signalsHeading: string;
+  perspectivesHeading: string;
+  strengthsLabel: string;
+  weaknessesLabel: string;
+  perspectives: Record<Perspective["id"], string>;
+}
+
+const VOICE: Record<Lang, Record<VoiceCase, VoiceStrings>> = {
+  en: {
+    own: {
+      Subject: "Your profile",
+      possessive: "your",
+      pronoun: "you",
+      object: "you",
+      signalsHeading: "What creates this impression",
+      perspectivesHeading: "How different people may see you",
+      strengthsLabel: "What's working",
+      weaknessesLabel: "What you could change",
+      perspectives: {
+        crush: "How your crush sees you",
+        stranger: "How a stranger sees you",
+        friends: "How your friends might see you",
+        recruiter: "How a recruiter sees you",
+      },
+    },
+    male: {
+      Subject: "His profile",
+      possessive: "his",
+      pronoun: "he",
+      object: "him",
+      signalsHeading: "What creates this impression",
+      perspectivesHeading: "How different people may see him",
+      strengthsLabel: "What stands out",
+      weaknessesLabel: "What holds it back",
+      perspectives: {
+        crush: "How a crush sees him",
+        stranger: "How a stranger sees him",
+        friends: "How friends might see him",
+        recruiter: "How a recruiter sees him",
+      },
+    },
+    female: {
+      Subject: "Her profile",
+      possessive: "her",
+      pronoun: "she",
+      object: "her",
+      signalsHeading: "What creates this impression",
+      perspectivesHeading: "How different people may see her",
+      strengthsLabel: "What stands out",
+      weaknessesLabel: "What holds it back",
+      perspectives: {
+        crush: "How a crush sees her",
+        stranger: "How a stranger sees her",
+        friends: "How friends might see her",
+        recruiter: "How a recruiter sees her",
+      },
+    },
+    neutral: {
+      Subject: "This profile",
+      possessive: "this profile's",
+      pronoun: "this profile",
+      object: "this profile",
+      signalsHeading: "What creates this impression",
+      perspectivesHeading: "How different people may see this profile",
+      strengthsLabel: "What stands out",
+      weaknessesLabel: "What holds it back",
+      perspectives: {
+        crush: "How a crush sees this profile",
+        stranger: "How a stranger sees this profile",
+        friends: "How friends might see this profile",
+        recruiter: "How a recruiter sees this profile",
+      },
+    },
   },
-  stranger: {
-    own: "How a stranger sees you",
-    other: (o) => `How a stranger sees ${o}`,
-  },
-  friends: {
-    own: "How your friends might see you",
-    other: (o) => `How friends might see ${o}`,
-  },
-  recruiter: {
-    own: "How a recruiter sees you",
-    other: (o) => `How a recruiter sees ${o}`,
+  fr: {
+    own: {
+      Subject: "Ton profil",
+      possessive: "ton",
+      pronoun: "tu",
+      object: "toi",
+      signalsHeading: "Ce qui crée cette impression",
+      perspectivesHeading: "Comment différentes personnes peuvent te voir",
+      strengthsLabel: "Ce qui fonctionne",
+      weaknessesLabel: "Ce que tu peux changer",
+      perspectives: {
+        crush: "Comment ton crush te voit",
+        stranger: "Comment un inconnu te voit",
+        friends: "Comment tes amis peuvent te voir",
+        recruiter: "Comment un recruteur te voit",
+      },
+    },
+    male: {
+      Subject: "Son profil",
+      possessive: "son",
+      pronoun: "il",
+      object: "lui",
+      signalsHeading: "Ce qui crée cette impression",
+      perspectivesHeading: "Comment différentes personnes peuvent le voir",
+      strengthsLabel: "Ce qui ressort",
+      weaknessesLabel: "Ce qui le retient",
+      perspectives: {
+        crush: "Comment un crush le voit",
+        stranger: "Comment un inconnu le voit",
+        friends: "Comment des amis peuvent le voir",
+        recruiter: "Comment un recruteur le voit",
+      },
+    },
+    female: {
+      Subject: "Son profil",
+      possessive: "son",
+      pronoun: "elle",
+      object: "elle",
+      signalsHeading: "Ce qui crée cette impression",
+      perspectivesHeading: "Comment différentes personnes peuvent la voir",
+      strengthsLabel: "Ce qui ressort",
+      weaknessesLabel: "Ce qui la retient",
+      perspectives: {
+        crush: "Comment un crush la voit",
+        stranger: "Comment un inconnu la voit",
+        friends: "Comment des amis peuvent la voir",
+        recruiter: "Comment un recruteur la voit",
+      },
+    },
+    neutral: {
+      Subject: "Ce profil",
+      possessive: "de ce profil",
+      pronoun: "ce profil",
+      object: "ce profil",
+      signalsHeading: "Ce qui crée cette impression",
+      perspectivesHeading: "Comment différentes personnes peuvent voir ce profil",
+      strengthsLabel: "Ce qui ressort",
+      weaknessesLabel: "Ce qui le retient",
+      perspectives: {
+        crush: "Comment un crush voit ce profil",
+        stranger: "Comment un inconnu voit ce profil",
+        friends: "Comment des amis peuvent voir ce profil",
+        recruiter: "Comment un recruteur voit ce profil",
+      },
+    },
   },
 };
 
 export function getVoice(
   ownership: ProfileOwnership,
   gender: SubjectGender = "unknown",
+  lang: Lang = DEFAULT_LANG,
 ): Voice {
   const isOwn = ownership === "own";
 
   // Gendered wording is only appropriate once we know the profile is someone
-  // else's *and* the screenshot made the subject legible. Anything short of
-  // that stays neutral rather than guessing at a real person's pronouns.
-  const gendered = !isOwn && ownership === "other" && gender !== "unknown";
+  // else's *and* the profile stated the subject in words. Anything short of
+  // that stays neutral rather than guessing at a real person's pronouns — and
+  // the model is instructed never to read gender off a face, so "unknown" is
+  // the common and perfectly good answer.
+  const voiceCase: VoiceCase = isOwn
+    ? "own"
+    : ownership === "other" && gender !== "unknown"
+      ? gender
+      : "neutral";
 
-  const Subject = isOwn
-    ? "Your profile"
-    : gendered
-      ? gender === "male"
-        ? "His profile"
-        : "Her profile"
-      : "This profile";
-
-  const possessive = isOwn
-    ? "your"
-    : gendered
-      ? gender === "male"
-        ? "his"
-        : "her"
-      : "this profile's";
-
-  const pronoun = isOwn
-    ? "you"
-    : gendered
-      ? gender === "male"
-        ? "he"
-        : "she"
-      : "this profile";
-
-  const object = isOwn
-    ? "you"
-    : gendered
-      ? gender === "male"
-        ? "him"
-        : "her"
-      : "this profile";
+  const s = VOICE[lang][voiceCase];
 
   return {
     ownership,
     gender,
     isOwn,
-    Subject,
-    subject: Subject.charAt(0).toLowerCase() + Subject.slice(1),
-    possessive,
-    Possessive: possessive.charAt(0).toUpperCase() + possessive.slice(1),
-    pronoun,
-    object,
+    Subject: s.Subject,
+    subject: s.Subject.charAt(0).toLowerCase() + s.Subject.slice(1),
+    possessive: s.possessive,
+    Possessive: s.possessive.charAt(0).toUpperCase() + s.possessive.slice(1),
+    pronoun: s.pronoun,
+    object: s.object,
 
-    signalsHeading: "What creates this impression",
-    perspectivesHeading: isOwn
-      ? "How different people may see you"
-      : `How different people may see ${object}`,
-    perspectiveTitle: (id) => {
-      const t = PERSPECTIVE_TITLES[id];
-      return isOwn ? t.own : t.other(object);
-    },
+    signalsHeading: s.signalsHeading,
+    perspectivesHeading: s.perspectivesHeading,
+    perspectiveTitle: (id) => s.perspectives[id],
 
     // Own profile gets action framing because the user can act on it.
     // Someone else's gets observation framing — it is a read, not a to-do list.
-    strengthsLabel: isOwn ? "What's working" : "What stands out",
-    weaknessesLabel: isOwn ? "What you could change" : "What holds it back",
+    strengthsLabel: s.strengthsLabel,
+    weaknessesLabel: s.weaknessesLabel,
   };
 }
 
@@ -218,8 +331,27 @@ export function getVoice(
  * Ownership is unknown until the response lands, so the early lines are
  * deliberately neutral and only the later ones lean on the resolved voice.
  */
-export function getAnalysisMessages(ownership: ProfileOwnership): string[] {
-  const voice = getVoice(ownership);
+export function getAnalysisMessages(
+  ownership: ProfileOwnership,
+  lang: Lang = DEFAULT_LANG,
+): string[] {
+  const voice = getVoice(ownership, "unknown", lang);
+
+  if (lang === "fr") {
+    return [
+      "Lecture de la capture…",
+      "Lecture de l'identité visuelle",
+      "Compréhension de l'esthétique",
+      "Repérage des signaux qu'on remarque en premier",
+      "Cartographie des indices de personnalité",
+      voice.isOwn ? "Construction de ta première impression" : "Construction de la première impression",
+      voice.isOwn
+        ? "Comment différentes personnes peuvent te percevoir"
+        : "Comment différentes personnes peuvent percevoir ce profil",
+      "L'analyse est prête.",
+    ];
+  }
+
   const subject = voice.isOwn ? "your profile" : voice.subject;
 
   return [

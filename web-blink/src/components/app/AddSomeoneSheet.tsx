@@ -37,6 +37,8 @@ import {
   suggestProfile,
   type SuggestionResult,
 } from "@/lib/leaderboard-suggestions";
+import { CATEGORIES, categoryLabel } from "@/lib/categories";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type Phase = "form" | "reading" | "sending" | "done";
@@ -47,16 +49,35 @@ const MAX_MB = 10;
 export function AddSomeoneSheet({
   open,
   onClose,
+  onAdded,
 }: {
   open: boolean;
   onClose: () => void;
+  /**
+   * Fired once the suggestion is actually stored.
+   *
+   * Without it the sheet closed onto an unchanged board and adding somebody
+   * looked like it had done nothing — the person only turned up on the next
+   * full page load. Deliberately not fired on close: dismissing the sheet with
+   * the X has nothing to re-read.
+   */
+  onAdded?: () => void;
 }) {
   const { user } = useAuth();
+  const t = useT();
   const reduceMotion = useReducedMotion();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [phase, setPhase] = useState<Phase>("form");
   const [handle, setHandle] = useState("");
+  /**
+   * Which board this person belongs on.
+   *
+   * Required. Without it a suggested profile has nowhere to land except an
+   * "uncategorised" pile, which is the same as being invisible — and the whole
+   * point of adding someone is that they turn up on a board.
+   */
+  const [category, setCategory] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [preview, setPreview] = useState<string>("");
   const [detected, setDetected] = useState(false);
@@ -72,6 +93,7 @@ export function AddSomeoneSheet({
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
     setPhase("form");
     setHandle("");
+    setCategory(null);
     setNote("");
     setPreview("");
     setDetected(false);
@@ -95,7 +117,7 @@ export function AddSomeoneSheet({
     setError(null);
 
     if (!ACCEPTED.includes(file.type)) {
-      setError("That file isn't an image Blink can read. PNG, JPG or WebP.");
+      setError(t.addSomeone.notImage);
       return;
     }
     if (file.size > MAX_MB * 1024 * 1024) {
@@ -122,7 +144,7 @@ export function AddSomeoneSheet({
   const submit = useCallback(async () => {
     const clean = normaliseHandle(handle);
     if (!clean) {
-      setError("That doesn't look like an Instagram username.");
+      setError(t.addSomeone.notHandle);
       return;
     }
 
@@ -132,6 +154,7 @@ export function AddSomeoneSheet({
     const res = await suggestProfile(
       {
         handle: clean,
+        category,
         note,
         // The capture is not uploaded yet — see the storage note in the
         // migration. The handle is the payload that matters.
@@ -141,9 +164,25 @@ export function AddSomeoneSheet({
       user?.id ?? null,
     );
 
+    /*
+      `needs-setup` means the table isn't there, so nothing was written.
+
+      It used to fall through to the success beat, which then told the user
+      "we've got @handle" about a row that does not exist and a person who will
+      never appear on their board. Failing honestly and leaving the form filled
+      in is the only version of this that isn't a lie.
+    */
+    if (res.status === "needs-setup") {
+      setError(t.addSomeone.notSaved);
+      setPhase("form");
+      return;
+    }
+
     setResult(res);
     setPhase("done");
-  }, [handle, note, detected, user]);
+
+    if (res.status === "ok" || res.status === "duplicate") onAdded?.();
+  }, [handle, category, note, detected, user, t, onAdded]);
 
   // The success state dismisses itself. Nothing to acknowledge.
   useEffect(() => {
@@ -161,7 +200,9 @@ export function AddSomeoneSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  const canSubmit = normaliseHandle(handle) !== null && phase === "form";
+  // Both answers are required: a handle with no board is not addable.
+  const canSubmit =
+    normaliseHandle(handle) !== null && category !== null && phase === "form";
 
   return (
     <AnimatePresence>
@@ -180,7 +221,7 @@ export function AddSomeoneSheet({
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Add someone to the leaderboard"
+            aria-label={t.addSomeone.dialogTitle}
             initial={reduceMotion ? { opacity: 0 } : { y: "100%" }}
             animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { y: "100%" }}
@@ -205,17 +246,16 @@ export function AddSomeoneSheet({
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h2 className="text-lg font-extrabold tracking-tight text-white">
-                        Add someone
+                        {t.addSomeone.title}
                       </h2>
                       <p className="mt-1 text-[0.8rem] leading-relaxed text-white/50">
-                        Suggest a profile for the leaderboard. This doesn&rsquo;t run an
-                        analysis and doesn&rsquo;t affect your score.
+                        {t.addSomeone.blurb}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={onClose}
-                      aria-label="Close"
+                      aria-label={t.app.close}
                       className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white"
                     >
                       <X className="h-4 w-4" />
@@ -234,7 +274,7 @@ export function AddSomeoneSheet({
                         htmlFor="suggest-handle"
                         className="flex items-center gap-2 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-white/40"
                       >
-                        Instagram username
+                        {t.identity.instagramUsername}
                         <AnimatePresence>
                           {detected && (
                             <motion.span
@@ -244,7 +284,7 @@ export function AddSomeoneSheet({
                               className="flex items-center gap-1 rounded-full bg-blink-sky/15 px-2 py-0.5 text-[0.6rem] font-bold normal-case tracking-normal text-blink-sky"
                             >
                               <Sparkles className="h-2.5 w-2.5" />
-                              Read from your screenshot
+                              {t.addSomeone.readFromScreenshot}
                             </motion.span>
                           )}
                         </AnimatePresence>
@@ -258,7 +298,7 @@ export function AddSomeoneSheet({
                             setHandle(e.target.value);
                             setDetected(false);
                           }}
-                          placeholder="username"
+                          placeholder={t.addSomeone.handlePlaceholder}
                           autoComplete="off"
                           autoCapitalize="none"
                           spellCheck={false}
@@ -270,17 +310,49 @@ export function AddSomeoneSheet({
                     </div>
 
                     <div>
+                      <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-white/40">
+                        {t.addSomeone.categoryLabel}
+                      </p>
+                      {/* Only ever the canonical boards. There is no free-text
+                          path here, so a suggestion cannot invent a category. */}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {CATEGORIES.map((c) => {
+                          const active = category === c.id;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              aria-pressed={active}
+                              onClick={() => setCategory(active ? null : c.id)}
+                              className={cn(
+                                "min-h-[36px] rounded-full px-3 text-[0.78rem] font-bold transition-colors",
+                                active
+                                  ? "bg-blink-sky text-blink-navy"
+                                  : "bg-white/[0.06] text-white/65 ring-1 ring-white/[0.09] hover:bg-white/[0.1]",
+                              )}
+                            >
+                              {categoryLabel(c.id, t) ?? c.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
                       <label
                         htmlFor="suggest-note"
                         className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-white/40"
                       >
-                        Why them <span className="font-semibold normal-case tracking-normal text-white/25">· optional</span>
+                        {t.addSomeone.whyThem}{" "}
+                        <span className="font-semibold normal-case tracking-normal text-white/25">
+                          · {t.app.optional}
+                        </span>
                       </label>
                       <input
                         id="suggest-note"
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
-                        placeholder="Their grid is unreal"
+                        placeholder={t.addSomeone.notePlaceholder}
                         maxLength={140}
                         className="mt-2 min-h-[48px] w-full rounded-2xl bg-white/[0.05] px-3.5 text-base text-white outline-none ring-1 ring-white/[0.09] placeholder:text-white/25 focus:ring-blink-sky/50"
                       />
@@ -314,7 +386,7 @@ export function AddSomeoneSheet({
                         : "bg-white/[0.06] text-white/30",
                     )}
                   >
-                    {phase === "sending" ? "Adding…" : "Add to leaderboard"}
+                    {phase === "sending" ? t.addSomeone.adding : t.addSomeone.submit}
                   </motion.button>
 
                   <input
@@ -347,6 +419,8 @@ function ScreenshotField({
   reading: boolean;
   onPick: () => void;
 }) {
+  const t = useT();
+
   return (
     <button
       type="button"
@@ -377,14 +451,14 @@ function ScreenshotField({
 
       <span className="min-w-0">
         <span className="block text-sm font-bold text-white">
-          {reading ? "Reading the username…" : preview ? "Screenshot added" : "Add a screenshot"}
+          {reading ? t.addSomeone.reading : preview ? t.addSomeone.screenshotAdded : t.addSomeone.addScreenshot}
         </span>
         <span className="mt-0.5 block text-[0.75rem] leading-relaxed text-white/45">
           {reading
-            ? "Looking for the @ in the image"
+            ? t.addSomeone.lookingForHandle
             : preview
-              ? "Tap to choose a different one"
-              : "Optional — we'll try to read the username from it"}
+              ? t.addSomeone.tapToChange
+              : t.addSomeone.screenshotHint}
         </span>
       </span>
     </button>
@@ -411,8 +485,8 @@ export function Confirmation({
   result: SuggestionResult | null;
   handle: string | null;
 }) {
+  const t = useT();
   const reduceMotion = useReducedMotion();
-  const pending = result?.status === "needs-setup";
   const duplicate = result?.status === "duplicate";
 
   return (
@@ -461,7 +535,7 @@ export function Confirmation({
         transition={{ delay: 0.45 }}
         className="mt-5 text-lg font-extrabold tracking-tight text-white"
       >
-        {duplicate ? "Already suggested" : "Added to the leaderboard"}
+        {duplicate ? t.addSomeone.already : t.addSomeone.added}
       </motion.p>
 
       <motion.p
@@ -470,11 +544,13 @@ export function Confirmation({
         transition={{ delay: 0.55 }}
         className="mt-1.5 max-w-[16rem] text-[0.85rem] leading-relaxed text-white/50"
       >
-        {duplicate
-          ? `@${handle} is already on the list. Thanks for looking out.`
-          : pending
-            ? `We've got @${handle}. Thanks — suggestions are reviewed before they appear.`
-            : `Thanks. @${handle} goes into the queue for review.`}
+        {/* What this says has to be what happened: the row is on *your*
+            board, and nothing about it is public. Saying "queued for review"
+            described a review process that does not exist. */}
+        {(duplicate ? t.addSomeone.alreadyBody : t.addSomeone.addedBody).replace(
+          "{handle}",
+          `@${handle}`,
+        )}
       </motion.p>
     </motion.div>
   );

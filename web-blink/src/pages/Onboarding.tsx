@@ -23,6 +23,8 @@ import { ACCEPTED_AVATAR_TYPES, uploadAvatar } from "@/lib/avatar";
 import { updateBlinkProfile, type BlinkProfile } from "@/lib/blink-profile";
 import { COUNTRIES, flagEmoji } from "@/lib/countries";
 import { validateIdentity, type IdentityDraft } from "@/lib/identity";
+import { useT } from "@/lib/i18n";
+import type { Messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
 /** 16px minimum, or iOS Safari zooms the viewport on focus. */
@@ -33,20 +35,38 @@ type StepId = "name" | "handle" | "link" | "country" | "picture" | "visibility";
 
 interface Step {
   id: StepId;
-  question: string;
-  hint: string;
   /** Optional steps can be skipped without filling anything in. */
   optional?: boolean;
 }
 
+/**
+ * The sequence, as structure only.
+ *
+ * Order, ids and which steps may be skipped are properties of the flow, not of
+ * a language, so they stay module-level constants — the step machine, the
+ * progress bar and the validation all key off them. The wording is resolved at
+ * render by `stepCopy`, which is what lets the same flow run in either
+ * language without a second definition to keep in step.
+ */
 const STEPS: Step[] = [
-  { id: "name", question: "What should we call you?", hint: "Shown on your public profile and the leaderboard." },
-  { id: "handle", question: "What's your Instagram?", hint: "So people can tell it's really you." },
-  { id: "link", question: "Link your profile?", hint: "Adds a View Instagram button. You can skip this.", optional: true },
-  { id: "country", question: "Where are you from?", hint: "Shows as a flag next to your name.", optional: true },
-  { id: "picture", question: "Add a photo?", hint: "Optional — we'll use your initial otherwise.", optional: true },
-  { id: "visibility", question: "Join the leaderboard?", hint: "You can change this any time in your profile." },
+  { id: "name" },
+  { id: "handle" },
+  { id: "link", optional: true },
+  { id: "country", optional: true },
+  { id: "picture", optional: true },
+  { id: "visibility" },
 ];
+
+function stepCopy(id: StepId, t: Messages): { question: string; hint: string } {
+  return {
+    name: { question: t.onboarding.nameQ, hint: t.onboarding.nameHint },
+    handle: { question: t.onboarding.handleQ, hint: t.onboarding.handleHint },
+    link: { question: t.onboarding.linkQ, hint: t.onboarding.linkHint },
+    country: { question: t.onboarding.countryQ, hint: t.onboarding.countryHint },
+    picture: { question: t.onboarding.photoQ, hint: t.onboarding.photoHint },
+    visibility: { question: t.onboarding.boardQ, hint: t.onboarding.boardHint },
+  }[id];
+}
 
 export function Onboarding({
   userId,
@@ -78,7 +98,9 @@ export function Onboarding({
     isPublic: existing?.onboardedAt ? existing.isPublic : true,
   });
 
+  const t = useT();
   const step = STEPS[index];
+  const copy = stepCopy(step.id, t);
   const isLast = index === STEPS.length - 1;
   const patch = (p: Partial<IdentityDraft>) => {
     setDraft((d) => ({ ...d, ...p }));
@@ -88,12 +110,12 @@ export function Onboarding({
   /** Per-step gate, so a required answer can't be skipped past. */
   const stepError = (): string | null => {
     if (step.id === "name" && !draft.displayName.trim()) {
-      return "Add a name so people know who they're seeing.";
+      return t.onboarding.needName;
     }
     if (step.id === "handle") {
       const validation = validateIdentity({ ...draft, instagramUrl: "" });
       if (!validation.ok && validation.message?.includes("username")) return validation.message;
-      if (!draft.handle.trim()) return "Add your Instagram username.";
+      if (!draft.handle.trim()) return t.onboarding.needHandle;
     }
     if (step.id === "link" && draft.instagramUrl.trim()) {
       const validation = validateIdentity(draft);
@@ -126,7 +148,7 @@ export function Onboarding({
   const save = async () => {
     const validation = validateIdentity(draft);
     if (!validation.ok) {
-      setError(validation.message ?? "Check your answers.");
+      setError(validation.message ?? t.onboarding.checkAnswers);
       return;
     }
 
@@ -157,7 +179,7 @@ export function Onboarding({
       };
 
   return (
-    <AppShell title="Set up your profile" bare center>
+    <AppShell title={t.onboarding.title} bare center>
       <div className="mx-auto w-full max-w-sm">
         <Progress index={index} total={STEPS.length} />
 
@@ -170,10 +192,10 @@ export function Onboarding({
               className="text-center"
             >
               <h1 className="text-[1.6rem] font-extrabold leading-tight tracking-tight text-white">
-                {step.question}
+                {copy.question}
               </h1>
               <p className="mx-auto mt-2.5 max-w-xs text-sm leading-relaxed text-white/45">
-                {step.hint}
+                {copy.hint}
               </p>
 
               <div className="mt-7">
@@ -202,7 +224,7 @@ export function Onboarding({
             type="button"
             onClick={goBack}
             disabled={index === 0}
-            aria-label="Back"
+            aria-label={t.common.back}
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/70 transition-colors hover:bg-white/[0.08] disabled:opacity-30"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -214,7 +236,7 @@ export function Onboarding({
             disabled={saving}
             className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-blink-sky text-sm font-bold text-blink-navy transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
           >
-            {saving ? "Saving…" : isLast ? "Finish" : step.optional ? "Continue" : "Continue"}
+            {saving ? t.app.saving : isLast ? t.onboarding.finish : step.optional ? t.onboarding.continue : t.onboarding.continue}
             {!saving && (isLast ? <Check className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />)}
           </button>
         </div>
@@ -265,6 +287,7 @@ function StepControl({
   userId: string;
   onError: (message: string) => void;
 }) {
+  const t = useT();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -276,7 +299,7 @@ function StepControl({
           value={draft.displayName}
           onChange={(e) => patch({ displayName: e.target.value })}
           maxLength={40}
-          placeholder="Your name"
+          placeholder={t.identity.yourName}
           autoComplete="name"
           className={INPUT}
         />
@@ -359,7 +382,7 @@ function StepControl({
             className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/[0.1] disabled:opacity-50"
           >
             <Camera className="h-4 w-4" />
-            {uploading ? "Uploading…" : draft.avatarUrl ? "Change photo" : "Choose photo"}
+            {uploading ? t.identity.uploading : draft.avatarUrl ? "Change photo" : "Choose photo"}
           </button>
         </div>
       );

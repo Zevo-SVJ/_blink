@@ -13,6 +13,7 @@
  */
 
 import type { AnalysisResult, SignalScore } from "@/lib/analysis";
+import type { Messages } from "@/lib/messages";
 
 // ---------------------------------------------------------------------------
 // Score
@@ -42,6 +43,20 @@ const WEIGHTS = {
   coherence: 0.2,
   clarity: 0.1,
 } as const;
+
+/**
+ * Tier wording for the reader's language.
+ *
+ * `TIERS` keeps the ids and thresholds — those are the ranking system and must
+ * not move with a translation — and the words are looked up by id.
+ */
+export function tierLabel(tier: { id: string; label: string }, t?: Messages): string {
+  return t?.tiers[tier.id as keyof Messages["tiers"]]?.label ?? tier.label;
+}
+
+export function tierMeaning(tier: { id: string; meaning: string }, t?: Messages): string {
+  return t?.tiers[tier.id as keyof Messages["tiers"]]?.meaning ?? tier.meaning;
+}
 
 function signalByLabel(signals: SignalScore[], label: string): number {
   return signals.find((s) => s.label === label)?.score ?? 5;
@@ -231,8 +246,21 @@ export interface Momentum {
   direction: MomentumDirection;
   /** Points gained or lost since the previous verified analysis. */
   delta: number;
-  /** Human-readable summary. */
+  /** Human-readable summary. English; `momentumLabel` translates it. */
   label: string;
+  /**
+   * Which sentence this is, so the UI can render it in the reader's language
+   * without parsing the English one back apart.
+   */
+  key: "flat" | "delta";
+}
+
+/** The momentum summary, in the reader's language. */
+export function momentumLabel(momentum: Momentum, t?: Messages): string {
+  if (!t) return momentum.label;
+  if (momentum.key === "flat") return t.badges.noChange;
+  const signed = momentum.delta > 0 ? `+${momentum.delta}` : String(momentum.delta);
+  return `${signed} ${t.badges.sinceLast}`;
 }
 
 export interface ProfileStats {
@@ -258,12 +286,16 @@ export interface ProfileStats {
 export function computeMomentum(history: ScoreEntry[]): Momentum {
   const verified = history.filter((e) => e.verified);
   if (verified.length < 2) {
-    return { direction: "flat", delta: 0, label: "No change yet" };
+    return { direction: "flat", delta: 0, label: "No change yet", key: "flat" as const };
   }
   const delta = verified[0].score - verified[1].score;
-  if (delta > 0) return { direction: "up", delta, label: `+${delta} since last update` };
-  if (delta < 0) return { direction: "down", delta, label: `${delta} since last update` };
-  return { direction: "flat", delta: 0, label: "Holding steady" };
+  if (delta > 0) {
+    return { direction: "up", delta, label: `+${delta} since last update`, key: "delta" as const };
+  }
+  if (delta < 0) {
+    return { direction: "down", delta, label: `${delta} since last update`, key: "delta" as const };
+  }
+  return { direction: "flat", delta: 0, label: "Holding steady", key: "flat" as const };
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;

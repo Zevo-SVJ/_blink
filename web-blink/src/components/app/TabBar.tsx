@@ -16,17 +16,19 @@ import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { APP_NAV, isNavActive, type NavDestination } from "@/lib/app-nav";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export function TabBar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const t = useT();
 
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-50 px-3 md:hidden"
       style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}
-      aria-label="Primary"
+      aria-label={t.app.primaryNav}
     >
       <ul className="mx-auto flex max-w-md items-center justify-between gap-0.5 rounded-[1.75rem] border border-white/[0.08] bg-blink-navy-2/80 p-1.5 shadow-[0_16px_50px_-12px_rgba(0,0,0,0.7)] backdrop-blur-2xl">
         {APP_NAV.map((item) =>
@@ -56,6 +58,7 @@ function Tab({
   onPress: () => void;
 }) {
   const Icon = item.icon;
+  const t = useT();
 
   return (
     <li className="flex-1">
@@ -89,7 +92,7 @@ function Tab({
             active ? "text-white" : "text-white/45",
           )}
         >
-          {item.label}
+          {t.app[item.labelKey]}
         </span>
       </motion.button>
     </li>
@@ -105,6 +108,7 @@ function Tab({
  */
 function PrimaryTab({ item, onPress }: { item: NavDestination; onPress: () => void }) {
   const Icon = item.icon;
+  const t = useT();
 
   return (
     <li className="flex-1">
@@ -119,7 +123,7 @@ function PrimaryTab({ item, onPress }: { item: NavDestination; onPress: () => vo
           <Icon className="h-[1.1rem] w-[1.1rem] text-blink-navy" strokeWidth={2.6} />
         </span>
         <span className="text-[0.625rem] font-bold leading-none text-white">
-          {item.label}
+          {t.app[item.labelKey]}
         </span>
       </motion.button>
     </li>

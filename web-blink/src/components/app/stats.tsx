@@ -10,7 +10,8 @@ import { motion } from "framer-motion";
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { MAX_SCORE, type Momentum, type Tier } from "@/lib/ranking";
+import { useT } from "@/lib/i18n";
+import { MAX_SCORE, momentumLabel, type Momentum, type Tier, tierLabel } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -26,6 +27,7 @@ export function ScoreDial({
   tier: Tier;
   size?: number;
 }) {
+  const t = useT();
   const stroke = Math.round(size * 0.055);
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -68,14 +70,14 @@ export function ScoreDial({
           {score}
         </motion.span>
         <span className="mt-1.5 text-[0.65rem] font-bold uppercase tracking-[0.15em] text-white/40">
-          Blink Score
+          {t.analysis.blinkScore}
         </span>
         <span className="mt-2 rounded-full bg-blink-sky/15 px-3 py-1 text-xs font-bold text-blink-sky">
-          {tier.label}
+          {tierLabel(tier, t)}
         </span>
       </div>
       <span className="sr-only">
-        {score} out of {MAX_SCORE}. Tier: {tier.label}.
+        {score} out of {MAX_SCORE}. Tier: {tierLabel(tier, t)}.
       </span>
     </div>
   );
@@ -123,6 +125,7 @@ export function StatTile({
 // ---------------------------------------------------------------------------
 
 export function MomentumPill({ momentum }: { momentum: Momentum }) {
+  const t = useT();
   const config = {
     up: { Icon: TrendingUp, className: "bg-emerald-400/10 text-emerald-300" },
     down: { Icon: TrendingDown, className: "bg-amber-400/10 text-amber-300" },
@@ -139,7 +142,7 @@ export function MomentumPill({ momentum }: { momentum: Momentum }) {
       )}
     >
       <Icon className="h-3.5 w-3.5" />
-      {momentum.label}
+      {momentumLabel(momentum, t)}
     </span>
   );
 }

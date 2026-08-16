@@ -49,6 +49,11 @@ const ICONS: Record<BadgeIcon, string> = {
   peak: "M13.5 3 L23 12.5 H18 L13.5 8 L9 12.5 H4 Z M13.5 11 L23 20.5 H18 L13.5 16 L9 20.5 H4 Z",
   // Single rising arrow.
   movement: "M13.5 3 L22 13 H17 V21 H10 V13 H5 Z",
+  /* The same arrow, mirrored.
+     There used to be only the rising one, so a profile that had *lost* a place
+     showed an upward arrow over the value "-1" — the emblem asserting the
+     opposite of the number printed inside it. */
+  movementDown: "M13.5 21 L22 11 H17 V3 H10 V11 H5 Z",
   // Four-point spark.
   momentum:
     "M13.5 2 L16 10.5 L24.5 13 L16 15.5 L13.5 24 L11 15.5 L2.5 13 L11 10.5 Z",

@@ -71,6 +71,35 @@ Blink uses **native Supabase Auth** (not Rork Auth).
 ### Database
 The `profiles` and `analyses` tables are created via SQL migration. A trigger auto-creates a profile row on signup.
 
+## Migrations
+
+Blink has no migration runner. Every file in `backend/migrations/` is applied by
+hand, in order, by pasting it into the **Supabase SQL editor**. They are
+idempotent, so re-running one that has already been applied changes nothing.
+
+| file | what it does | if it hasn't been run |
+|---|---|---|
+| `0002_ranking_and_leaderboards.sql` | scores, ranks, the `leaderboard` view | the board is empty |
+| `0003_profile_identity_and_avatars.sql` | handles, avatars, countries | those fields are missing from profiles |
+| `0004_public_profile_onboarding.sql` | `instagram_url`, public opt-in | no "View Instagram" button |
+| `0005_leaderboard_suggestions.sql` | the `leaderboard_suggestions` table | "Add someone" reports it can't save, and saves nothing |
+| `0006_account_deletion_and_data_rights.sql` | `delete_my_account()` and the missing delete policies | **"Delete your account" cannot erase everything it says it erases.** Apply this one. |
+| `0007_suggestion_category.sql` | `leaderboard_suggestions.category` | a person you add appears under **All** but not under the board you filed them on |
+
+The client tolerates an unapplied migration rather than crashing — it detects
+the missing table (`42P01`) or column (`42703`) and degrades — so a deploy
+never *breaks* on one. But "degrades" means a feature quietly does less than
+the UI implies, which is what the right-hand column above records. `0006` is
+the one whose consequence is legal rather than cosmetic.
+
+To see a degraded path rather than reason about it:
+
+```sh
+DROP_COLUMNS=leaderboard_suggestions.category node qa/mock-backend.mjs
+```
+
+See `qa/README.md`.
+
 ## Project Structure
 
 ```

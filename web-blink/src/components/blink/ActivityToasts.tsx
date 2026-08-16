@@ -74,19 +74,41 @@ export function ActivityToasts() {
   if (reduceMotion) return null;
 
   return (
+    /*
+      Grid, not flex — and that is the whole fix for the drift.
+
+      This was `flex justify-center`. `AnimatePresence` keeps a leaving
+      notification mounted while the next one enters, so for those few hundred
+      milliseconds the container held *two* children, and `justify-center`
+      centred the pair: both sat off to one side, and the survivor slid
+      sideways into the real centre the moment its predecessor unmounted. It
+      looked like the notification flew in from the left. How far it travelled
+      depended on the width of the other card, which is why it varied with the
+      text and looked random.
+
+      Placing every child in the same grid cell (`[grid-area:1/1]`) with
+      `justify-items-center` centres each one *independently of its siblings*.
+      A notification's horizontal position is now a function of its own width
+      alone, correct on its first rendered frame, whether it is the only one on
+      screen or overlapping the previous one. The vertical/fade/scale entrance
+      is untouched — it is the same spring on the same properties.
+    */
     <div
       aria-live="off"
-      className="pointer-events-none fixed inset-x-0 top-[4.25rem] z-30 flex justify-center px-4"
+      className="pointer-events-none fixed inset-x-0 top-[4.25rem] z-30 grid justify-items-center px-4"
     >
       <AnimatePresence>
         {event && (
           <motion.div
             key={event.id}
+            // Handle for `qa/toast-position.mjs`, which samples this element's
+            // centre offset every frame to prove it never drifts sideways.
+            data-activity-toast=""
             initial={{ opacity: 0, y: -10, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 420, damping: 34 }}
-            className="flex max-w-[calc(100vw-2rem)] items-center gap-2.5 rounded-full bg-blink-navy-2/85 py-2 pl-2.5 pr-3.5 shadow-[0_12px_34px_-16px_rgba(0,0,0,0.9)] ring-1 ring-white/[0.09] backdrop-blur-xl"
+            className="flex max-w-[calc(100vw-2rem)] [grid-area:1/1] items-center gap-2.5 rounded-full bg-blink-navy-2/85 py-2 pl-2.5 pr-3.5 shadow-[0_12px_34px_-16px_rgba(0,0,0,0.9)] ring-1 ring-white/[0.09] backdrop-blur-xl"
           >
             <span
               aria-hidden

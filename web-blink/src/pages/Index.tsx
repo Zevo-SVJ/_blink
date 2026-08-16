@@ -1,6 +1,6 @@
 import { MotionConfig } from "framer-motion";
 import { useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { FAQSection } from "@/components/blink/FAQSection";
 import { FinalCTA } from "@/components/blink/FinalCTA";
@@ -13,10 +13,22 @@ import { Navbar } from "@/components/blink/Navbar";
 import { PageBackground } from "@/components/blink/PageBackground";
 import { Testimonials } from "@/components/blink/Testimonials";
 import { useAuth } from "@/hooks/useAuth";
+import { useT } from "@/lib/i18n";
 
 const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const t = useT();
+  const location = useLocation();
+
+  /**
+   * Someone who just deleted their account, in a deployment where the login
+   * record could not be removed from the client, lands here. Telling them what
+   * is still outstanding is the whole point — a silent redirect would let them
+   * believe a deletion finished when part of it has not.
+   */
+  const partialDeletion =
+    (location.state as { accountDeletion?: string } | null)?.accountDeletion === "partial";
 
   /**
    * Every CTA on this page routes through here.
@@ -42,6 +54,18 @@ const Index = () => {
         {/* Landing only — see the component's note. Mounted here rather than in
             the shell so it can never follow anyone into the app. */}
         <ActivityToasts />
+
+        {partialDeletion && (
+          <div
+            role="status"
+            className="mx-auto mt-20 max-w-xl px-4 sm:px-6"
+          >
+            <p className="rounded-2xl border border-blink-sky/20 bg-blink-sky/[0.07] px-4 py-3 text-sm leading-relaxed text-white/75">
+              {t.settings.deletePartial}
+            </p>
+          </div>
+        )}
+
         <main>
           <Hero onCTA={handleCTA} />
           <HowItWorks onCTA={handleCTA} />

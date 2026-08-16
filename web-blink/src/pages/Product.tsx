@@ -18,7 +18,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ImagePlus, Lock, RefreshCw, Share2, Trophy, User } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import {
   AnalysisResult,
@@ -35,7 +35,7 @@ import { ScoreRing } from "@/components/blink/ScoreRing";
 import { useAuth } from "@/hooks/useAuth";
 import {
   AnalysisError,
-  ERROR_MESSAGES,
+  errorMessages,
   analyzeProfile,
   getAnalysisMessages,
   isRefusal,
@@ -50,7 +50,9 @@ import {
   recordAnalysis,
   type RecordedAnalysis,
 } from "@/lib/blink-profile";
-import { getMockMode, mockAnalyze } from "@/lib/dev-mock";
+import { useBackTo } from "@/lib/app-nav";
+import { getMockDelay, getMockMode, mockAnalyze } from "@/lib/dev-mock";
+import { useI18n, useT } from "@/lib/i18n";
 import { fetchMyStanding, fetchScoreStanding } from "@/lib/leaderboard";
 import { getVoice, type Voice } from "@/lib/ownership";
 import { pdpAnchor } from "@/lib/pdp";
@@ -118,6 +120,16 @@ export default function Product() {
   const [progression, setProgression] = useState<RecordedAnalysis | null>(null);
   /** Points gained on a re-scan, while the confirmation is on screen. */
   const [gain, setGain] = useState<number | null>(null);
+  /**
+   * Set when a finished analysis could not be written to the account.
+   *
+   * The failure mode this exists for is an expired session: React still holds
+   * a `user`, so the result renders normally, but every write 401s. The
+   * analysis then looks saved, is not in Library, and the profile never
+   * reaches Ranks — which is indistinguishable from the feature being broken.
+   * Losing someone's result is worth a sentence.
+   */
+  const [saveFailed, setSaveFailed] = useState(false);
   const [standing, setStanding] = useState<PublicStanding | null>(null);
   const [myRank, setMyRank] = useState<number | null>(null);
   const [myStats, setMyStats] = useState<ProfileStats | null>(null);
@@ -125,6 +137,10 @@ export default function Product() {
   const previewUrlRef = useRef<string>("");
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { lang, t } = useI18n();
+  // Error copy follows the reader's language; `AnalysisError` still carries the
+  // English text for logs, which is where it belongs.
+  const errors = errorMessages(lang);
 
   // Kept in a ref so the unmount cleanup always revokes the current URL
   // without needing `previewUrl` in its dependency list.
@@ -153,11 +169,11 @@ export default function Product() {
       setError(null);
       setErrorCode(null);
       if (!ACCEPTED_TYPES.includes(selectedFile.type)) {
-        setError(ERROR_MESSAGES.INVALID_IMAGE);
+        setError(errors.INVALID_IMAGE);
         return;
       }
       if (selectedFile.size > MAX_SIZE_MB * 1024 * 1024) {
-        setError(ERROR_MESSAGES.IMAGE_TOO_LARGE);
+        setError(errors.IMAGE_TOO_LARGE);
         return;
       }
       const url = URL.createObjectURL(selectedFile);
@@ -170,11 +186,11 @@ export default function Product() {
       };
       img.onerror = () => {
         URL.revokeObjectURL(url);
-        setError(ERROR_MESSAGES.INVALID_IMAGE);
+        setError(errors.INVALID_IMAGE);
       };
       img.src = url;
     },
-    [clearImage],
+    [clearImage, errors],
   );
 
   const handleAnalyze = async () => {
@@ -187,13 +203,14 @@ export default function Product() {
     setRevealStage(0);
     setProgression(null);
     setGain(null);
+    setSaveFailed(false);
 
     try {
       // Dev-only escape hatch for exercising the animation and both result
       // variants without live credentials. Compiled out of production builds.
       const mock = import.meta.env.DEV ? getMockMode(window.location.search) : null;
       if (mock) {
-        setResult(await mockAnalyze(mock));
+        setResult(await mockAnalyze(mock, getMockDelay(window.location.search)));
         return;
       }
 
@@ -212,7 +229,7 @@ export default function Product() {
           : err instanceof Error && err.message === "IMAGE_TOO_LARGE"
             ? "IMAGE_TOO_LARGE"
             : "ANALYSIS_FAILED";
-      setError(ERROR_MESSAGES[code]);
+      setError(errors[code]);
       setErrorCode(code);
       setScreen("preview");
     }
@@ -267,8 +284,10 @@ export default function Product() {
   const persist = useCallback(
     async (analysis: AnalysisResultType, sourceFile: File, userId: string) => {
       try {
+        setSaveFailed(false);
         const { base64 } = await resizeForUpload(sourceFile);
         const saved = await saveAnalysis(userId, analysis);
+        if (!saved) setSaveFailed(true);
         const recorded = await recordAnalysis(userId, analysis, base64, saved?.id);
         if (recorded.status === "ok") {
           setProgression(recorded.data);
@@ -284,8 +303,10 @@ export default function Product() {
         const full = await fetchFullProfile(userId, null);
         if (full.status === "ok") setMyStats(full.data.stats);
       } catch (err) {
-        // A failed save must not take down a result the user is already reading.
+        // A failed save must not take down a result the user is already
+        // reading — but it must not be invisible either.
         console.error("[persist]", err);
+        setSaveFailed(true);
       }
     },
     [],
@@ -303,19 +324,25 @@ export default function Product() {
 
   const inAnalysisMode = screen === "analyzing" || screen === "result";
 
+  /*
+    Back steps *within* the flow before it leaves it: from the preview, back
+    means "pick a different screenshot", not "abandon this". Only from the
+    upload screen, or from a finished analysis, does it leave — and then it
+    returns to wherever the user actually came from (Home, Ranks, the tab bar,
+    the landing) rather than always Home. `leaveFlow` handles the case where
+    there is nothing to return to, which is a direct link to /analyze.
+  */
+  const leaveFlow = useBackTo(user ? "/app" : "/");
+
   const goBack = () => {
-    if (screen === "result" || screen === "analyzing") {
-      // Don't strand the user on a finished analysis.
-      navigate(user ? "/app" : "/");
-      return;
-    }
     if (screen === "preview") {
       clearImage();
       setScreen("upload");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
-    navigate(user ? "/app" : "/");
+    // Includes a finished analysis: don't strand the user on a result.
+    leaveFlow();
   };
 
   // The tab bar is mounted by `AppChrome` and is already on screen when this
@@ -338,14 +365,26 @@ export default function Product() {
 
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-blink-navy/50 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+          {/* The label is `hidden sm:inline` by design — on a phone this is an
+              arrow and nothing else. That left the control with no accessible
+              name at exactly the width where most people use it: a screen
+              reader announced "button". `aria-label` carries the same word the
+              sighted label would, so the button is named at every width
+              without changing what is drawn. */}
           <button
             type="button"
             onClick={goBack}
-            className="group flex items-center gap-2 text-sm font-semibold text-white/60 transition-colors hover:text-white"
+            aria-label={
+              screen === "preview" ? t.product.change : user ? t.product.home : t.product.back
+            }
+            className="group flex min-h-[44px] items-center gap-2 text-sm font-semibold text-white/60 transition-colors hover:text-white"
           >
-            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+            <ArrowLeft
+              className="h-4 w-4 transition-transform group-hover:-translate-x-0.5"
+              aria-hidden
+            />
             <span className="hidden sm:inline">
-              {screen === "preview" ? "Change" : user ? "Home" : "Back"}
+              {screen === "preview" ? t.product.change : user ? t.product.home : t.product.back}
             </span>
           </button>
 
@@ -464,11 +503,26 @@ export default function Product() {
 
       {gain !== null && <ScoreGain delta={gain} onDone={() => setGain(null)} />}
 
+      {/* An analysis that could not be written to the account. Shown rather
+          than logged, because the alternative is a result that silently never
+          reaches Library or Ranks and looks like a broken feature. */}
+      {saveFailed && screen === "result" && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--blink-app-nav,0px)+max(env(safe-area-inset-bottom),1rem))] z-[60] flex justify-center px-4">
+          <p
+            role="alert"
+            className="pointer-events-auto max-w-sm rounded-2xl bg-amber-500/15 px-4 py-2.5 text-center text-[0.78rem] font-medium leading-relaxed text-amber-200 ring-1 ring-amber-400/25 backdrop-blur-xl"
+          >
+            This result couldn&rsquo;t be saved to your account — it won&rsquo;t
+            appear in Library or Ranks. Check your connection and analyze again.
+          </p>
+        </div>
+      )}
+
       <AuthModal
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        title="Unlock your Blink results"
-        subtitle="Create your account to see the complete analysis."
+        title={t.product.unlockTitle}
+        subtitle={t.product.unlockSubtitle}
       />
     </div>
   );
@@ -495,6 +549,8 @@ function UploadScreen({
   onDragOver: () => void;
   onDragLeave: () => void;
 }) {
+  const t = useT();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -507,11 +563,10 @@ function UploadScreen({
         <ImagePlus className="h-8 w-8 text-blink-sky" />
       </div>
       <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-        Show us a profile.
+        {t.product.uploadTitle}
       </h1>
       <p className="mt-4 max-w-sm text-base leading-relaxed text-white/55">
-        Upload a screenshot of an Instagram profile and Blink will analyze the first
-        impression it gives.
+        {t.product.uploadBody}
       </p>
 
       <div className="mt-10 w-full max-w-sm">
@@ -542,9 +597,9 @@ function UploadScreen({
         >
           <div className="flex flex-col items-center">
             <ProfilePlaceholder />
-            <p className="mt-5 text-sm font-bold text-white">Upload profile screenshot</p>
+            <p className="mt-5 text-sm font-bold text-white">{t.product.dropzone}</p>
             <p className="mt-1 text-xs font-medium text-white/45">
-              PNG, JPG, WEBP — max {MAX_SIZE_MB}MB
+              {t.product.dropzoneFormats.replace("{mb}", String(MAX_SIZE_MB))}
             </p>
           </div>
         </div>
@@ -563,9 +618,23 @@ function UploadScreen({
           )}
         </AnimatePresence>
 
-        <div className="mt-6 flex items-center justify-center gap-2 text-xs font-medium text-white/40">
-          <Lock className="h-3.5 w-3.5 shrink-0" />
-          <span>Your screenshot is analyzed and deleted. Never stored or shared.</span>
+        {/* The claim made at the moment someone hands over an image, so it is
+            the one that has to be exactly right. It used to read "analyzed and
+            deleted. Never stored or shared", and the second sentence was
+            false: the screenshot is sent to an external AI provider, which is
+            how the analysis exists at all. Saying so costs nothing and is the
+            difference between a privacy notice and a privacy claim. */}
+        <div className="mt-6 flex flex-col items-center gap-1 text-center text-xs font-medium text-white/40">
+          <span className="flex items-center gap-2">
+            <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {t.product.uploadPrivacy}
+          </span>
+          <Link
+            to="/privacy"
+            className="inline-flex min-h-[44px] items-center text-white/50 underline underline-offset-2 transition-colors hover:text-white"
+          >
+            {t.product.uploadPrivacyLink}
+          </Link>
         </div>
       </div>
     </motion.div>
@@ -606,6 +675,8 @@ function PreviewScreen({
   onRetry: () => void;
   onChange: () => void;
 }) {
+  const t = useT();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -617,7 +688,7 @@ function PreviewScreen({
       <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
         Your screenshot
       </h1>
-      <p className="mt-2 text-sm text-white/50">Looks good?</p>
+      <p className="mt-2 text-sm text-white/50">{t.product.looksGood}</p>
 
       {/* Bounded on both axes so any aspect ratio fits without stretching. */}
       <div
@@ -626,7 +697,7 @@ function PreviewScreen({
       >
         <img
           src={previewUrl}
-          alt="Your profile screenshot"
+          alt={t.product.screenshotAlt}
           className="block h-auto w-auto min-w-0 rounded-2xl border border-white/10 object-contain shadow-xl"
           style={{ maxHeight: STAGE_HEIGHT, maxWidth: STAGE_MAX_WIDTH }}
         />
@@ -665,7 +736,7 @@ function PreviewScreen({
               )}
             >
               <RefreshCw className="h-4 w-4" />
-              {refused ? "Choose another screenshot" : "Try again"}
+              {refused ? t.product.chooseAnother : t.product.tryAgain}
             </button>
           </motion.div>
         )}
@@ -673,7 +744,7 @@ function PreviewScreen({
 
       {!error && (
         <div className="mt-8 flex w-full max-w-sm flex-col gap-3">
-          <CTAButton label="Analyze this profile" onClick={onAnalyze} size="lg" className="w-full" />
+          <CTAButton label={t.product.analyzeThis} onClick={onAnalyze} size="lg" className="w-full" />
           <button
             type="button"
             onClick={onChange}
@@ -742,7 +813,8 @@ export function AnalysisScreen({
   const imgRef = useRef<HTMLImageElement>(null);
   const stageTimers = useRef<number[]>([]);
 
-  const messages = getAnalysisMessages(ownership);
+  const { lang, t } = useI18n();
+  const messages = getAnalysisMessages(ownership, lang);
 
   /**
    * Map the avatar's position in the *image* onto the *displayed* element.
@@ -990,7 +1062,7 @@ export function AnalysisScreen({
             <img
               ref={imgRef}
               src={previewUrl}
-              alt="The profile being analyzed"
+              alt={t.product.analyzingAlt}
               className="block h-auto w-auto object-contain"
               style={{ maxHeight: STAGE_HEIGHT, maxWidth: STAGE_MAX_WIDTH }}
               draggable={false}
@@ -1052,6 +1124,9 @@ export function AnalysisScreen({
             {target && locating && (
               <motion.span
                 aria-hidden
+                // Handle for `qa/animations.mjs`, which measures this reticle
+                // against the avatar's real position on screen.
+                data-pdp-target=""
                 className="pointer-events-none absolute rounded-full ring-2 ring-blink-sky"
                 style={{
                   left: target.localX - target.localRadius,
@@ -1102,7 +1177,7 @@ export function AnalysisScreen({
               transition={{ duration: 0.3 }}
               className="min-w-0 flex-1 truncate text-xs font-medium text-white/60 sm:text-sm"
             >
-              {messages[messageIdx] ?? "Analyzing…"}
+              {messages[messageIdx] ?? t.product.analyzing}
             </motion.p>
           </AnimatePresence>
           <span className="shrink-0 text-xs font-bold tabular-nums text-white/40">
@@ -1251,7 +1326,8 @@ function ResultScreen({
   onUnlock: () => (() => void) | void;
   onAnalyzeAnother: () => void;
 }) {
-  const voice = getVoice(result.ownership, result.subjectGender);
+  const { lang } = useI18n();
+  const voice = getVoice(result.ownership, result.subjectGender, lang);
 
   if (!unlocked) return <LockedResult result={result} voice={voice} onUnlock={onUnlock} />;
 
@@ -1300,6 +1376,7 @@ function ProgressionCard({
   progression: RecordedAnalysis | null;
   result: AnalysisResultType;
 }) {
+  const t = useT();
   const score = progression?.score ?? computeBlinkScore(result).total;
 
   if (!progression) {
@@ -1331,7 +1408,7 @@ function ProgressionCard({
           check.counts ? "text-emerald-300/80" : "text-amber-300/80",
         )}
       >
-        {check.counts ? "Verified — this counts" : "Not counted"}
+        {check.counts ? t.product.counts : t.product.notCounted}
       </p>
 
       <div className="mt-2 flex items-baseline gap-3">
@@ -1350,7 +1427,7 @@ function ProgressionCard({
 
       <p className="mt-1.5 text-xs leading-relaxed text-white/55">
         {check.counts
-          ? "Your rank has been updated from this screenshot."
+          ? t.product.rankUpdated
           : check.message}
       </p>
     </div>
@@ -1435,6 +1512,7 @@ function LockedResult({
   voice: Voice;
   onUnlock: () => (() => void) | void;
 }) {
+  const t = useT();
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1507,7 +1585,7 @@ function LockedResult({
             </p>
             <p className="mt-1 text-xs text-white/40">
               {voice.isOwn
-                ? "See how your profile comes across — and what you can do about it."
+                ? t.product.lockedBody
                 : `See how ${voice.subject} comes across to different people.`}
             </p>
 
@@ -1517,9 +1595,9 @@ function LockedResult({
               className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-blink-sky px-8 py-3.5 text-sm font-bold text-blink-navy transition-all hover:scale-[1.02] hover:bg-[hsl(var(--blink-sky-2))]"
             >
               <Lock className="h-4 w-4" />
-              Unlock the results
+              {t.product.unlock}
             </button>
-            <p className="mt-3 text-xs text-white/30">Free — create an account or sign in</p>
+            <p className="mt-3 text-xs text-white/30">{t.product.lockedFree}</p>
           </div>
         </div>
       </div>

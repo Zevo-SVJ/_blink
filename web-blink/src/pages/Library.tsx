@@ -18,6 +18,7 @@ import {
   type SavedAnalysis,
 } from "@/lib/analysis";
 import { categoryLabel } from "@/lib/categories";
+import { useI18n, useT } from "@/lib/i18n";
 import { getVoice } from "@/lib/ownership";
 import { computeBlinkScore, getTier } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ type Load =
 
 export default function Library() {
   const navigate = useNavigate();
+  const t = useT();
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [filter, setFilter] = useState<Filter>("all");
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -44,10 +46,10 @@ export default function Library() {
       console.error("[Library]", err);
       setLoad({
         state: "error",
-        message: "Blink couldn't load your analyses. Check your connection and try again.",
+        message: t.library.loadFailed,
       });
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void refresh();
@@ -71,7 +73,7 @@ export default function Library() {
   );
 
   return (
-    <AppShell title="Library" subtitle="Every profile you've analyzed.">
+    <AppShell title={t.library.title} subtitle={t.library.subtitle}>
       {load.state === "loading" && <SkeletonList rows={4} />}
 
       {load.state === "error" && (
@@ -81,15 +83,15 @@ export default function Library() {
       {load.state === "ready" && analyses.length === 0 && (
         <EmptyState
           icon={LayoutGrid}
-          title="No analyses yet"
-          description="Analyze a profile to start building your library."
+          title={t.library.emptyTitle}
+          description={t.library.emptyBody}
           action={
             <button
               type="button"
               onClick={() => navigate("/analyze")}
               className="rounded-2xl bg-blink-sky px-6 py-3 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.02]"
             >
-              Analyze a profile
+              {t.home.analyzeTitle}
             </button>
           }
         />
@@ -101,7 +103,7 @@ export default function Library() {
 
           {visible.length === 0 ? (
             <p className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 text-center text-sm text-white/40">
-              Nothing here with that filter.
+              {t.library.noneWithFilter}
             </p>
           ) : (
             <div className="space-y-2.5">
@@ -130,10 +132,11 @@ function FilterTabs({
   filter: Filter;
   onChange: (f: Filter) => void;
 }) {
+  const t = useT();
   const tabs: Array<{ id: Filter; label: string }> = [
-    { id: "all", label: "All" },
-    { id: "own", label: "Your profile" },
-    { id: "other", label: "Others" },
+    { id: "all", label: t.ranksPage.all },
+    { id: "own", label: t.library.yours },
+    { id: "other", label: t.library.others },
   ];
 
   return (
@@ -178,9 +181,10 @@ function AnalysisRow({
   onOpen: () => void;
   onDelete: () => void;
 }) {
-  const voice = getVoice(analysis.ownership, analysis.result.subjectGender);
+  const { lang, t } = useI18n();
+  const voice = getVoice(analysis.ownership, analysis.result.subjectGender, lang);
   const score = computeBlinkScore(analysis.result).total;
-  const category = categoryLabel(analysis.result.category?.category);
+  const category = categoryLabel(analysis.result.category?.category, t);
   const handle = analysis.result.handle;
 
   return (
@@ -201,9 +205,14 @@ function AnalysisRow({
             <span className="truncate">
               {handle ? `@${handle}` : analysis.result.firstImpression}
             </span>
+            {/* Says whose profile was read, not who can see the reading.
+                The chip used to say "Public", which was false twice over: the
+                analysis is self-read only under RLS, and Ranks labels the very
+                same person "Private" — one row, two contradictory claims about
+                the same thing. */}
             {!voice.isOwn && (
               <span className="shrink-0 rounded-full bg-white/[0.08] px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-white/45">
-                Public
+                {t.library.someoneElse}
               </span>
             )}
           </p>

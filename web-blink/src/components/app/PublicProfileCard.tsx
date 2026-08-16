@@ -31,7 +31,9 @@ import { buildBadges, buildStatusBadges } from "@/lib/badges";
 import { categoryLabel } from "@/lib/categories";
 import { countryName, flagEmoji } from "@/lib/countries";
 import type { LeaderboardEntry } from "@/lib/leaderboard";
-import { MAX_SCORE, getTier } from "@/lib/ranking";
+import { MAX_SCORE, getTier, tierLabel } from "@/lib/ranking";
+import { isClaimed, VerifiedMark } from "@/components/app/VerifiedMark";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export interface PublicProfileView {
@@ -69,24 +71,28 @@ export function PublicProfileCard({
   view: PublicProfileView;
   isMe?: boolean;
 }) {
-  const name = view.displayName || (view.handle ? `@${view.handle}` : "Anonymous");
+  const t = useT();
+  const name = view.displayName || (view.handle ? `@${view.handle}` : t.publicProfile.anonymous);
   const tier = getTier(view.score);
   const progress = Math.min(100, (view.score / MAX_SCORE) * 100);
 
   // Only claim a category standing when there is an actual row in that board.
   const categoryClaim =
     view.standing?.category && view.standing.categoryRank > 0
-      ? { label: categoryLabel(view.standing.category)!, rank: view.standing.categoryRank }
+      ? { label: categoryLabel(view.standing.category, t)!, rank: view.standing.categoryRank }
       : null;
 
   // Status first, and only when actually held — a shelf of locked trophies
   // reads as failure, an absent shelf reads as "not yet".
-  const status = buildStatusBadges({
-    rank: view.standing?.rank ?? null,
-    categoryRank: categoryClaim?.rank ?? null,
-    categoryLabel: categoryClaim?.label ?? null,
-    movement: view.standing?.movement ?? null,
-  });
+  const status = buildStatusBadges(
+    {
+      rank: view.standing?.rank ?? null,
+      categoryRank: categoryClaim?.rank ?? null,
+      categoryLabel: categoryClaim?.label ?? null,
+      movement: view.standing?.movement ?? null,
+    },
+    t,
+  );
 
   const badges = buildBadges(
     {
@@ -98,6 +104,7 @@ export function PublicProfileCard({
       verifiedCount: view.verifiedCount,
     },
     isMe,
+    t,
   );
 
   return (
@@ -109,6 +116,10 @@ export function PublicProfileCard({
         <div className="min-w-0 flex-1">
           <h2 className="flex items-center gap-2 text-xl font-extrabold leading-tight tracking-tight text-white">
             <span className="truncate">{name}</span>
+            {/* Only for a profile whose owner analysed it themselves. A
+                profile someone else analysed never reaches this component —
+                and if it ever did, `isClaimed` would still say no. */}
+            {isClaimed(view) && <VerifiedMark size={15} />}
             {view.country && (
               <span
                 className="shrink-0 text-base"
@@ -136,14 +147,14 @@ export function PublicProfileCard({
       {/* Standing — the numbers, as a headline plus a rule-separated row. */}
       <section>
         <p className="text-[0.62rem] font-bold uppercase tracking-[0.14em] text-white/35">
-          Blink Score
+          {t.analysis.blinkScore}
         </p>
         <div className="mt-1 flex items-baseline gap-3">
           <span className="text-[3.25rem] font-extrabold leading-[0.9] tabular-nums tracking-tight text-white">
             {view.score}
           </span>
           <span className="text-sm font-bold uppercase tracking-[0.12em] text-blink-sky">
-            {tier.label}
+            {tierLabel(tier, t)}
           </span>
         </div>
 
@@ -158,9 +169,9 @@ export function PublicProfileCard({
 
         <dl className="mt-4 flex items-stretch">
           <Fact
-            label="Global"
+            label={t.profilePage.global}
             /* Never "#—": if they aren't ranked, say so plainly. */
-            value={view.standing ? formatRank(view.standing.rank) : "Unranked"}
+            value={view.standing ? formatRank(view.standing.rank) : t.ranksPage.unranked}
             muted={!view.standing}
           />
           {categoryClaim && (
@@ -170,7 +181,7 @@ export function PublicProfileCard({
             />
           )}
           <Fact
-            label="Verified"
+            label={t.profilePage.verified}
             value={String(view.verifiedCount)}
             muted={view.verifiedCount === 0}
           />

@@ -43,6 +43,8 @@ import { CTAButton } from "@/components/blink/CTAButton";
 import { PageBackground } from "@/components/blink/PageBackground";
 import { useAuth } from "@/hooks/useAuth";
 import { BRAND } from "@/lib/brand";
+import { useBackTo } from "@/lib/app-nav";
+import { useI18n } from "@/lib/i18n";
 import { fetchPublicStanding, type LeaderboardEntry } from "@/lib/leaderboard";
 
 type Load =
@@ -54,7 +56,11 @@ type Load =
 export default function PublicProfile() {
   const { id } = useParams<{ id: string }>();
   const { user, isLoading: authLoading } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
+  // A public profile is opened from Ranks, from Library, or from a link
+  // somebody sent. Only the last of those has no history to return to.
+  const goBack = useBackTo("/ranks");
   const [load, setLoad] = useState<Load>({ state: "loading" });
 
   const refresh = useCallback(async () => {
@@ -81,8 +87,8 @@ export default function PublicProfile() {
 
   const entry = load.state === "ready" ? load.entry : null;
   const title = entry
-    ? (entry.handle ? `@${entry.handle}` : (entry.displayName ?? "Profile"))
-    : "Profile";
+    ? (entry.handle ? `@${entry.handle}` : (entry.displayName ?? t.publicProfile.notAvailableTitle))
+    : t.app.tabProfile;
 
   // The profile fetch does not depend on the session, so it runs regardless.
   // Only the chrome waits — rendering the app shell and then swapping it for
@@ -98,8 +104,8 @@ export default function PublicProfile() {
       {load.state === "missing" && (
         <EmptyState
           icon={UserX}
-          title="Profile not available"
-          description="This profile is private, or it isn't on the leaderboard yet."
+          title={t.publicProfile.notAvailableTitle}
+          description={t.publicProfile.notAvailableBody}
           action={
             user ? (
               <button
@@ -107,7 +113,7 @@ export default function PublicProfile() {
                 onClick={() => navigate("/ranks")}
                 className="rounded-2xl bg-blink-sky px-6 py-3 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.02]"
               >
-                Back to Ranks
+                {t.publicProfile.backToRanks}
               </button>
             ) : (
               // Ranks is behind the session. Offering it to a signed-out
@@ -140,11 +146,11 @@ export default function PublicProfile() {
       action={
         <button
           type="button"
-          onClick={() => navigate("/ranks")}
+          onClick={goBack}
           className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-2 text-xs font-bold text-white/80 transition-colors hover:bg-white/[0.1]"
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Ranks
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+          {t.common.back}
         </button>
       }
     >
@@ -163,6 +169,8 @@ export default function PublicProfile() {
  * exactly where it does when signed in.
  */
 function PublicShell({ title, children }: { title: string; children: React.ReactNode }) {
+  const { t } = useI18n();
+
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       <PageBackground />
@@ -179,7 +187,7 @@ function PublicShell({ title, children }: { title: string; children: React.React
             to="/analyze"
             className="inline-flex min-h-[44px] items-center rounded-full px-3 text-sm font-semibold text-white/65 transition-colors hover:text-white"
           >
-            Try it
+            {t.publicProfile.tryIt}
           </Link>
         </div>
       </header>
@@ -189,7 +197,7 @@ function PublicShell({ title, children }: { title: string; children: React.React
           {title}
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-white/50">
-          A public Blink profile.
+          {t.publicProfile.aPublicProfile}
         </p>
         <div className="mt-8">{children}</div>
       </main>
@@ -207,6 +215,8 @@ function PublicShell({ title, children }: { title: string; children: React.React
  * page makes, in the same words.
  */
 function ShareCTA({ handle, onStart }: { handle: string | null; onStart: () => void }) {
+  const { lang } = useI18n();
+
   return (
     <section className="mt-12 border-t border-white/5 pt-10 text-center">
       <h2 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
@@ -219,10 +229,16 @@ function ShareCTA({ handle, onStart }: { handle: string | null; onStart: () => v
       <div className="mt-7 flex justify-center">
         <CTAButton label={BRAND.cta} size="lg" onClick={onStart} />
       </div>
-      {/* Not "no account needed": an analysis runs signed out, but the full
-          reveal asks you to sign in. Promising otherwise sets up the letdown. */}
+      {/* Two claims, both held to the code. Not "no account needed": an
+          analysis runs signed out, but the full reveal asks you to sign in,
+          and promising otherwise sets up the letdown. Not "deleted, never
+          stored" either — the image is sent to an AI provider to be read and a
+          fingerprint of it is kept, so "not kept" is the true version and the
+          privacy policy carries the rest. */}
       <p className="mt-4 text-xs text-white/30">
-        One screenshot. Analyzed and deleted, never stored.
+        {lang === "fr"
+          ? "Une capture, lue par une IA, non conservée."
+          : "One screenshot, read by an AI, not kept."}
       </p>
     </section>
   );

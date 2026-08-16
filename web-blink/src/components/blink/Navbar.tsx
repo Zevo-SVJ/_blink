@@ -5,15 +5,19 @@ import { Menu, X } from "lucide-react";
 
 import { AuthModal } from "@/components/blink/AuthModal";
 import { CTAButton } from "@/components/blink/CTAButton";
+import { LanguageToggle } from "@/components/blink/LanguageToggle";
 import { BRAND } from "@/lib/brand";
 import { useAuth } from "@/hooks/useAuth";
+import { useT } from "@/lib/i18n";
+import type { Messages } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
-const publicLinks = [
-  { label: "How it works", href: "#how-it-works" },
-  { label: "Leaderboard", href: "#leaderboard" },
-  { label: "Reviews", href: "#reactions" },
-  { label: "FAQ", href: "#faq" },
+/** Anchors are stable; only the words are translated. */
+const PUBLIC_LINKS: Array<{ key: keyof Messages["nav"]; href: string }> = [
+  { key: "howItWorks", href: "#how-it-works" },
+  { key: "leaderboard", href: "#leaderboard" },
+  { key: "reviews", href: "#reactions" },
+  { key: "faq", href: "#faq" },
 ];
 
 export function Navbar({ onCTA }: { onCTA: () => void }) {
@@ -23,6 +27,7 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
   const [signInOpen, setSignInOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const t = useT();
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     setScrolled(latest > 10);
@@ -58,18 +63,20 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
           </Link>
 
           <div className="hidden items-center gap-8 md:flex">
-            {publicLinks.map((link) => (
+            {PUBLIC_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
                 className="text-sm font-medium text-white/60 transition-colors hover:text-white"
               >
-                {link.label}
+                {t.nav[link.key]}
               </a>
             ))}
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
+            <LanguageToggle />
+
             {/* The returning-user door. Secondary by weight, but present on
                 every width — someone who already has an account should never
                 have to hunt through a marketing page to get back in. */}
@@ -81,12 +88,12 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
               onClick={() => (user ? navigate("/app") : setSignInOpen(true))}
               className="min-h-[44px] rounded-full px-3 text-sm font-semibold text-white/65 transition-colors hover:text-white sm:px-4"
             >
-              {user ? "Open Blink" : "Log in"}
+              {user ? t.nav.openBlink : t.nav.logIn}
             </button>
 
             <div className="hidden md:block">
               <CTAButton
-                label={user ? "Analyze a profile" : "See my first impression"}
+                label={user ? t.nav.analyzeProfile : t.brand.cta}
                 onClick={handleCTA}
               />
             </div>
@@ -95,7 +102,7 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
               type="button"
               onClick={() => setMenuOpen(true)}
               className="flex h-11 w-11 items-center justify-center rounded-xl text-white/80 transition-colors hover:text-white md:hidden"
-              aria-label="Open menu"
+              aria-label={t.nav.openMenu}
             >
               <Menu className="h-6 w-6" />
             </button>
@@ -112,8 +119,8 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
           navigate("/app");
         }}
         initialMode="signin"
-        title="Welcome back"
-        subtitle="Sign in to open your Blink."
+        title={t.nav.welcomeBack}
+        subtitle={t.nav.signInToOpen}
       />
 
       {/* Mobile menu overlay */}
@@ -156,22 +163,18 @@ function MobileMenu({
   onNavigate: (path: string) => void;
   onSignOut: () => void;
 }) {
+  const t = useT();
+
   const menuItems = isAuthenticated
     ? [
-        { label: "Home", action: () => onNavigate("/app") },
-        { label: "Library", action: () => onNavigate("/library") },
-        { label: "Ranks", action: () => onNavigate("/ranks") },
-        { label: "Profile", action: () => onNavigate("/profile") },
-        { label: "Settings", action: () => onNavigate("/settings") },
-        { label: "Log out", action: onSignOut },
+        { label: BRAND.name, action: () => onNavigate("/app") },
+        { label: t.nav.library, action: () => onNavigate("/library") },
+        { label: t.nav.ranks, action: () => onNavigate("/ranks") },
+        { label: t.nav.profile, action: () => onNavigate("/profile") },
+        { label: t.nav.settings, action: () => onNavigate("/settings") },
+        { label: t.nav.logOut, action: onSignOut },
       ]
-    : [
-        { label: "Home", href: "#" },
-        { label: "How it works", href: "#how-it-works" },
-              { label: "Leaderboard", href: "#leaderboard" },
-        { label: "Reviews", href: "#reactions" },
-        { label: "FAQ", href: "#faq" },
-      ];
+    : PUBLIC_LINKS.map((link) => ({ label: t.nav[link.key], href: link.href }));
 
   return (
     <>
@@ -197,14 +200,17 @@ function MobileMenu({
           <span className="text-lg font-bold tracking-tight text-white">
             {BRAND.name}
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-11 w-11 items-center justify-center rounded-xl text-white/60 transition-colors hover:text-white"
-            aria-label="Close menu"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <LanguageToggle />
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-11 w-11 items-center justify-center rounded-xl text-white/60 transition-colors hover:text-white"
+              aria-label={t.nav.closeMenu}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="mt-8 flex flex-1 flex-col gap-1">
@@ -238,7 +244,7 @@ function MobileMenu({
 
         <div className="border-t border-white/8 pt-6">
           <CTAButton
-            label={isAuthenticated ? "Analyze a profile" : "See my first impression"}
+            label={isAuthenticated ? t.nav.analyzeProfile : t.brand.cta}
             onClick={onCTA}
             size="lg"
             className="w-full justify-center"

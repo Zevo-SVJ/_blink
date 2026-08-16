@@ -19,6 +19,7 @@ import { PageBackground } from "@/components/blink/PageBackground";
 import { useAuth } from "@/hooks/useAuth";
 import { APP_NAV_LINKS, isNavActive } from "@/lib/app-nav";
 import { BRAND } from "@/lib/brand";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -88,8 +89,22 @@ export function AppShell({
             transition={{ type: "spring", stiffness: 320, damping: 32 }}
           >
             {!bare && (
-              <header className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
+              /*
+                Wraps rather than squeezes.
+
+                The action used to be `shrink-0` next to a `min-w-0` title, so
+                on a phone the button took its full natural width and the title
+                took whatever was left — which in French was not enough:
+                "Classement" rendered as "Classeme…", and the subtitle wrapped
+                inside a column barely wider than the button. A title that
+                cannot be read is worse than a button on its own line.
+
+                `basis-64` is the width below which the title stops being
+                comfortable, so the action drops beneath it instead. Every
+                viewport that already fit both is unchanged.
+              */
+              <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+                <div className="min-w-0 flex-1 basis-64">
                   <h1 className="truncate text-[1.75rem] font-extrabold tracking-tight text-white sm:text-4xl">
                     {title}
                   </h1>
@@ -97,7 +112,7 @@ export function AppShell({
                     <p className="mt-2 text-sm leading-relaxed text-white/50">{subtitle}</p>
                   )}
                 </div>
-                {action && <div className="shrink-0 pt-1">{action}</div>}
+                {action && <div className="shrink-0 sm:pt-1">{action}</div>}
               </header>
             )}
 
@@ -111,6 +126,8 @@ export function AppShell({
 }
 
 export function AppShellLoading() {
+  const t = useT();
+
   return (
     <div className="flex min-h-screen items-center justify-center">
       <PageBackground />
@@ -119,7 +136,7 @@ export function AppShellLoading() {
         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
         className="h-8 w-8 rounded-full border-2 border-blink-sky/30 border-t-blink-sky"
       />
-      <span className="sr-only">Loading</span>
+      <span className="sr-only">{t.app.loading}</span>
     </div>
   );
 }
@@ -131,6 +148,7 @@ export function AppShellLoading() {
 function TopNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const t = useT();
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-blink-navy/60 backdrop-blur-xl">
@@ -165,7 +183,7 @@ function TopNav() {
                         transition={{ type: "spring", stiffness: 420, damping: 36 }}
                       />
                     )}
-                    <span className="relative">{item.label}</span>
+                    <span className="relative">{t.app[item.labelKey]}</span>
                   </button>
                 </li>
               );
@@ -179,7 +197,7 @@ function TopNav() {
           className="flex items-center gap-2 rounded-full bg-blink-sky px-4 py-2 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.03] active:scale-[0.98]"
         >
           <ScanLine className="h-4 w-4" />
-          Analyze
+          {t.app.tabAnalyze}
         </button>
       </div>
     </header>

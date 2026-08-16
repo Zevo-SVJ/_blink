@@ -3,9 +3,11 @@ import { motion } from "framer-motion";
 import { CTAButton } from "@/components/blink/CTAButton";
 import { BlinkLogo } from "@/components/blink/BlinkLogo";
 import { Reveal } from "@/components/blink/Reveal";
-import { BRAND } from "@/lib/brand";
+import { useT } from "@/lib/i18n";
 
 export function FinalCTA({ onCTA }: { onCTA: () => void }) {
+  const t = useT();
+
   return (
     <section className="relative overflow-hidden px-4 py-28 sm:px-6 sm:py-40">
       <div className="relative z-10 mx-auto flex max-w-2xl flex-col items-center text-center">
@@ -20,19 +22,19 @@ export function FinalCTA({ onCTA }: { onCTA: () => void }) {
 
         <Reveal delay={0.12}>
           <h2 className="mt-10 text-4xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-5xl">
-            {BRAND.tagline}
+            {t.brand.tagline}
           </h2>
         </Reveal>
 
         <Reveal delay={0.22}>
           <p className="mt-5 max-w-md text-base leading-relaxed text-white/50 sm:text-lg">
-            Your first impression is already out there. Blink shows it to you.
+            {t.finalCta.subtitle}
           </p>
         </Reveal>
 
         <Reveal delay={0.32}>
           <div className="mt-10">
-            <CTAButton label={BRAND.cta} size="lg" onClick={onCTA} />
+            <CTAButton label={t.brand.cta} size="lg" onClick={onCTA} />
           </div>
         </Reveal>
       </div>

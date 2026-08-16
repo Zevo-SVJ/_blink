@@ -28,6 +28,7 @@ import {
   type FullProfile,
 } from "@/lib/blink-profile";
 import { fetchSavedAnalyses } from "@/lib/analysis";
+import { useT } from "@/lib/i18n";
 import { fetchMyStanding, type LeaderboardEntry } from "@/lib/leaderboard";
 import { Onboarding } from "@/pages/Onboarding";
 
@@ -48,6 +49,7 @@ type Load =
     };
 
 export default function Profile() {
+  const t = useT();
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [load, setLoad] = useState<Load>({ state: "loading" });
@@ -104,7 +106,7 @@ export default function Profile() {
 
   return (
     <AppShell
-      title="Profile"
+      title={t.profilePage.title}
       // Nothing here needs the full column height until an analysis exists.
       center={load.state === "ready" && load.data.stats.verifiedCount === 0}
       action={
@@ -123,7 +125,7 @@ export default function Profile() {
             <button
               type="button"
               onClick={() => navigate("/settings")}
-              aria-label="Settings"
+              aria-label={t.profilePage.settings}
               className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.06] text-white/70 ring-1 ring-white/10 transition-colors hover:bg-white/[0.11] hover:text-white"
             >
               <SettingsIcon className="h-4 w-4" />
@@ -173,14 +175,15 @@ function ProfileBody({
   perception: Perception | null;
   onAnalyze: () => void;
 }) {
+  const t = useT();
   const { stats, profile } = data;
 
   if (stats.verifiedCount === 0) {
     return (
       <EmptyState
         icon={Sparkles}
-        title="No verified analysis yet"
-        description="Upload a screenshot of your own Instagram profile — the one showing Edit profile — to get your first Blink Score."
+        title={t.profilePage.noVerifiedTitle}
+        description={t.profilePage.noVerifiedBody}
         action={
           <button
             type="button"
@@ -233,6 +236,7 @@ function EditSheet({
   profile: BlinkProfile | null;
   onSaved: () => void;
 }) {
+  const t = useT();
   const [draft, setDraft] = useState<IdentityDraft>({
     displayName: profile?.displayName ?? "",
     handle: profile?.handle ?? "",
@@ -268,7 +272,7 @@ function EditSheet({
   const save = async () => {
     const validation = validateIdentity(draft);
     if (!validation.ok) {
-      setError(validation.message ?? "Check the fields above.");
+      setError(validation.message ?? t.profilePage.checkFields);
       return;
     }
 
@@ -304,7 +308,7 @@ function EditSheet({
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Edit your profile"
+            aria-label={t.profilePage.editDialog}
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 24 }}
@@ -313,11 +317,11 @@ function EditSheet({
             style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1.25rem)" }}
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-white">Edit profile</h2>
+              <h2 className="text-base font-bold text-white">{t.profilePage.editProfile}</h2>
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={t.app.close}
                 className="rounded-xl p-2 text-white/40 transition-colors hover:bg-white/[0.06] hover:text-white"
               >
                 <X className="h-4 w-4" />
@@ -348,7 +352,7 @@ function EditSheet({
               disabled={saving}
               className="mt-5 w-full rounded-2xl bg-blink-sky py-3.5 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
             >
-              {saving ? "Saving…" : "Save"}
+              {saving ? t.app.saving : "Save"}
             </button>
           </motion.div>
         </>

@@ -42,6 +42,7 @@ import { BadgeEmblem } from "@/components/app/BadgeEmblem";
 import { CTAButton } from "@/components/blink/CTAButton";
 import { Reveal } from "@/components/blink/Reveal";
 import type { BadgeSpec } from "@/lib/badges";
+import { useT } from "@/lib/i18n";
 import { useSectionMotion } from "@/lib/use-section-motion";
 import { cn } from "@/lib/utils";
 
@@ -88,11 +89,11 @@ const CATEGORY_PILLS = ["All", "Larp", "Creator", "Fashion", "Fitness"];
  * than a product. The run loops, so no frame is ever the last one.
  */
 const STEPS = [
-  { id: "board", caption: "Ranked on how a profile reads. Not on followers.", ms: 2300 },
-  { id: "climb", caption: "Improve something real, and you move.", ms: 2400 },
-  { id: "categories", caption: "You're ranked inside a category, too.", ms: 1900 },
-  { id: "larp", caption: "Larp — one of Blink's categories.", ms: 2000 },
-  { id: "badges", caption: "Rank high enough and it becomes status.", ms: 3000 },
+  { id: "board", caption: "captionBoard", ms: 2300 },
+  { id: "climb", caption: "captionClimb", ms: 2400 },
+  { id: "categories", caption: "captionCategories", ms: 1900 },
+  { id: "larp", caption: "captionLarp", ms: 2000 },
+  { id: "badges", caption: "captionBadges", ms: 3000 },
 ] as const;
 
 /** The status a first-in-category, first-overall profile actually holds. */
@@ -135,6 +136,7 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
   // The ref goes on the board, not on the section — see `useSectionMotion`.
   const { ref, inView } = useSectionMotion();
   const reduceMotion = useReducedMotion();
+  const t = useT();
   const [index, setIndex] = useState(0);
 
   /**
@@ -190,14 +192,13 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
       <div className="mx-auto max-w-3xl">
         <Reveal className="text-center">
           <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-blink-sky/70">
-            Where it goes
+            {t.leaderboardSection.eyebrow}
           </p>
           <h2 className="mt-3 text-[1.75rem] font-extrabold tracking-tight text-white sm:text-4xl">
-            There&rsquo;s a leaderboard.
+            {t.leaderboardSection.heading}
           </h2>
           <p className="mx-auto mt-3 max-w-md text-[0.95rem] leading-relaxed text-white/50 sm:mt-4 sm:text-base">
-            It measures how well a profile reads — so a small account can sit above a famous
-            one.
+            {t.leaderboardSection.subtitle}
           </p>
         </Reveal>
 
@@ -240,13 +241,21 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
               transition={{ duration: 0.22 }}
               className="text-sm font-medium text-white/60"
             >
-              {STEPS[index].caption}
+              {t.leaderboardSection[STEPS[index].caption]}
             </motion.p>
           </AnimatePresence>
         </div>
 
+        {/* These rows are a demonstration, not standings. The scores, handles
+            and follower counts are invented to show how the board behaves, so
+            the sequence carries a marker rather than letting a visitor read it
+            as a live leaderboard. */}
+        <p className="mt-3 text-center text-[0.65rem] font-medium uppercase tracking-[0.14em] text-white/25">
+          {t.leaderboardSection.illustrative}
+        </p>
+
         <Reveal delay={0.05} className="mt-8 flex justify-center">
-          <CTAButton label="See where I'd rank" onClick={onCTA} />
+          <CTAButton label={t.leaderboardSection.cta} onClick={onCTA} />
         </Reveal>
       </div>
     </section>

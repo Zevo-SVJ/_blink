@@ -7,6 +7,21 @@
 // The AI provider is replaceable — only the model ID and prompt need to change.
 // No API keys are exposed to the client.
 //
+// ## One rule the prompt is not allowed to lose
+//
+// The model must never derive a person's characteristics from their face or
+// body. `subjectGender` exists only so the write-up can use the right pronoun,
+// and it is read from what the profile *writes* — a first name, pronouns in
+// the bio — never from appearance.
+//
+// This is deliberate and it is load-bearing. Categorising natural persons on
+// the basis of physical, physiological or behavioural characteristics read
+// from an image is biometric categorisation under the EU AI Act, which brings
+// obligations (and, for some inferred categories, a prohibition) that no part
+// of this product needs. Reading a name off the page is not biometric
+// processing; reading a face is. The feature is worth one grammatical pronoun,
+// so it takes the route that costs nothing.
+//
 // Deploy: managed deployEdgeFunction tool
 
 const CORS_HEADERS: Record<string, string> = {
@@ -58,7 +73,7 @@ Then set "ownership":
 
 Also report:
 - "handle": the @username shown in the header, WITHOUT the leading @. null if not legible.
-- "subjectGender": "male" | "female" | "unknown" — only when the profile makes it clearly legible (name, pronouns in bio, or unambiguous photos). Use "unknown" whenever there is genuine doubt. Do not guess.
+- "subjectGender": "male" | "female" | "unknown" — read ONLY from what the profile states in words: a first name, or pronouns written in the bio. NEVER infer it from a face, a body, or any other physical characteristic in the images; that is not a signal you are permitted to use here. If the profile does not say it in text, the answer is "unknown". This field exists solely so the write-up can use the right pronoun, and "unknown" is a perfectly good answer.
 
 STEP 1b — WHO THE OUTPUT IS FOR
 If ownership is "own", the user IS the account owner: give full recommendations and improvement actions.
