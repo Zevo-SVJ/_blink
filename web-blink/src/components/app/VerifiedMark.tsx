@@ -27,6 +27,7 @@
  * reads as a property of the name rather than a decoration beside it.
  */
 
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -48,21 +49,29 @@ export function VerifiedMark({
    * one on a profile header is information. Callers in lists pass `false`.
    */
   labelled = true,
-  label = "Claimed profile",
+  label,
 }: {
   size?: number;
   className?: string;
   labelled?: boolean;
+  /** Defaults to the reader's language; pass one only to override. */
   label?: string;
 }) {
+  const t = useT();
+  const name = label ?? t.badges.claimedProfile;
   return (
     <svg
       viewBox="0 0 64 72"
       width={size}
       height={size * (72 / 64)}
       className={cn("shrink-0 text-blink-sky", className)}
+      /* A stable hook for the harnesses. The mark is `aria-hidden` in dense
+         lists, so a query by accessible name cannot find every instance — and
+         "is it on the wrong row" is precisely the question that needs asking
+         about rows where it is hidden from the accessibility tree. */
+      data-verified-mark=""
       role={labelled ? "img" : undefined}
-      aria-label={labelled ? label : undefined}
+      aria-label={labelled ? name : undefined}
       aria-hidden={labelled ? undefined : true}
       focusable="false"
     >

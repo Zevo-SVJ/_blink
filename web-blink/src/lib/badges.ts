@@ -31,6 +31,7 @@ export type BadgeIcon =
   | "rank"
   | "peak"
   | "movement"
+  | "movementDown"
   | "momentum"
   | "streak"
   | "verified"
@@ -189,7 +190,12 @@ export function buildBadges(input: BadgeInput, isMe: boolean, t?: Messages): Bad
           ? "Places moved since the last leaderboard snapshot. Nothing recorded yet."
           : "Places moved on the global board since the last snapshot.",
       shape: "chevron",
-      icon: "movement",
+      /* The glyph has to agree with the number printed inside it. It was
+         always the rising arrow, so a profile that had *lost* a place showed
+         an upward arrow over the value "-1" — the emblem asserting the
+         opposite of its own number, and the opposite of the ↓ the leaderboard
+         showed for the same profile. */
+      icon: movement !== null && movement < 0 ? "movementDown" : "movement",
       grade: grade(
         movement !== null && movement !== 0,
         movement !== null && movement >= ELITE.movement,

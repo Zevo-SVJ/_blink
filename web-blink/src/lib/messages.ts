@@ -390,6 +390,10 @@ const en = {
     loadFailed: "Blink couldn't load your analyses. Check your connection and try again.",
     yours: "Your profile",
     others: "Others",
+    // Whose profile the analysis is of. Not a visibility claim — every row
+    // here is readable only by the person who ran it.
+    someoneElse: "Someone else",
+    noneWithFilter: "Nothing here with that filter.",
   },
 
   ranksPage: {
@@ -407,6 +411,9 @@ const en = {
     privateRow: "Private",
     scans: "scans",
     suggested: "Suggested — not analyzed yet",
+    notAnalyzedYet: "Not analyzed yet",
+    privateNote:
+      "Only you can see these. Each score here is your own reading of one screenshot — not the score that profile's owner published — so someone can appear on both boards with different numbers. Analyzing a profile never adds anyone to the public leaderboard.",
     you: "You",
     unranked: "Unranked",
     analyzedEmptyBody: "Analyze someone's profile and they'll be ranked here — visible only to you.",
@@ -472,6 +479,12 @@ const en = {
   addSomeone: {
     title: "Add someone",
     dialogTitle: "Add someone to the leaderboard",
+    blurb:
+      "Suggest a profile for the leaderboard. This doesn't run an analysis and doesn't affect your score.",
+    categoryLabel: "Which board?",
+    whyThem: "Why them",
+    handlePlaceholder: "username",
+    readFromScreenshot: "Read from your screenshot",
     notImage: "That file isn't an image Blink can read. PNG, JPG or WebP.",
     notHandle: "That doesn't look like an Instagram username.",
     notePlaceholder: "Their grid is unreal",
@@ -483,8 +496,14 @@ const en = {
     lookingForHandle: "Looking for the @ in the image",
     tapToChange: "Tap to choose a different one",
     screenshotHint: "Optional — we'll try to read the username from it",
-    already: "Already suggested",
-    added: "Added to the leaderboard",
+    already: "Already added",
+    alreadyBody: "{handle} is already on your board.",
+    added: "Added to your board",
+    // Says exactly what happened and no more: the row is on this user's board,
+    // and adding somebody does not publish them.
+    addedBody: "{handle} is on your board now. Only you can see it.",
+    notSaved:
+      "Blink couldn't save that. The leaderboard isn't set up yet, so nothing was added — try again later.",
   },
 
   identity: {
@@ -526,6 +545,7 @@ const en = {
   detail: {
     title: "Analysis",
     shareThis: "Share this result",
+    share: "Share",
     notFoundTitle: "Analysis not found",
     notFoundBody: "It may have been deleted, or it belongs to another account.",
   },
@@ -574,6 +594,9 @@ const en = {
     momentum: "Momentum",
     streak: "Streak",
     verified: "Verified",
+    // The accessible name of the claimed mark. Says what it means — the owner
+    // claimed this profile — not "verified", which would imply a human checked.
+    claimedProfile: "Claimed profile",
     noChange: "No change yet",
     sinceLast: "since last update",
   },
@@ -949,6 +972,8 @@ const fr: Messages = {
     loadFailed: "Blink n'a pas pu charger tes analyses. Vérifie ta connexion et réessaie.",
     yours: "Ton profil",
     others: "Les autres",
+    someoneElse: "Quelqu'un d'autre",
+    noneWithFilter: "Rien ici avec ce filtre.",
   },
 
   ranksPage: {
@@ -966,6 +991,9 @@ const fr: Messages = {
     privateRow: "Privé",
     scans: "analyses",
     suggested: "Suggérés — pas encore analysés",
+    notAnalyzedYet: "Pas encore analysé",
+    privateNote:
+      "Toi seul peux les voir. Chaque score ici, c'est ta lecture d'une seule capture — pas le score publié par la personne — donc quelqu'un peut apparaître sur les deux classements avec des chiffres différents. Analyser un profil n'ajoute jamais personne au classement public.",
     you: "Toi",
     unranked: "Non classé",
     analyzedEmptyBody: "Analyse le profil de quelqu'un et il apparaîtra ici — visible uniquement par toi.",
@@ -1031,6 +1059,13 @@ const fr: Messages = {
   addSomeone: {
     title: "Ajouter quelqu'un",
     dialogTitle: "Ajouter quelqu'un au classement",
+    blurb:
+      "Suggère un profil pour le classement. Ça ne lance aucune analyse et ça n'affecte pas ton score.",
+    categoryLabel: "Quel classement ?",
+    // Neutral on purpose: "Pourquoi lui" would assume the person's gender.
+    whyThem: "Pourquoi ce profil",
+    handlePlaceholder: "pseudo",
+    readFromScreenshot: "Lu sur ta capture",
     notImage: "Ce fichier n'est pas une image que Blink peut lire. PNG, JPG ou WebP.",
     notHandle: "Ça ne ressemble pas à un pseudo Instagram.",
     notePlaceholder: "Sa grille est dingue",
@@ -1042,8 +1077,12 @@ const fr: Messages = {
     lookingForHandle: "Recherche du @ dans l'image",
     tapToChange: "Touche pour en choisir une autre",
     screenshotHint: "Facultatif — on essaiera d'y lire le pseudo",
-    already: "Déjà suggéré",
-    added: "Ajouté au classement",
+    already: "Déjà ajouté",
+    alreadyBody: "{handle} est déjà sur ton classement.",
+    added: "Ajouté à ton classement",
+    addedBody: "{handle} est sur ton classement. Toi seul peux le voir.",
+    notSaved:
+      "Blink n'a pas pu enregistrer. Le classement n'est pas encore configuré, donc rien n'a été ajouté — réessaie plus tard.",
   },
 
   identity: {
@@ -1085,6 +1124,7 @@ const fr: Messages = {
   detail: {
     title: "Analyse",
     shareThis: "Partager ce résultat",
+    share: "Partager",
     notFoundTitle: "Analyse introuvable",
     notFoundBody: "Elle a peut-être été supprimée, ou elle appartient à un autre compte.",
   },
@@ -1128,6 +1168,7 @@ const fr: Messages = {
     momentum: "Élan",
     streak: "Série",
     verified: "Vérifiées",
+    claimedProfile: "Profil revendiqué",
     noChange: "Aucun changement",
     sinceLast: "depuis la dernière mise à jour",
   },

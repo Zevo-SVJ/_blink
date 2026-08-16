@@ -19,8 +19,8 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Crown, Info, Rocket, ScanLine, Trophy, UserPlus } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { AddSomeoneSheet } from "@/components/app/AddSomeoneSheet";
 import { AppShell } from "@/components/app/AppShell";
@@ -29,7 +29,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { formatRank } from "@/lib/app-nav";
 import { isClaimed, VerifiedMark } from "@/components/app/VerifiedMark";
 import { useI18n, useT } from "@/lib/i18n";
-import { categoryBlurb, categoryLabel, pickerCategories } from "@/lib/categories";
+import {
+  categoryBlurb,
+  categoryLabel,
+  normaliseCategory,
+  pickerCategories,
+} from "@/lib/categories";
 import {
   analyzedCategories,
   fetchAnalyzedProfiles,
@@ -67,16 +72,70 @@ type Load =
   | { state: "error"; message: string }
   | { state: "ready"; data: BoardData };
 
+const BOARDS: Board[] = ["standings", "winners", "analyzed"];
+
 export default function Ranks() {
   const { user } = useAuth();
-  const [board, setBoard] = useState<Board>("standings");
   const [adding, setAdding] = useState(false);
-  const [category, setCategory] = useState<string | null>(null);
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const t = useT();
 
-  const refresh = useCallback(async () => {
-    setLoad({ state: "loading" });
+  /*
+    Which board and which category live in the URL, not in component state.
+
+    They were `useState`, which meant they did not survive the page being
+    remounted — and a back navigation remounts. Filter to Larp, open one of
+    the profiles, press Back, and the board was on All again: the reader was
+    returned to the right page but not to the view they left, and had to find
+    their category a second time.
+
+    `replace` rather than push, so tapping through categories does not build a
+    history stack the Back button then has to be pressed through to leave.
+  */
+  const [params, setParams] = useSearchParams();
+
+  const board: Board = BOARDS.includes(params.get("board") as Board)
+    ? (params.get("board") as Board)
+    : "standings";
+
+  // Canonicalised on read: a hand-edited `?category=` cannot conjure a board
+  // that does not exist.
+  const category = normaliseCategory(params.get("category"));
+
+  const setParam = useCallback(
+    (key: string, value: string | null) => {
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (value === null) next.delete(key);
+          else next.set(key, value);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setParams],
+  );
+
+  const setBoard = useCallback(
+    (next: Board) => setParam("board", next === "standings" ? null : next),
+    [setParam],
+  );
+  const setCategory = useCallback(
+    (next: string | null) => setParam("category", next),
+    [setParam],
+  );
+
+  /**
+   * Re-read the board.
+   *
+   * `quiet` re-reads without dropping back to the skeleton, which is what an
+   * update after "Add someone" needs: the board is already on screen and
+   * blanking it to redraw the same rows plus one reads as a page reload rather
+   * than as the person arriving.
+   */
+  const refresh = useCallback(async ({ quiet = false } = {}) => {
+    if (!quiet) setLoad({ state: "loading" });
 
     const [entriesRes, categoriesRes, winnersRes, meRes, analyzedRes, pendingRes] =
       await Promise.all([
@@ -133,7 +192,11 @@ export default function Ranks() {
         </button>
       }
     >
-      <AddSomeoneSheet open={adding} onClose={() => setAdding(false)} />
+      <AddSomeoneSheet
+        open={adding}
+        onClose={() => setAdding(false)}
+        onAdded={() => void refresh({ quiet: true })}
+      />
 
       <BoardTabs board={board} onChange={setBoard} />
 
@@ -153,13 +216,15 @@ export default function Ranks() {
         <div className="mt-5 space-y-5">
           {board === "standings" && (
             <>
-              {/* A category holding only profiles you analysed still has
-                  something in it, so it counts as "present" — otherwise the
-                  board you can actually fill would look permanently empty. */}
+              {/* A category holding only profiles you analysed — or people you
+                  added by hand — still has something in it, so it counts as
+                  "present". Otherwise the board you can actually fill would
+                  look permanently empty. */}
               <CategoryPicker
                 present={[
                   ...load.data.categories,
                   ...analyzedCategories(load.data.analyzed),
+                  ...suggestionCategories(load.data.pending),
                 ]}
                 selected={category}
                 onSelect={setCategory}
@@ -167,6 +232,7 @@ export default function Ranks() {
               <StandingsBoard
                 entries={load.data.entries}
                 analyzed={load.data.analyzed}
+                pending={load.data.pending}
                 me={load.data.me}
                 category={category}
                 currentUserId={user?.id}
@@ -203,6 +269,31 @@ export default function Ranks() {
  * on the public board — and that distinction has to be visible rather than
  * merely true.
  */
+/**
+ * The categories people have actually been filed into by hand.
+ *
+ * Mirrors `analyzedCategories`, for the other half of a board's private
+ * contents: a category is "present" if adding someone put a person in it, even
+ * though nobody there has a score yet.
+ */
+function suggestionCategories(pending: PendingSuggestion[]): string[] {
+  return pending.map((s) => s.category).filter((c): c is string => c !== null);
+}
+
+/** Suggestions still waiting on an analysis, on the board being looked at. */
+function waitingIn(
+  pending: PendingSuggestion[],
+  analysed: { handle: string }[],
+  category: string | null,
+): PendingSuggestion[] {
+  // Someone already analysed is ranked with a real score; the suggestion is
+  // spent and showing it again would list the same person twice.
+  const known = new Set(analysed.map((p) => p.handle));
+  return pending
+    .filter((s) => !known.has(s.handle))
+    .filter((s) => category === null || s.category === category);
+}
+
 function AnalyzedBoard({
   profiles,
   pending,
@@ -216,11 +307,11 @@ function AnalyzedBoard({
 }) {
   const t = useT();
   const ranked = rankAnalyzed(profiles, category);
-  // Someone already analysed is ranked; the suggestion is spent.
-  const known = new Set(profiles.map((p) => p.handle));
-  const waiting = pending.filter((s) => !known.has(s.handle));
+  const waiting = waitingIn(pending, profiles, category);
 
-  if (profiles.length === 0 && waiting.length === 0) {
+  // Deliberately unfiltered: with a category selected and nothing in it, the
+  // page still has to render the picker, or there is no way back to All.
+  if (profiles.length === 0 && pending.length === 0) {
     return (
       <EmptyState
         icon={ScanLine}
@@ -233,17 +324,14 @@ function AnalyzedBoard({
   return (
     <div className="space-y-5">
       <CategoryPicker
-        present={analyzedCategories(profiles)}
+        present={[...analyzedCategories(profiles), ...suggestionCategories(pending)]}
         selected={category}
         onSelect={onSelectCategory}
       />
 
-      <p className="text-[0.7rem] leading-relaxed text-white/35">
-        Only you can see these. Analyzing a profile ranks it for you — it does
-        not add anyone to the public leaderboard.
-      </p>
+      <p className="text-[0.7rem] leading-relaxed text-white/35">{t.ranksPage.privateNote}</p>
 
-      {ranked.length === 0 ? (
+      {ranked.length === 0 && waiting.length === 0 ? (
         <EmptyState
           icon={ScanLine}
           title={t.ranksPage.emptyCategoryTitle}
@@ -383,12 +471,29 @@ function CategoryPicker({
   const categories = pickerCategories(present);
   const populated = new Set(present.map((c) => c.toLowerCase()));
   const blurb = categoryBlurb(selected, t);
+  const strip = useRef<HTMLDivElement>(null);
+
+  /*
+    Keep the chosen chip on screen.
+
+    There are eight boards and a phone shows about four, so picking one near
+    the end filtered the list and left the strip scrolled back at "All" — the
+    board had changed and nothing visible said which board you were on. The
+    rows below were the only clue, and on an empty category there are no rows.
+  */
+  useEffect(() => {
+    const chip = strip.current?.querySelector<HTMLElement>('[data-active="true"]');
+    chip?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [selected]);
 
   return (
     <div>
       {/* Edge fades signal there is more to scroll without a scrollbar. */}
       <div className="relative">
-        <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+        <div
+          ref={strip}
+          className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
+        >
           <CategoryChip
             label={t.ranksPage.all}
             active={selected === null}
@@ -445,6 +550,8 @@ function CategoryChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      // Read by the strip to scroll the chosen board back into view.
+      data-active={active}
       className={cn(
         "relative shrink-0 snap-start whitespace-nowrap rounded-full px-4 py-2.5 text-xs font-bold transition-colors",
         active
@@ -471,6 +578,7 @@ function CategoryChip({
 function StandingsBoard({
   entries,
   analyzed,
+  pending,
   me,
   category,
   currentUserId,
@@ -478,6 +586,8 @@ function StandingsBoard({
   entries: LeaderboardEntry[];
   /** Profiles this user analysed. Visible to them, and to nobody else. */
   analyzed: AnalyzedProfile[];
+  /** People this user added by hand, not yet analysed. Also private. */
+  pending: PendingSuggestion[];
   me: LeaderboardEntry | null;
   category: string | null;
   currentUserId?: string;
@@ -499,11 +609,60 @@ function StandingsBoard({
     another user's board cannot contain them. The row says so, carries no
     claimed mark, and opens the analysis rather than a public profile.
   */
-  const mine = rankAnalyzed(analyzed, category);
-  const isEmpty = entries.length === 0 && mine.length === 0;
+  /*
+    …but only once each.
+
+    Someone can be on the public board *and* have been analysed by you — you
+    looked up a profile that turns out to belong to a Blink user. Merging both
+    rows in put them on the board twice, side by side, with two different
+    numbers: their published score on one row and your reading of them on the
+    other, one marked as claimed and one marked private. Two rows, same person,
+    contradicting each other.
+
+    The published row wins. It is the score its owner earned and verified,
+    whereas the analysed row is one stranger's reading of one screenshot. Your
+    reading is still there under the Analyzed tab, where it is what the tab is
+    for.
+  */
+  const published = new Set(
+    entries.map((e) => e.handle?.toLowerCase()).filter((h): h is string => !!h),
+  );
+  const mine = rankAnalyzed(analyzed, category).filter(
+    (p) => !published.has(p.handle.toLowerCase()),
+  );
+
+  /*
+    Someone you added by hand belongs on the board too.
+
+    Adding a person and then not finding them anywhere is the same bug as the
+    analysed profiles had: the action appears to do nothing. So they appear
+    here, under All and under the board they were filed on — with no score,
+    because nobody has analysed them and inventing a number would be fiction.
+
+    Once a suggestion has actually been analysed it is a ranked profile, so it
+    drops out of this list and appears above with its real score.
+  */
+  // Same rule for suggestions: somebody already on the public board is on the
+  // board, not waiting to be.
+  const waiting = waitingIn(pending, analyzed, category).filter(
+    (s) => !published.has(s.handle.toLowerCase()),
+  );
+
+  const isEmpty = entries.length === 0 && mine.length === 0 && waiting.length === 0;
   if (isEmpty) return <LaunchState category={category} />;
 
   const inList = me ? entries.some((e) => e.id === me.id) : false;
+
+  /*
+    "Your position" belongs on a board you are actually on.
+
+    `fetchMyStanding` returns one standing — your global rank and your rank
+    within *your* category. Printing it under every filter meant a Creator
+    ranked first among Creators was shown as "#1" on the Fitness board, and on
+    Fashion, and on Artist: a position in a competition they are not in. It
+    only appears on All, or on the board that is theirs.
+  */
+  const onThisBoard = !!me && (!byCategory || me.category === category);
 
   /**
    * One list, ordered by score, with each row remembering what it is.
@@ -532,16 +691,17 @@ function StandingsBoard({
             }
           />
         ) : (
-          <AnalyzedRow
-            key={`analyzed-${row.profile.handle}`}
-            profile={row.profile}
-            position={i + 1}
-            index={i}
-          />
+          <AnalyzedRow key={`analyzed-${row.profile.handle}`} profile={row.profile} index={i} />
         ),
       )}
 
-      {me && !inList && (
+      {/* Unscored, so they sit below everything that has a number rather than
+          being interleaved on a score they do not have. */}
+      {waiting.map((s, i) => (
+        <PendingRow key={`pending-${s.handle}`} suggestion={s} index={rows.length + i} />
+      ))}
+
+      {me && !inList && onThisBoard && (
         <>
           <p className="pt-2 text-center text-xs font-semibold text-white/30">{t.ranksPage.yourPosition}</p>
           <RankRow
@@ -570,16 +730,14 @@ function StandingsBoard({
  *    be a claim Blink cannot make about someone who never opted in.
  *  - **It opens the analysis**, not a public profile, since there is no public
  *    profile to open.
+ *  - **No rank number.** This one was a real bug: the row used to print its
+ *    index in the merged list, so a board could show `#1, 2, #2, #3` — the
+ *    public rank and a positional counter, colliding on the same digits and
+ *    contradicting each other. A profile that is not on the leaderboard has
+ *    no leaderboard position, so the slot holds a dash. The score still
+ *    explains where the row sits.
  */
-function AnalyzedRow({
-  profile,
-  position,
-  index,
-}: {
-  profile: AnalyzedProfile;
-  position: number;
-  index: number;
-}) {
+function AnalyzedRow({ profile, index }: { profile: AnalyzedProfile; index: number }) {
   const t = useT();
 
   return (
@@ -597,8 +755,8 @@ function AnalyzedRow({
         to={`/library/${profile.analysisId}`}
         className="flex min-h-[64px] w-full items-center gap-3 rounded-2xl bg-white/[0.03] px-3 py-2.5 ring-1 ring-white/[0.06] transition-colors hover:bg-white/[0.06] sm:gap-4 sm:px-4"
       >
-        <span className="w-7 shrink-0 text-center text-sm font-extrabold tabular-nums text-white/45">
-          {position}
+        <span aria-hidden className="w-7 shrink-0 text-center text-sm font-extrabold text-white/20">
+          —
         </span>
 
         <span
@@ -626,6 +784,73 @@ function AnalyzedRow({
           {profile.score}
         </span>
       </Link>
+    </motion.div>
+  );
+}
+
+/**
+ * Somebody you added by hand, before anyone has analysed them.
+ *
+ * Same row language again, minus everything Blink has not earned the right to
+ * show:
+ *
+ *  - **No score.** There has been no analysis, so there is no number. The slot
+ *    holds a dash rather than a zero or a guess — a zero would read as "scored
+ *    badly", which is a claim about a real person that nothing supports.
+ *  - **No claimed mark**, for the same reason as `AnalyzedRow`: adding someone
+ *    is a statement about them, never by them.
+ *  - **No link**, because there is nothing to open yet.
+ *
+ * It exists so that adding a person is visibly not a no-op. Filing someone
+ * under a category and then finding the board unchanged is the bug this fixes.
+ */
+function PendingRow({ suggestion, index }: { suggestion: PendingSuggestion; index: number }) {
+  const t = useT();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        type: "spring",
+        stiffness: 320,
+        damping: 32,
+        delay: Math.min(index * 0.03, 0.25),
+      }}
+      className="flex min-h-[64px] w-full items-center gap-3 rounded-2xl bg-white/[0.02] px-3 py-2.5 ring-1 ring-dashed ring-white/[0.09] sm:gap-4 sm:px-4"
+    >
+      <span aria-hidden className="w-7 shrink-0 text-center text-sm font-extrabold text-white/20">
+        —
+      </span>
+
+      <span
+        aria-hidden
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-sm font-extrabold text-white/40"
+      >
+        {suggestion.handle.charAt(0).toUpperCase()}
+      </span>
+
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5">
+          <span className="truncate text-sm font-bold text-white/75">@{suggestion.handle}</span>
+          {/* Never a VerifiedMark here either. */}
+          <span className="shrink-0 rounded-full bg-white/[0.07] px-1.5 py-0.5 text-[0.55rem] font-bold uppercase tracking-[0.08em] text-white/40">
+            {t.ranksPage.privateRow}
+          </span>
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-white/35">
+          {categoryLabel(suggestion.category, t) ?? t.ranksPage.uncategorized}
+          {" · "}
+          {t.ranksPage.notAnalyzedYet}
+        </span>
+      </span>
+
+      <span
+        aria-hidden
+        className="w-11 shrink-0 text-right text-base font-extrabold text-white/20 sm:w-14 sm:text-lg"
+      >
+        —
+      </span>
     </motion.div>
   );
 }

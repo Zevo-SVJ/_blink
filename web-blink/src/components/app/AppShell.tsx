@@ -89,8 +89,22 @@ export function AppShell({
             transition={{ type: "spring", stiffness: 320, damping: 32 }}
           >
             {!bare && (
-              <header className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
+              /*
+                Wraps rather than squeezes.
+
+                The action used to be `shrink-0` next to a `min-w-0` title, so
+                on a phone the button took its full natural width and the title
+                took whatever was left — which in French was not enough:
+                "Classement" rendered as "Classeme…", and the subtitle wrapped
+                inside a column barely wider than the button. A title that
+                cannot be read is worse than a button on its own line.
+
+                `basis-64` is the width below which the title stops being
+                comfortable, so the action drops beneath it instead. Every
+                viewport that already fit both is unchanged.
+              */
+              <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+                <div className="min-w-0 flex-1 basis-64">
                   <h1 className="truncate text-[1.75rem] font-extrabold tracking-tight text-white sm:text-4xl">
                     {title}
                   </h1>
@@ -98,7 +112,7 @@ export function AppShell({
                     <p className="mt-2 text-sm leading-relaxed text-white/50">{subtitle}</p>
                   )}
                 </div>
-                {action && <div className="shrink-0 pt-1">{action}</div>}
+                {action && <div className="shrink-0 sm:pt-1">{action}</div>}
               </header>
             )}
 

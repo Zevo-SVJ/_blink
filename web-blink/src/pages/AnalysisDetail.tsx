@@ -117,7 +117,7 @@ export default function AnalysisDetail() {
             className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-2 text-xs font-bold text-white/80 transition-colors hover:bg-white/[0.1]"
           >
             <Share2 className="h-3.5 w-3.5" />
-            Share
+            {t.detail.share}
           </button>
         ) : undefined
       }

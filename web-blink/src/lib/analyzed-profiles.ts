@@ -29,8 +29,10 @@
  * drift.
  */
 
+import type { AnalysisResult as AnalysisResultShape } from "@/lib/analysis";
 import { normaliseCategory } from "@/lib/categories";
 import type { DataResult } from "@/lib/blink-profile";
+import { computeBlinkScore } from "@/lib/ranking";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export interface AnalyzedProfile {
@@ -51,11 +53,32 @@ export interface AnalyzedProfile {
 const UNREACHABLE =
   "Blink can't load the profiles you've analyzed right now. Check your connection and try again.";
 
-/** The 0-10 model score scaled to the 0-1000 board scale. */
-function toBoardScore(raw: unknown): number {
-  const n = typeof raw === "number" ? raw : 0;
-  // `overall_score` is 0-10; the leaderboard speaks in hundreds.
-  return Math.max(0, Math.min(1000, Math.round(n * 100)));
+/**
+ * The Blink Score for an analysis — the same number everywhere else shows.
+ *
+ * This used to be `overall_score * 100`, which is not the Blink Score: that is
+ * `computeBlinkScore`, a weighted composite of impression, craft, coherence
+ * and clarity, and it is what the result page prints, what the share card
+ * carries, and what `recordAnalysis` writes into `score_history`. Scaling the
+ * raw impression instead meant one analysis of one person had two different
+ * scores depending on which screen you were looking at — Ranks said 890 while
+ * Library said 706 about the same row.
+ *
+ * `overall_score` remains the fallback for a row whose stored `result` is too
+ * old or too partial to score, where a number from the right family beats no
+ * row at all.
+ */
+function toBoardScore(result: unknown, rawOverall: unknown): number {
+  const clamp = (n: number) => Math.max(0, Math.min(1000, Math.round(n)));
+
+  if (result && typeof result === "object") {
+    const computed = computeBlinkScore(result as AnalysisResultShape).total;
+    if (Number.isFinite(computed) && computed > 0) return clamp(computed);
+  }
+
+  const n = typeof rawOverall === "number" ? rawOverall : 0;
+  // `overall_score` is 0-10; the board speaks in hundreds.
+  return clamp(n * 100);
 }
 
 /**
@@ -117,7 +140,7 @@ export async function fetchAnalyzedProfiles(
       byHandle.set(handle, {
         handle,
         category: normaliseCategory(categoryInfo?.category),
-        score: toBoardScore(row.overall_score),
+        score: toBoardScore(row.result, row.overall_score),
         runs: 1,
         lastAnalyzedAt: row.created_at as string,
         analysisId: row.id as string,

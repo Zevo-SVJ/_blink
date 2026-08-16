@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
+import { ScrollMemory } from "@/components/app/ScrollMemory";
 import { AppChrome } from "@/components/app/AppChrome";
 import { PageBackground } from "@/components/blink/PageBackground";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -134,6 +135,9 @@ export const AppTree = ({ lang }: { lang?: Lang }) => (
   <I18nProvider initial={lang}>
     <AuthProvider>
       <HashLanding />
+      {/* A new screen opens at its top; Back returns you where you were.
+          See `ScrollMemory` — neither happens on its own in a SPA. */}
+      <ScrollMemory />
       {/* The tab bar is mounted here, once, so navigating between app
           screens never rebuilds it. See `AppChrome`. */}
       <AppChrome>

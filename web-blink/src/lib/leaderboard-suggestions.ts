@@ -19,6 +19,7 @@
  * schema rather than blocked behind it.
  */
 
+import { normaliseCategory } from "@/lib/categories";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export type SuggestionResult =
@@ -46,12 +47,28 @@ function isDuplicate(error: { code?: string } | null): boolean {
 export interface Suggestion {
   /** Lowercase, no leading @. */
   handle: string;
+  /**
+   * Which board this person belongs on.
+   *
+   * Always a canonical id — the picker only offers real categories and this is
+   * canonicalised again on the way in, so a value that is not a board cannot
+   * be stored. Null only when the suggester genuinely did not say.
+   */
+  category?: string | null;
   /** Why this profile belongs on the board. Optional, free text. */
   note?: string;
   /** Storage path of the uploaded screenshot, when one was kept. */
   evidencePath?: string | null;
   /** How the handle was obtained, so curation can weight it. */
   source: "detected" | "typed";
+}
+
+/** Undefined column — migration 0007 hasn't been applied. */
+function isMissingColumn(error: { code?: string; message?: string } | null): boolean {
+  return (
+    error?.code === "42703" ||
+    /column .*category.* does not exist/i.test(error?.message ?? "")
+  );
 }
 
 /**
@@ -79,13 +96,29 @@ export async function suggestProfile(
   if (!isSupabaseConfigured) return { status: "needs-setup" };
 
   try {
-    const { error } = await supabase.from("leaderboard_suggestions").insert({
+    const base = {
       handle: suggestion.handle,
       note: suggestion.note?.trim() || null,
       evidence_path: suggestion.evidencePath ?? null,
       source: suggestion.source,
       suggested_by: userId,
-    });
+    };
+
+    // Only ever a real board, never whatever text arrived.
+    const category = normaliseCategory(suggestion.category);
+
+    let { error } = await supabase
+      .from("leaderboard_suggestions")
+      .insert({ ...base, category });
+
+    // Migration 0007 adds the column. Before it runs, PostgREST rejects the
+    // whole insert for one unknown field — so retry without it rather than
+    // failing an action the user completed correctly. The category is lost,
+    // the suggestion is not.
+    if (error && isMissingColumn(error)) {
+      console.warn("[suggestProfile] category column missing — apply migration 0007");
+      ({ error } = await supabase.from("leaderboard_suggestions").insert(base));
+    }
 
     if (error) {
       if (isMissingTable(error)) return { status: "needs-setup" };
@@ -105,6 +138,8 @@ export async function suggestProfile(
 export interface PendingSuggestion {
   handle: string;
   createdAt: string;
+  /** Canonical board, or null. Never a raw value. */
+  category: string | null;
 }
 
 /**
@@ -124,12 +159,23 @@ export async function fetchMySuggestions(
 ): Promise<{ status: "ok"; data: PendingSuggestion[] } | { status: "error" }> {
   if (!isSupabaseConfigured) return { status: "ok", data: [] };
   try {
-    const { data, error } = await supabase
-      .from("leaderboard_suggestions")
-      .select("handle, created_at")
-      .eq("suggested_by", userId)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    // `select` has to come first in the builder chain, so the column list is
+    // the parameter rather than the tail.
+    const query = (columns: string) =>
+      supabase
+        .from("leaderboard_suggestions")
+        .select(columns)
+        .eq("suggested_by", userId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+    let { data, error } = await query("handle, created_at, category");
+
+    // Same tolerance as the insert path: before migration 0007 the column is
+    // not there, and asking for it fails the whole select.
+    if (error && isMissingColumn(error)) {
+      ({ data, error } = await query("handle, created_at"));
+    }
 
     // A missing table means the migration hasn't been applied; that is a
     // dormant feature, not an error worth showing anyone.
@@ -137,9 +183,16 @@ export async function fetchMySuggestions(
 
     return {
       status: "ok",
-      data: (data ?? []).map((r) => ({
+      // A dynamic column list means the client cannot infer the row shape, so
+      // it is narrowed here — the three fields are all this function returns.
+      data: ((data ?? []) as unknown as Array<{
+        handle: string;
+        created_at: string;
+        category?: string | null;
+      }>).map((r) => ({
         handle: String(r.handle),
         createdAt: String(r.created_at),
+        category: normaliseCategory(r.category ?? null),
       })),
     };
   } catch {

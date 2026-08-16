@@ -91,7 +91,7 @@ export default function Library() {
               onClick={() => navigate("/analyze")}
               className="rounded-2xl bg-blink-sky px-6 py-3 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.02]"
             >
-              Analyze a profile
+              {t.home.analyzeTitle}
             </button>
           }
         />
@@ -103,7 +103,7 @@ export default function Library() {
 
           {visible.length === 0 ? (
             <p className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 text-center text-sm text-white/40">
-              Nothing here with that filter.
+              {t.library.noneWithFilter}
             </p>
           ) : (
             <div className="space-y-2.5">
@@ -205,9 +205,14 @@ function AnalysisRow({
             <span className="truncate">
               {handle ? `@${handle}` : analysis.result.firstImpression}
             </span>
+            {/* Says whose profile was read, not who can see the reading.
+                The chip used to say "Public", which was false twice over: the
+                analysis is self-read only under RLS, and Ranks labels the very
+                same person "Private" — one row, two contradictory claims about
+                the same thing. */}
             {!voice.isOwn && (
               <span className="shrink-0 rounded-full bg-white/[0.08] px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-white/45">
-                Public
+                {t.library.someoneElse}
               </span>
             )}
           </p>

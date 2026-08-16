@@ -27,6 +27,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { I18nProvider } from "@/lib/i18n";
+import { computeBlinkScore } from "@/lib/ranking";
 
 // ---------------------------------------------------------------------------
 // Fixtures — shaped like the rows Supabase actually returns
@@ -41,7 +42,13 @@ function analysisRow(over: Record<string, unknown> = {}) {
     ownership: "other",
     overall_score: 8.9,
     category: { category: "larp" },
-    result: { handle: "mysteryguy", category: { category: "larp" } },
+    // `result` carries its own copy of the score, exactly as the real column
+    // does — it is what `computeBlinkScore` reads.
+    result: {
+      handle: "mysteryguy",
+      overallScore: 8.9,
+      category: { category: "larp" },
+    },
     ...over,
   };
 }
@@ -53,7 +60,9 @@ vi.mock("@/lib/supabase", () => {
   const build = (table: string) => {
     const chain: Record<string, unknown> = {};
     const result = () => Promise.resolve({ data: TABLES[table] ?? [], error: null });
-    for (const method of ["select", "eq", "order", "limit", "gte", "lte", "in", "neq"]) {
+    // `not` included: without it `fetchCategories` threw into `safe()` and the
+    // page silently took its error path, which is not what is under test.
+    for (const method of ["select", "eq", "order", "limit", "gte", "lte", "in", "neq", "not"]) {
       chain[method] = () => chain;
     }
     chain.maybeSingle = () =>
@@ -145,8 +154,22 @@ describe("an analysed profile in Ranks", () => {
     renderRanks();
     await waitForText("@mysteryguy");
     expect(document.body.textContent).toContain("Larp");
-    // 8.9 on the model's 0-10 scale is 890 on the board's scale.
-    expect(document.body.textContent).toContain("890");
+
+    /*
+      The number on the row is *the Blink Score* — the same
+      `computeBlinkScore` the result page prints, the share card carries and
+      `score_history` stores.
+
+      This used to assert the literal 890, which was `overall_score * 100`: a
+      different formula, and the reason one analysis of one person showed two
+      different totals depending on whether you were looking at Ranks or at
+      the Library. Asserting against the function rather than a constant is
+      what makes the two impossible to drift apart again.
+    */
+    const expected = computeBlinkScore(
+      analysisRow().result as unknown as Parameters<typeof computeBlinkScore>[0],
+    ).total;
+    expect(document.body.textContent).toContain(String(expected));
   });
 
   it("says it is private, and carries no claimed mark", async () => {
