@@ -20,20 +20,49 @@ import {Reel} from './compositions/Reel';
 import {BlinkReel} from './compositions/blink/BlinkReel';
 import {BLINK_REEL_DURATION, BLINK_SCENES} from './compositions/blink/manifest';
 import {
+	Punchline,
+	punchlineDefaults,
+	punchlineSchema,
+	Reveal,
+	revealDefaults,
+	revealSchema,
+	Seconds,
+	secondsDefaults,
+	secondsSchema,
+} from './compositions/blink/scenes/Breaths';
+import {
 	Capture,
 	captureDefaults,
 	captureSchema,
 } from './compositions/blink/scenes/Capture';
+import {Climb, climbDefaults, climbSchema} from './compositions/blink/scenes/Climb';
+import {Close, closeDefaults, closeSchema} from './compositions/blink/scenes/Close';
+import {Gaze, gazeDefaults, gazeSchema} from './compositions/blink/scenes/Gaze';
+import {
+	Identity,
+	identityDefaults,
+	identitySchema,
+} from './compositions/blink/scenes/Identity';
 import {
 	Lenses,
 	lensesDefaults,
 	lensesSchema,
 } from './compositions/blink/scenes/Lenses';
 import {
+	Mirror,
+	mirrorDefaults,
+	mirrorSchema,
+} from './compositions/blink/scenes/Mirror';
+import {
 	Perception,
 	perceptionDefaults,
 	perceptionSchema,
 } from './compositions/blink/scenes/Perception';
+import {
+	Signals,
+	signalsDefaults,
+	signalsSchema,
+} from './compositions/blink/scenes/Signals';
 import {
 	Verdict,
 	verdictDefaults,
@@ -119,11 +148,56 @@ export const RemotionRoot: React.FC = () => (
 			/>
 
 			<Composition
+				id="Blink-Seconds"
+				component={Seconds}
+				schema={secondsSchema}
+				defaultProps={secondsDefaults}
+				durationInFrames={BLINK_SCENES.Seconds}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Gaze"
+				component={Gaze}
+				schema={gazeSchema}
+				defaultProps={gazeDefaults}
+				durationInFrames={BLINK_SCENES.Gaze}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Identity"
+				component={Identity}
+				schema={identitySchema}
+				defaultProps={identityDefaults}
+				durationInFrames={BLINK_SCENES.Identity}
+				{...canvas.vertical}
+			/>
+
+			<Composition
 				id="Blink-Capture"
 				component={Capture}
 				schema={captureSchema}
 				defaultProps={captureDefaults}
 				durationInFrames={BLINK_SCENES.Capture}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Signals"
+				component={Signals}
+				schema={signalsSchema}
+				defaultProps={signalsDefaults}
+				durationInFrames={BLINK_SCENES.Signals}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Punchline"
+				component={Punchline}
+				schema={punchlineSchema}
+				defaultProps={punchlineDefaults}
+				durationInFrames={BLINK_SCENES.Punchline}
 				{...canvas.vertical}
 			/>
 
@@ -137,11 +211,47 @@ export const RemotionRoot: React.FC = () => (
 			/>
 
 			<Composition
+				id="Blink-Mirror"
+				component={Mirror}
+				schema={mirrorSchema}
+				defaultProps={mirrorDefaults}
+				durationInFrames={BLINK_SCENES.Mirror}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Reveal"
+				component={Reveal}
+				schema={revealSchema}
+				defaultProps={revealDefaults}
+				durationInFrames={BLINK_SCENES.Reveal}
+				{...canvas.vertical}
+			/>
+
+			<Composition
 				id="Blink-Verdict"
 				component={Verdict}
 				schema={verdictSchema}
 				defaultProps={verdictDefaults}
 				durationInFrames={BLINK_SCENES.Verdict}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Climb"
+				component={Climb}
+				schema={climbSchema}
+				defaultProps={climbDefaults}
+				durationInFrames={BLINK_SCENES.Climb}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Close"
+				component={Close}
+				schema={closeSchema}
+				defaultProps={closeDefaults}
+				durationInFrames={BLINK_SCENES.Close}
 				{...canvas.vertical}
 			/>
 

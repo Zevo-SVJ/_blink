@@ -146,7 +146,8 @@ remotion-studio/
 │   │   ├── SplitText.tsx   Titres animés mot à mot / lettre à lettre
 │   │   ├── adapters.ts     Conversion des ressorts vers Framer Motion
 │   │   ├── physics/        ⚑ velocity (squash · flou · ombre) · shake (noise2D)
-│   │   ├── kinetic/        Pop · Impact · Burst · TrimPath · Cursor · Gauge · Counter
+│   │   ├── kinetic/        Pop · Impact · Burst · TrimPath · Cursor · Gauge
+│   │   │                   Counter · idle (micro-vie permanente)
 │   │   └── presentations/  glassCut · zoomThrough · whipPan · wipeUp
 │   │
 │   ├── components/         Briques visuelles réutilisables
@@ -156,7 +157,10 @@ remotion-studio/
 │   │   ├── LightSweep.tsx  Balayage spéculaire
 │   │   ├── Text.tsx        Texte typé sur l'échelle
 │   │   ├── background/     MeshGradient, Grain, Vignette
-│   │   └── blink/          BlinkStage · ProfileCard · LensCard · ScoreRing · Portal
+│   │   ├── blink/          BlinkStage · ProfileCard · LensCard · ScoreRing · Portal
+│   │   └── kinetic/        ⚑ Univers hors interface : Orb · CursorSwarm · Shockwave
+│   │                          NodeField · Radar · ScanFrame · FloatingWindow
+│   │                          IdCard · Toast · Marks · TierLadder · TypeBreath
 │   │
 │   └── compositions/       Les scènes
 │       ├── manifest.ts     Durées centralisées
@@ -165,9 +169,10 @@ remotion-studio/
 │       ├── DeviceShowcase.tsx   │
 │       ├── Reel.tsx        ┘
 │       └── blink/          Piste Blink — vertical, langage kinetic (§7)
-│           ├── manifest.ts     Partition : durées, transitions, score
-│           ├── BlinkReel.tsx   Montage des quatre plans
-│           └── scenes/         Perception · Capture · Lenses · Verdict
+│           ├── manifest.ts     Partition : durées, transitions, score, positions
+│           ├── narration.ts    ⚑ Contrat voix off ↔ image
+│           ├── BlinkReel.tsx   Montage des treize plans
+│           └── scenes/         13 plans, un fichier par plan
 │
 ├── playground/             App React interactive (Framer Motion + <Player />)
 ├── reference/              Dépôt des vidéos de référence à analyser (non versionné)
@@ -354,13 +359,13 @@ conservé, ce sont les conclusions de motion design — pas la matière premièr
 
 ## 7. La piste Blink — langage « kinetic »
 
-Vidéo produit verticale (1080 × 1920, 60 fps) pour **Blink**, l'app qui montre
-la première impression que fait un profil. Vocabulaire de mouvement
-**délibérément opposé** aux scènes paysage : là où celles-ci se posent sans
-rebondir, celui-ci rebondit systématiquement.
+Film produit vertical (1080 × 1920, 60 fps, **44,0 s**) pour **Blink**, l'app qui
+montre la première impression que fait un profil.
 
-Les deux langages cohabitent sans se mélanger — mêmes primitives, familles de
-ressorts distinctes.
+Vocabulaire de mouvement **délibérément opposé** aux scènes paysage : là où
+celles-ci se posent sans rebondir, celui-ci rebondit systématiquement. Les deux
+langages cohabitent sans se mélanger — mêmes primitives, familles de ressorts
+distinctes.
 
 ### La règle qui définit la signature
 
@@ -372,14 +377,19 @@ L'entrée dépasse et oscille (`pop` : stiffness 400, damping 15, ζ ≈ 0,375, 
 d'accélérer : l'anticipation. `<Pop>` encode cette asymétrie et n'expose aucun
 moyen de l'inverser.
 
-Trois graduations pour le même geste, à raideur constante :
+| Ressort | Raideur | Amortissement | Masse | Emploi |
+| --- | --- | --- | --- | --- |
+| `pop` | 400 | 15 | 1 | entrée par défaut, ~28 % de dépassement |
+| `popTight` | 400 | 18 | 1 | blocs de texte longs, ~20 % |
+| `popSoft` | 400 | 24 | 1 | éléments secondaires nombreux, ~10 % |
+| `textPop` | 230 | 12 | 1 | typographie d'impact — plus élastique que l'UI |
+| `slam` | 500 | 30 | 1 | impact violent, aucune oscillation |
+| `heavy` | 145 | 17 | **1,7** | objets : sphères, cartes, prismes |
+| `slide` | 100 | 20 | 1 | glissements de plans entiers |
 
-| Ressort | Amortissement | Dépassement | Usage |
-| --- | --- | --- | --- |
-| `pop` | 15 | ~28 % | entrée par défaut |
-| `popTight` | 18 | ~20 % | blocs de texte longs |
-| `popSoft` | 24 | ~10 % | éléments secondaires nombreux |
-| `slam` | 30 | ~0 % | impact violent, aucune oscillation |
+La masse de `heavy` est ce qui distingue un objet d'une interface : plus
+d'inertie, départ plus mou, oscillation plus longue. C'est cette seule valeur
+qui fait qu'une sphère « pèse » et qu'un bouton non.
 
 ### La grille rythmique remplace l'audio
 
@@ -398,72 +408,142 @@ pulsation même en silence.
 La bande 0,04–0,08 s de stagger de la référence se traduit exactement en 2 à 5
 frames (`STAGGER.tight/base/wide/loose`).
 
-### Un seul signal pour trois effets
+### Les treize plans
 
-`src/motion/physics/velocity.ts` calcule la dérivée de la progression :
-`p(n) − p(n−1)`. De cette unique valeur découlent le **squash & stretch** (à
-volume conservé : `scaleY = 1 + kv`, `scaleX = 1/(1 + kv)`), le **flou
-directionnel** et l'**ombre portée**. Ils ne peuvent pas se désynchroniser,
-puisqu'ils lisent la même chose.
+Trois types en alternance délibérée : **A** riche (objets, métaphores,
+graphiques), **B** typographie seule, **C** hybride.
 
-Un objet qui entre au ressort s'étire donc à l'aller et s'écrase au rebond —
-sans qu'aucun timing ne soit écrit à la main.
+| # | Plan | Durée | Type | Fond | Ce qu'il apporte |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `Perception` | 240 f | A | nuit | typo qui s'abat, secousses, ondes, portail |
+| 2 | `Seconds` | 90 f | **B** | **clair** | respiration — un chiffre, rien d'autre |
+| 3 | `Gaze` | 240 f | A | nuit | nuée de curseurs, sphère, compteur, notifications |
+| 4 | `Identity` | 240 f | C | nuit | carte d'identité pseudo-3D, flèche manuscrite |
+| 5 | `Capture` | 270 f | A | nuit | chute + squash, clic, éclats, viseur, jauge |
+| 6 | `Signals` | 210 f | A | quasi noir | champ de nœuds, radar, fenêtres flottantes |
+| 7 | `Punchline` | 105 f | **B** | **saturé** | respiration — le contre-pied |
+| 8 | `Lenses` | 330 f | C | nuit | quatre verdicts en cascade alternée |
+| 9 | `Mirror` | 240 f | C | **clair** | intention contre perception, annotations |
+| 10 | `Reveal` | 105 f | **B** | **noir** | respiration avant le résultat |
+| 11 | `Verdict` | 270 f | A | nuit | anneau, compteur, tampon — pic d'intensité |
+| 12 | `Climb` | 210 f | C | nuit | échelle des paliers, marche suivante |
+| 13 | `Close` | 270 f | C | nuit | les curseurs reviennent sur la marque |
 
-### Le camera shake doit être déterministe
+Montage : `Blink-Reel`, **2640 frames = 44,00 s** exactement.
 
-`Math.random()` est proscrit : chaque frame étant peinte isolément, la secousse
-changerait à chaque rendu et le scrub serait incohérent. `noise2D` de
-`@remotion/noise` est une fonction pure de la frame — imprévisible à l'œil,
-identique à chaque exécution.
+**Les respirations typographiques ne représentent que 300 frames sur 2640, soit
+11 %.** Leur force vient de leur rareté : trois écrans dans tout le film, à
+trois moments où le récit a besoin d'un silence. Et leurs trois fonds — clair,
+saturé, presque noir — sont tous différents du bleu nuit dominant : c'est la
+rupture chromatique qui fait respirer, autant que le vide.
 
-### Les quatre scènes
+### L'univers visuel, hors interface
 
-| # | Scène | Durée | Ce qu'elle démontre |
-| --- | --- | --- | --- |
-| 1 | `Blink-Perception` | 8 temps · 240 f | typographie qui s'abat, secousses, convergence, portail |
-| 2 | `Blink-Capture` | 10 temps · 300 f | chute + squash, curseur en arc, clic, éclats, scan, jauge |
-| 3 | `Blink-Lenses` | 12 temps · 360 f | cascade alternée, tracé vectoriel, flottement déphasé |
-| 4 | `Blink-Verdict` | 10 temps · 300 f | anneau tracé, compteur, tampon, pulsation finale |
+L'app Blink n'apparaît que dans deux plans sur treize. Tout le reste est un
+vocabulaire d'objets créé pour le film, dans `src/components/kinetic/` :
 
-Montage : `Blink-Reel`, 1149 frames ≈ **19,2 s**.
+| Objet | Rôle narratif |
+| --- | --- |
+| `Orb` | représentation abstraite d'une identité — trois couches font le volume |
+| `CursorSwarm` | le regard des autres ; les curseurs **s'arrêtent à distance** |
+| `Shockwave` | quelque chose a été vu, et ça se propage |
+| `NodeField` | l'analyse comme topologie, pas comme barre de chargement |
+| `Radar` | instrument de mesure ; chaque sommet pousse à son rythme |
+| `ScanFrame` | quatre équerres — un viseur, pas une bordure |
+| `FloatingWindow` | chrome d'interface détourné en objet |
+| `IdCard` | « ce qu'ils ont de toi » tient sur un rectangle |
+| `Toast` | le système commente, en marge du récit |
+| `CircleMark` `ArrowMark` `CrossMark` | annotations manuscrites — elles cassent le trop propre |
+| `TierLadder` | la progression, avec un marqueur qui s'arrête |
+| `TypeBreath` | l'écran texte seul |
 
-### Les trois transitions
+### Trois techniques qui portent la qualité
 
-Chacune a une intention distincte — c'est le point de l'exercice.
+**Un seul signal pour trois effets.** `src/motion/physics/velocity.ts` calcule
+la dérivée de la progression : `p(n) − p(n−1)`. De cette unique valeur découlent
+le **squash & stretch** (à volume conservé : `scaleY = 1 + kv`,
+`scaleX = 1/(1 + kv)`), le **flou directionnel** et l'**ombre portée**. Ils ne
+peuvent pas se désynchroniser. Un objet qui entre au ressort s'étire donc à
+l'aller et s'écrase au rebond, sans qu'aucun timing ne soit écrit à la main.
 
-| Transition | Durée | Intention | Courbe |
-| --- | --- | --- | --- |
-| `zoomThrough` | 18 f | on entre **dans** le sujet | `expoIn` |
-| `whipPan` | 15 f | on se déplace **à côté** | `quint` + anticipation + dépassement |
-| `wipeUp` | 18 f | la conclusion **recouvre** | `expo` + recul du plan sortant |
+**La micro-vie permanente.** `useIdle` fait respirer chaque objet posé —
+quelques pixels de flottement, un ou deux pour cent d'échelle, sous le seuil de
+perception consciente. C'est ce qui distingue une image vivante d'une capture
+d'écran, et c'est ce qui manquait le plus à la première version.
 
-Deux règles apprises en corrigeant le rendu, et qui valent d'être retenues :
+**Le camera shake déterministe.** `Math.random()` est proscrit : chaque frame
+étant peinte isolément, la secousse changerait à chaque rendu et le scrub serait
+incohérent. `noise2D` de `@remotion/noise` est une fonction pure de la frame —
+imprévisible à l'œil, identique à chaque exécution.
+
+### Les transitions
+
+| Grammaire | Emploi | Courbe |
+| --- | --- | --- |
+| `zoomThrough` | on entre **dans** le sujet — lumière, scan, résultat | `expoIn` |
+| `whipPan` | on se déplace **à côté** — direction **alternée** | `quint` + anticipation + dépassement |
+| `wipeUp` | la suite **recouvre** — franchissement de palier | `expo` + recul du plan sortant |
+
+Trois règles apprises en corrigeant le rendu, et qui valent d'être retenues :
 
 - **Le `timing` est linéaire, l'easing vit dans la présentation.** Empiler un
   `springTiming` sur la courbe d'une présentation lisse deux fois le même
   mouvement : la transition se termine dans son premier tiers puis se fige.
 - **Le plan entrant doit déjà être en mouvement quand on le découvre.** Une
-  scène dont le contenu démarre à la frame 0 de sa propre timeline apparaît
-  vide pendant toute la transition. C'est ce qui produit le report de momentum
-  décrit dans la référence.
+  scène dont le contenu démarre à la frame 0 de sa propre timeline apparaît vide
+  pendant toute la transition.
+- **Le portail d'un zoom traversant doit être plus lumineux que son entourage.**
+  Un disque plus sombre se lit comme un trou : l'œil comprend « il manque
+  quelque chose » au lieu de « quelque chose avance vers moi ».
+
+### La partition, pensée pour la voix off
+
+`src/compositions/blink/narration.ts` est le contrat entre la voix et l'image.
+Chaque réplique y est rattachée à un plan, à une position dans sa timeline, et à
+ce que l'image met en scène pendant qu'elle est prononcée.
+
+```ts
+{
+  scene: 'Gaze',
+  line: 'C’est tout ce qu’il leur faut.',
+  at: 12,           // frame, relative au plan
+  staging: 'Une nuée de curseurs converge sur une sphère…',
+}
+```
+
+`sceneStarts()` dans `manifest.ts` donne la position absolue de chaque plan dans
+le montage : une réplique se situe à `sceneStarts()[scene] + cue.at`. Recalculé
+depuis les durées, jamais écrit à la main — allonger un plan décale
+automatiquement tous les suivants.
+
+Règles de rédaction appliquées : une idée par plan, phrases dites à voix haute
+sans reprendre son souffle, ~2,5 mots/seconde en français, et une marge d'au
+moins 20 % entre la durée parlée estimée et la durée du plan. L'animation
+démarre 3 à 5 frames avant le premier mot (`leadInFrames`), pour guider l'œil
+avant que l'oreille suive.
+
+Quand la piste ElevenLabs arrivera, il ne restera qu'à caler chaque `cue` sur le
+début réel de sa phrase et à ajuster les durées de plan. La structure motion ne
+bouge pas : les délais internes sont tous relatifs à la frame 0 de leur plan.
 
 ### Rendu
 
 ```bash
-npx remotion render Blink-Reel out/blink-reel.mp4
-npx remotion render Blink-Perception out/perception.mp4
+npx remotion render Blink-Reel out/blink-44s.mp4
+npx remotion render Blink-Signals out/signals.mp4
 ```
 
-Compter environ 9 minutes pour les 1149 frames en 1080 × 1920.
+Compter environ 20 minutes pour les 2640 frames en 1080 × 1920.
 
 ### Origine et originalité
 
-Le langage de mouvement — rythme, chorégraphie, physique, transitions — est
-dérivé d'une analyse de vidéo de référence (§6). **Aucun asset, texte,
-composition ni élément graphique de cette référence n'est repris.** Le contenu,
-la charte et les objets à l'écran viennent de Blink.
+Le langage de mouvement — rythme, chorégraphie, physique, transitions,
+composition typographique — est dérivé de deux analyses de vidéo de référence.
+**Aucun asset, texte, composition ni élément graphique de cette référence n'est
+repris.** Le contenu, la charte et les objets à l'écran viennent de Blink ou ont
+été créés pour ce film.
 
-La carte de profil de la scène 2 est volontairement générique : pas de logo de
+La carte de profil de la scène 5 est volontairement générique : pas de logo de
 réseau social, pas de photographie, pas de pseudonyme réel — un avatar en
 dégradé et le pronom `@toi`. Les chiffres montrés sont cohérents avec le
 produit : 742 place bien le profil dans le palier « Sharp » (seuil 680) et il

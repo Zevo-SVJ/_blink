@@ -5,6 +5,7 @@ import {blink, lenses as brandLenses} from '@/design/blink';
 import {fonts} from '@/design/typography';
 import {STAGGER} from '@/motion/beats';
 import {Impact, Pop, TrimPath} from '@/motion/kinetic';
+import {Shockwave} from '@/components/kinetic';
 import {SplitText} from '@/motion/SplitText';
 
 export const lensesSchema = z.object({
@@ -46,8 +47,8 @@ export const lensesDefaults: LensesProps = {
  *   f096  ▮ lentille 4 — par la gauche
  *   f140  respiration : les quatre cartes flottent, déphasées
  *   f180  une coche valide la lentille mise en avant
- *   f240  la chute de phrase
- *   f300  sortie en cascade, dans l'ordre d'arrivée
+ *   f210  la chute de phrase
+ *   f270  sortie en cascade, dans l'ordre d'arrivée
  *
  * L'alternance gauche/droite des arrivées est délibérée : elle entretient un
  * balancement latéral qui prépare le filé de la transition précédente et
@@ -59,7 +60,7 @@ const HITS = [
 	{at: 48, amplitude: 9, duration: 6, seed: 'l2'},
 	{at: 72, amplitude: 9, duration: 6, seed: 'l3'},
 	{at: 96, amplitude: 13, duration: 7, seed: 'l4'},
-	{at: 240, amplitude: 16, duration: 8, seed: 'l5'},
+	{at: 210, amplitude: 18, duration: 8, seed: 'l5', rotation: 1.2},
 ];
 
 const UNDERLINE = 'M4 16 C 90 4, 250 4, 336 14';
@@ -67,6 +68,18 @@ const UNDERLINE = 'M4 16 C 90 4, 250 4, 336 14';
 export const Lenses: React.FC<LensesProps> = ({title, closing, verdicts}) => (
 	<Impact hits={HITS}>
 		<BlinkStage glow={blink.skyBright} glowStrength={0.26} glowY={0.3} justify="center">
+			{/* Onde sur la chute de phrase : le dernier mot propage quelque chose. */}
+			<div
+				style={{
+					position: 'absolute',
+					left: '50%',
+					top: '68%',
+					width: 0,
+					height: 0,
+				}}
+			>
+				<Shockwave at={210} count={2} step={11} size={1500} color={blink.sky} thickness={3} />
+			</div>
 			<div
 				style={{
 					display: 'flex',
@@ -115,17 +128,17 @@ export const Lenses: React.FC<LensesProps> = ({title, closing, verdicts}) => (
 							at={24 + index * 24}
 							preset={index % 2 === 0 ? 'flyRight' : 'flyLeft'}
 							index={index}
-							out={300 + index * STAGGER.base}
+							out={270 + index * STAGGER.base}
 							highlightAt={index === 3 ? 180 : undefined}
 						/>
 					))}
 				</div>
 
 				<Pop
-					at={240}
+					at={210}
 					spring="slam"
 					preset="slamIn"
-					out={306}
+					out={282}
 					exit="liftOut"
 					style={{alignSelf: 'flex-end'}}
 				>

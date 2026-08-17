@@ -2,11 +2,13 @@ import type {ReactNode} from 'react';
 import {AbsoluteFill} from 'remotion';
 import {z} from 'zod';
 import {BlinkStage, Portal} from '@/components/blink';
+import {Shockwave} from '@/components/kinetic';
 import {blink, lenses} from '@/design/blink';
 import {fonts} from '@/design/typography';
 import {STAGGER} from '@/motion/beats';
 import {useProgress} from '@/motion/frame';
 import {Impact, Pop} from '@/motion/kinetic';
+import {useIdle} from '@/motion/kinetic/idle';
 
 export const perceptionSchema = z.object({
 	lineOne: z.string(),
@@ -39,7 +41,12 @@ export const perceptionDefaults: PerceptionProps = {
  *   f105  les regards se resserrent vers le centre
  *   f150  la promesse monte du bas
  *   f168  tout se retire
- *   f186  le portail s'ouvre — il devient le fond de la scène suivante
+ *   f186  le portail s'ouvre — il porte le blanc cassé du plan suivant, donc
+ *         le zoom traversant plonge dans une lumière et non dans un trou
+ *
+ * Enrichissements par rapport à la première version : chaque impact
+ * typographique émet une onde concentrique, et les regards respirent en
+ * permanence au lieu de se figer après leur entrée.
  */
 
 const HITS = [
@@ -76,11 +83,13 @@ const Converging: React.FC<{
 	children: ReactNode;
 }> = ({index, x, y, children}) => {
 	const pull = useProgress({delay: 105 + index * STAGGER.tight, spring: 'popSoft'}) * 0.72;
+	// Micro-vie : même immobiles sur leur orbite, les regards ne sont jamais figés.
+	const idle = useIdle({float: 12, breathe: 0.03, speed: 0.16, phase: index * 1.6});
 
 	return (
 		<div
 			style={{
-				transform: `translate3d(${(x * (1 - pull)).toFixed(2)}px, ${(y * (1 - pull)).toFixed(2)}px, 0)`,
+				transform: `translate3d(${(x * (1 - pull)).toFixed(2)}px, ${(y * (1 - pull) + idle.y).toFixed(2)}px, 0) scale(${idle.scale.toFixed(4)})`,
 			}}
 		>
 			{children}
@@ -129,6 +138,15 @@ export const Perception: React.FC<PerceptionProps> = ({
 		<BlinkStage glow={blink.skyBright} glowStrength={0.34}>
 			{/* Les quatre regards, un par couleur de lentille. Ils se resserrent au
 			    temps 3,5 : le rapprochement dit « on te regarde » sans l'écrire. */}
+			{/* Chaque impact typographique émet une onde : le mot ne fait pas que
+			    arriver, il propage quelque chose. */}
+			<AbsoluteFill style={{alignItems: 'center', justifyContent: 'center'}}>
+				<div style={{position: 'relative'}}>
+					<Shockwave at={46} count={2} step={9} size={1300} color={blink.skyBright} thickness={3} />
+					<Shockwave at={62} count={3} step={8} size={1700} color={blink.sky} thickness={4} />
+				</div>
+			</AbsoluteFill>
+
 			<AbsoluteFill style={{alignItems: 'center', justifyContent: 'center'}}>
 				{WATCHERS.map((watcher, index) => (
 					<Pop
@@ -203,6 +221,9 @@ export const Perception: React.FC<PerceptionProps> = ({
 					from={0}
 					to={360}
 					timing={{delay: 186, duration: 36, easing: 'expoIn'}}
+					color={blink.white}
+					edge={blink.cloud}
+					glow={blink.sky}
 				/>
 			</AbsoluteFill>
 		</BlinkStage>

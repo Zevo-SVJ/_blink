@@ -53,6 +53,20 @@ export const springs = {
 	popSoft: {stiffness: 400, damping: 24, mass: 1},
 	/** Impact violent : arrivée quasi critique, aucune oscillation résiduelle. */
 	slam: {stiffness: 500, damping: 30, mass: 1},
+
+	/**
+	 * Objets « lourds » — sphères, cartes d'identité, prismes.
+	 *
+	 * La masse supérieure à 1 est ce qui les distingue de l'UI : même raideur
+	 * apparente, mais plus d'inertie, donc un départ plus mou et une oscillation
+	 * plus longue. C'est ce qui fait qu'un objet paraît avoir un poids et une
+	 * interface non.
+	 */
+	heavy: {stiffness: 145, damping: 17, mass: 1.7},
+	/** Glissements de plans entiers. Fluide, sans nervosité. */
+	slide: {stiffness: 100, damping: 20, mass: 1},
+	/** Typographie d'impact : plus rebondissante que l'UI, volontairement. */
+	textPop: {stiffness: 230, damping: 12, mass: 1},
 } as const satisfies Record<string, SpringConfig>;
 
 export type SpringName = keyof typeof springs;

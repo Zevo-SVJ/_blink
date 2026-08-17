@@ -1,6 +1,7 @@
 import {AbsoluteFill} from 'remotion';
 import {z} from 'zod';
-import {BlinkStage, ProfileCard} from '@/components/blink';
+import {BlinkStage, Portal, ProfileCard} from '@/components/blink';
+import {ScanFrame, Toast} from '@/components/kinetic';
 import {LightSweep} from '@/components/LightSweep';
 import {blink} from '@/design/blink';
 import {fonts} from '@/design/typography';
@@ -38,14 +39,18 @@ export const captureDefaults: CaptureProps = {
  *   f084  la carte s'écrase — 2 frames, scaleY 0,82 / scaleX 1,14
  *   f088  éclats radiaux + secousse
  *   f096  le scan traverse la carte
+ *   f096  le cadre de scan se déploie autour de la carte — viseur, pas bordure
  *   f120  la jauge démarre, les critères s'allument en cascade
- *   f255  la lecture est terminée, tout se retire
+ *   f186  une notification annonce ce qui a été lu
+ *   f240  tout se retire
+ *   f246  le portail s'ouvre : on plonge dans le scan vers la scène suivante
  */
 
 const HITS = [
 	{at: 6, amplitude: 12, duration: 6, seed: 'c1'},
 	{at: 88, amplitude: 22, duration: 9, seed: 'c2', rotation: 1.4},
-	{at: 252, amplitude: 10, duration: 6, seed: 'c3'},
+	{at: 186, amplitude: 9, duration: 6, seed: 'c3'},
+	{at: 240, amplitude: 12, duration: 6, seed: 'c4'},
 ];
 
 const CLICK_FRAME = 84;
@@ -123,7 +128,7 @@ export const Capture: React.FC<CaptureProps> = ({
 						width: '100%',
 					}}
 				>
-					<Pop at={0} spring="popSoft" preset="riseUp" out={250} exit="liftOut">
+					<Pop at={0} spring="popSoft" preset="riseUp" out={238} exit="liftOut">
 						<div
 							style={{
 								fontFamily: fonts.text,
@@ -146,7 +151,7 @@ export const Capture: React.FC<CaptureProps> = ({
 						preset="dropIn"
 						squash={1.5}
 						shadow
-						out={248}
+						out={240}
 						exit="squashOut"
 						outDuration={16}
 					>
@@ -164,12 +169,17 @@ export const Capture: React.FC<CaptureProps> = ({
 							</div>
 							<LightSweep timing={{delay: 96, duration: 40}} radius={44} opacity={0.4} />
 
+							{/* Viseur : quatre équerres, pas un cadre. Il dit « on mesure ». */}
+							<div style={{position: 'absolute', inset: -30}}>
+								<ScanFrame at={96} height={700} color={blink.sky} corner={52} />
+							</div>
+
 							{/* Les éclats partent du point de contact. */}
 							<Burst at={88} count={7} radius={300} color={blink.sky} length={54} />
 						</div>
 					</Pop>
 
-					<Pop at={120} spring="popTight" preset="riseUp" out={246} exit="crush">
+					<Pop at={120} spring="popTight" preset="riseUp" out={236} exit="crush">
 						<div style={{width: 700}}>
 							<div
 								style={{
@@ -237,6 +247,31 @@ export const Capture: React.FC<CaptureProps> = ({
 					</Pop>
 				</div>
 
+				{/* Une notification commente la lecture, en marge du geste principal. */}
+				<AbsoluteFill
+					style={{
+						alignItems: 'flex-end',
+						justifyContent: 'flex-start',
+						paddingTop: 240,
+						paddingRight: 24,
+					}}
+				>
+					<Pop
+						at={186}
+						spring="popTight"
+						preset="flyLeft"
+						tilt
+						index={9}
+						shadow
+						out={234}
+						exit="flyOutRight"
+					>
+						<Toast accent={blink.success} fontFamily={fonts.text}>
+							9 images lues
+						</Toast>
+					</Pop>
+				</AbsoluteFill>
+
 				{/* Le curseur vit hors de la mise en page : il traverse la scène. */}
 				<AbsoluteFill style={{pointerEvents: 'none'}}>
 					<Cursor
@@ -248,6 +283,18 @@ export const Capture: React.FC<CaptureProps> = ({
 						pressAt={CLICK_FRAME}
 						size={58}
 						color={blink.white}
+					/>
+				</AbsoluteFill>
+
+				{/* Portail de sortie : sa couleur est celle du fond de la scène 6. */}
+				<AbsoluteFill style={{alignItems: 'center', justifyContent: 'center'}}>
+					<Portal
+						from={0}
+						to={330}
+						timing={{delay: 246, duration: 24, easing: 'expoIn'}}
+						color={blink.sky}
+						edge={blink.skyBright}
+						glow={blink.sky}
 					/>
 				</AbsoluteFill>
 			</BlinkStage>
