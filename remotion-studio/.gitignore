@@ -1,0 +1,13 @@
+node_modules
+
+# Sorties de rendu
+out
+dist-playground
+
+# Caches Remotion / Vite
+.remotion
+.vite
+
+.env
+.env.local
+.DS_Store
