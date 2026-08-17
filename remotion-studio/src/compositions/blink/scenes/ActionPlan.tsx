@@ -37,7 +37,7 @@ export const actionPlanDefaults: ActionPlanProps = {
  * métaphore redevient une chose que le spectateur peut faire ce soir.
  *
  *   f000  ▮ le châssis monte ; en-tête à f4, notification à f10 (`heavyDrop`),
- *         score à f28, jauge à f48 — l'écran ne reste jamais vide
+ *         score à f28, jauge à f38 — l'écran ne reste jamais vide
  *   f080  ▮ COUPE. Les trois actions s'activent seules, une toutes les 22 f
  *   f160  ▮ COUPE. Le gain projeté : +48, et le palier visé
  *
@@ -79,7 +79,7 @@ export const ActionPlan: React.FC<ActionPlanProps> = ({
 			<Impact hits={HITS_A}>
 				<BlinkStage glow={blink.skyBright} glowStrength={0.34} glowY={0.46}>
 					<Pop at={0} spring="whip" preset="hardUp">
-						<PhoneFrame width={780} height={1300}>
+						<PhoneFrame width={780} height={1140}>
 							{/* L'écran n'est jamais vide. Un châssis qui monte sur un fond noir
 							    laisserait un demi-seconde sans information — soit exactement le
 							    temps mort que la refonte cherche à supprimer. L'en-tête et la
@@ -129,11 +129,11 @@ export const ActionPlan: React.FC<ActionPlanProps> = ({
 									</Pop>
 								</div>
 
-								<Pop at={48} spring="kick" preset="hardUp" style={{marginTop: 40}}>
+								<Pop at={38} spring="kick" preset="hardUp" style={{marginTop: 36}}>
 									<div>
 										<Gauge
 											to={DEMO.tierProgress}
-											timing={{delay: 52, duration: 24, easing: 'expo'}}
+											timing={{delay: 44, duration: 24, easing: 'expo'}}
 											height={14}
 											color={blink.sky}
 										/>
@@ -164,7 +164,7 @@ export const ActionPlan: React.FC<ActionPlanProps> = ({
 		<Sequence from={80} durationInFrames={80} layout="none">
 			<Impact hits={HITS_B}>
 				<BlinkStage glow={blink.sky} glowStrength={0.3} glowY={0.5}>
-					<PhoneFrame width={760} height={1240} idle={false}>
+					<PhoneFrame width={780} height={1140} idle={false}>
 						<AbsoluteFill style={{padding: '150px 34px 0'}}>
 							<Pop at={0} spring="kick" preset="hardDown">
 								<div
@@ -194,6 +194,31 @@ export const ActionPlan: React.FC<ActionPlanProps> = ({
 									/>
 								))}
 							</div>
+
+							{/* Le récapitulatif arrive après la troisième bascule : il occupe le
+							    bas de l'écran, qui serait sinon vide pendant tout le battement,
+							    et il transforme trois gestes en une promesse chiffrée. */}
+							<Pop at={56} spring="kick" preset="hardUp" style={{marginTop: 30}}>
+								<div
+									style={{
+										padding: '26px 30px',
+										borderRadius: 24,
+										background: `linear-gradient(120deg, ${blink.skyBright}22, ${blink.sky}18)`,
+										border: `1px solid ${blink.sky}44`,
+										display: 'flex',
+										alignItems: 'center',
+										justifyContent: 'space-between',
+										fontFamily: fonts.display,
+									}}
+								>
+									<span style={{fontSize: 30, fontWeight: 700, color: blink.white}}>
+										3 actions
+									</span>
+									<span style={{fontSize: 34, fontWeight: 800, color: blink.sky}}>
+										+{gain} points
+									</span>
+								</div>
+							</Pop>
 						</AbsoluteFill>
 					</PhoneFrame>
 
