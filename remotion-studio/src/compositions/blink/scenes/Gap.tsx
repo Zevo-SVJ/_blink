@@ -69,9 +69,9 @@ const HITS_C = [
  * C'est le seul endroit du film où un raccord sonore est plus fort qu'un
  * impact : ici le mouvement *est* l'évènement, il n'accompagne rien.
  */
-const SFX_A = [cue(0, 'whooshFast', 0.45)];
-const SFX_B = [cue(0, 'whooshFast', 0.24), cue(6, 'clickMechanic', 0.28), cue(12, 'clickMechanic', 0.28)];
-const SFX_C = [cue(0, 'whooshFast'), cue(4, 'whooshFast', 0.26), cue(10, 'impactThud')];
+const SFX_A = [cue(0, 'softSwipe')];
+const SFX_B = [cue(0, 'softSwipe'), cue(6, 'clickMechanic', 0.28), cue(12, 'clickMechanic', 0.28)];
+const SFX_C = [cue(0, 'softSwipe'), cue(4, 'softSwipe'), cue(10, 'impactThud')];
 
 const PUNCH_C = [{at: 10, to: 1.2, rise: 5}];
 

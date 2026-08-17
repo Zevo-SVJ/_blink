@@ -209,24 +209,43 @@ const sounds = {
 	},
 
 	/**
-	 * Whoosh : du bruit dont la bande passante monte puis redescend.
-	 * Le balayage est ce qui donne la direction — un bruit filtré à fréquence
-	 * fixe ne « passe » pas, il souffle.
+	 * SOUFFLE D'AIR.
+	 *
+	 * Remplace le whoosh de la première version, qui était trop présent : sur
+	 * dix raccords, un souffle agressif devient un tic, et un tic entendu dix
+	 * fois en trente-huit secondes finit par être la seule chose qu'on entend.
+	 *
+	 * Trois changements par rapport au whoosh, et chacun compte :
+	 *
+	 *   • **plus de résonance** — Q à 0,5 au lieu de 1,7. Le filtre colore sans
+	 *     siffler, donc le son n'a plus de « pointe » qui accroche l'oreille ;
+	 *   • **spectre bas** — le balayage plafonne à 1 100 Hz au lieu de 4 600. Ce
+	 *     sont les aigus qui rendent un souffle agressif, pas son volume ;
+	 *   • **attaque lente** — l'enveloppe monte en `sin³` sur 40 % de la durée.
+	 *     Un souffle qui démarre net *claque* ; celui-ci arrive.
+	 *
+	 * Le résultat est un mouvement d'air, pas un effet. À 0,14 de volume il se
+	 * sent sans se remarquer — ce qui est exactement le rôle d'un son de raccord
+	 * sous une voix off.
 	 */
-	'whoosh_fast.mp3': () => {
-		const n = seconds(0.34);
+	'soft_air_swipe.mp3': () => {
+		const n = seconds(0.38);
 		const random = rng(37);
 		const raw = noise(n, random);
-		const sweep = (t) => 420 + Math.sin(Math.min(1, t / 0.32) * Math.PI) * 4200;
-		const filtered = bandpass(raw, sweep, 1.7);
+		// Balayage doux et resserré : 260 Hz → 1 100 Hz → 320 Hz.
+		const sweep = (t) => 260 + Math.sin(Math.min(1, t / 0.36) * Math.PI) * 840;
+		const filtered = bandpass(raw, sweep, 0.5);
 		const out = new Float64Array(n);
+		let low = 0;
 		for (let i = 0; i < n; i++) {
 			const t = i / RATE;
-			// Cloche d'amplitude asymétrique : montée rapide, chute plus longue.
-			const bell = Math.pow(Math.sin(Math.min(1, t / 0.34) * Math.PI), 1.4);
-			out[i] = filtered[i] * bell;
+			// Passe-bas supplémentaire à un pôle : coupe ce qui reste au-dessus de
+			// ~2,4 kHz, la bande où un souffle devient sifflant.
+			low += (filtered[i] - low) * 0.28;
+			const bell = Math.pow(Math.sin(Math.min(1, t / 0.38) * Math.PI), 3);
+			out[i] = low * bell;
 		}
-		return fadeOut(normalize(out, 0.8), 20);
+		return fadeOut(normalize(out, 0.62), 30);
 	},
 
 	/**

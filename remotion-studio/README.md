@@ -164,7 +164,7 @@ remotion-studio/
 │   │                          SplitDiagonal · PhoneFrame · Sparks · Cadence
 │   │                          Orb · CursorSwarm · NodeField · Radar · TypeBreath
 │   │
-│   ├── audio/              ⚑ Design sonore : catalogue de SFX + piste par scène
+│   ├── audio/              ⚑ Design sonore : SFX, piste par scène, voix off
 │   └── compositions/       Les scènes
 │       ├── manifest.ts     Durées centralisées
 │       ├── HeroReveal.tsx  ┐
@@ -179,12 +179,14 @@ remotion-studio/
 │
 ├── public/
 │   ├── fonts/              Inter variable, auto-hébergée
-│   └── sfx/                Huit SFX générés par `npm run sfx`
+│   ├── sfx/                Huit SFX générés par `npm run sfx`
+│   └── vo/                 Voix off à déposer — voir son README
 ├── playground/             App React interactive (Framer Motion + <Player />)
 ├── reference/              Dépôt des vidéos de référence à analyser (non versionné)
 └── scripts/
     ├── render-all.mjs      Rendu par lot via l'API programmatique
     ├── sfx/                ⚑ Synthèse déterministe des huit effets sonores
+    ├── vo/                 ⚑ Plan de voix off : script, timecodes, contrôle
     └── analysis/           Chaîne d'analyse de vidéo de référence (§6)
         ├── index.mjs       Orchestrateur CLI
         └── lib/            ffmpeg · probe · motion · extract · sheet · png
@@ -574,18 +576,25 @@ n'ait à l'écrire.
 | `camera_shutter.mp3` | 0,40 | ouverture d'un cadre de capture (`Rhythm`, `ScanUi`) |
 | `beep.mp3` | 0,40 | verrouillage de viseur, confirmation d'interface |
 | `click_mechanic.mp3` | 0,50 | tampon, bascule d'interrupteur, clic sur le bouton |
-| `whoosh_fast.mp3` | 0,35 | raccords whip et slash, balayage laser, lame diagonale |
+| `soft_air_swipe.mp3` | **0,14** | raccords whip et slash, balayage laser, lame diagonale |
 | `impact_thud.mp3` | 0,50 | punchlines, chiffre qui se verrouille, mot plein cadre |
 | `marker_scratch.mp3` | 0,45 | **la croix au feutre — une seule occurrence** |
 | `card_pop.mp3` | 0,40 | atterrissage des quatre cartes de regard |
 | `count_up_tick.mp3` | 0,30 | montée du score de 0 à 742 |
 
+Le souffle est le seul son du film assez fréquent — onze occurrences — pour
+devenir un tic. C'est pour ça qu'il est de loin le plus bas du catalogue : sur
+un raccord, ce qu'on cherche n'est pas d'entendre un son, c'est de ne pas
+entendre une coupe.
+
 Trois décisions structurent la piste :
 
-- **les volumes sont hiérarchisés, pas égaux.** Un raccord doit s'entendre sans
-  couvrir ce qu'il relie : le whoosh est 3 dB sous l'impact, et non l'inverse.
-  Le seul endroit où un whoosh passe devant tout le reste est la lame de `Gap`,
-  parce que là le mouvement *est* l'évènement ;
+- **les volumes sont hiérarchisés, pas égaux.** Un raccord doit se *sentir* sans
+  couvrir ce qu'il relie : le souffle est 11 dB sous l'impact. La première
+  version le plaçait à 0,35 avec un balayage résonant jusqu'à 4,6 kHz, et à la
+  onzième occurrence il devenait la seule chose qu'on entendait. Il a été
+  entièrement refait — Q ramené de 1,7 à 0,5, spectre plafonné à 1,1 kHz,
+  attaque en `sin³` — pour devenir un mouvement d'air plutôt qu'un effet ;
 - **deux frames d'avance systématiques.** Le transitoire d'attaque d'un son met
   quelques millisecondes à atteindre son pic alors que l'image est instantanée ;
   `cue()` applique donc 33 ms d'anticipation partout. C'est le pendant sonore de
@@ -606,6 +615,44 @@ repères sont **relatifs à la séquence**, donc déplacer une séquence dans le
 montage emmène son son avec elle. Les whooshs de raccord, eux, n'appartiennent à
 aucune scène : ils sont calculés en absolu dans `BlinkReel` depuis
 `sceneStarts()`.
+
+#### La voix off
+
+`src/audio/voice.ts` est le contrat entre la narration et l'image : le texte
+exact de chaque réplique et sa frame **absolue**, dérivée du manifeste. Allonger
+un plan déplace donc automatiquement toutes les répliques suivantes.
+
+```bash
+npm run vo            # script complet, timecodes, contrôle de tenue
+npm run vo -- --srt   # export .srt pour caler à l'oreille
+```
+
+`voiceBudget()` vérifie que chaque réplique tient avant la suivante et sort en
+erreur sinon. Ce n'est pas décoratif : la première version du script avait six
+répliques qui mordaient sur la suivante, ce qui aurait forcé à rallonger le
+montage au moment de poser l'audio — c'est-à-dire à défaire le travail de
+rythme. Les six ont été réécrites avant enregistrement, pas après.
+
+Deux règles de rédaction gouvernent le texte :
+
+- **le texte à l'écran n'est jamais relu.** Trois répliques disaient exactement
+  ce que l'image écrivait déjà (« neuf images, une bio », « le cadrage, les
+  couleurs, les mots », « quatre regards, un seul profil »). Elles ont été
+  remplacées par ce que l'image *ne dit pas* : « Voilà tout ce qu'ils ont de
+  toi », « Tout est un signal », « Chacun y voit autre chose » ;
+- **les répliques débordent des plans**, et c'est voulu. Sur un montage découpé
+  en battements d'une seconde, une voix qui s'arrêterait à chaque coupe
+  soulignerait le découpage au lieu de le porter.
+
+Deux modes de livraison : `single` (un `voiceover.mp3` posé à la frame 0, le
+défaut) ou `lines` (un fichier par réplique, chacun placé à sa frame — la voix
+reste collée aux marques quoi qu'il arrive au montage). `public/vo/README.md`
+donne le profil de voix, les réglages et la marche à suivre.
+
+Tant que `VOICE_ENABLED` est à `false`, le projet se rend sans voix : un
+`<Audio>` pointant sur un fichier absent ferait échouer le rendu entier. Le
+passer à `true` active aussi l'atténuation de 4 dB sur tous les effets, qui
+libère la bande 200 Hz – 4 kHz pour la parole.
 
 #### Les fichiers sont synthétisés, pas sourcés
 

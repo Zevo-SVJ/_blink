@@ -91,9 +91,9 @@ const PUNCH_C = [
 	{at: 47, to: 0.9, rise: 10, hold: true},
 ];
 
-const SFX_A = [cue(0, 'whooshFast', 0.28), cue(14, 'clickMechanic'), cue(14, 'impactThud', 0.42)];
-const SFX_B = [cue(0, 'whooshFast'), cue(10, 'impactThud'), cue(20, 'clickMechanic', 0.34)];
-const SFX_C = [cue(0, 'impactThud'), cue(47, 'whooshFast', 0.3)];
+const SFX_A = [cue(0, 'softSwipe'), cue(14, 'clickMechanic'), cue(14, 'impactThud', 0.42)];
+const SFX_B = [cue(0, 'softSwipe'), cue(10, 'impactThud'), cue(20, 'clickMechanic', 0.34)];
+const SFX_C = [cue(0, 'impactThud'), cue(47, 'softSwipe')];
 
 /** Le tampon. Il ne réapparaît jamais après le premier plan. */
 const Badge: React.FC<{label: string; at: number}> = ({label, at}) => (

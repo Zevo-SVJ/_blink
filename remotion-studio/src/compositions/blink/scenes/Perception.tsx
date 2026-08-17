@@ -72,7 +72,7 @@ const HITS_A = lenses.map((_lens, index) => ({
  */
 const SFX_A = lenses.map((_lens, index) => cue(index * DROP_STEP + 16, 'cardPop'));
 const SFX_B = lenses.map((_lens, index) => cue(index * 5 + 8, 'cardPop', 0.3));
-const SFX_C = [cue(10, 'impactThud'), cue(60, 'whooshFast', 0.3)];
+const SFX_C = [cue(10, 'impactThud'), cue(60, 'softSwipe')];
 
 const PUNCH_C = [
 	{at: 10, to: 1.2, rise: 5},

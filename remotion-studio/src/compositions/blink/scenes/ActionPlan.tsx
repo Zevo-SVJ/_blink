@@ -74,7 +74,7 @@ const HITS_C = [
  * dire « validé ». Trente secondes plus tard, trois clics suffisent à dire que
  * trois choses viennent d'être réglées, sans qu'aucun texte n'ait à le dire.
  */
-const SFX_A = [cue(0, 'whooshFast', 0.3), cue(10, 'beep', 0.35), cue(28, 'countUpTick', 0.28)];
+const SFX_A = [cue(0, 'softSwipe'), cue(10, 'beep', 0.35), cue(28, 'countUpTick', 0.28)];
 const SFX_B = [
 	cue(10, 'clickMechanic'),
 	cue(32, 'clickMechanic'),

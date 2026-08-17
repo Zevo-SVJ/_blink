@@ -72,7 +72,7 @@ const HITS_C = [
  */
 const SFX_A = [cue(0, 'impactThud', 0.42)];
 const SFX_B = [cue(4, 'markerScratch'), cue(16, 'clickMechanic'), cue(16, 'impactThud', 0.4)];
-const SFX_C = [cue(0, 'impactThud'), cue(36, 'whooshFast', 0.32)];
+const SFX_C = [cue(0, 'impactThud'), cue(36, 'softSwipe')];
 
 const PUNCH_C = [{at: 0, to: 1.22, rise: 5}];
 

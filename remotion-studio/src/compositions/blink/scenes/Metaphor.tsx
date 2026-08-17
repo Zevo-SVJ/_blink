@@ -85,8 +85,8 @@ const HITS_C = [{at: 0, amplitude: 26, duration: 10, seed: 'm3', rotation: 1.6}]
  * fond silencieux se lisent comme une foule qui s'active. Le volume porte ici
  * l'information « ils sont nombreux », pas « c'est important ».
  */
-const SFX_A = [cue(0, 'impactThud', 0.42), cue(8, 'whooshFast', 0.3)];
-const SFX_C = [cue(7, 'impactThud'), cue(52, 'whooshFast', 0.3)];
+const SFX_A = [cue(0, 'impactThud', 0.42), cue(8, 'softSwipe')];
+const SFX_C = [cue(7, 'impactThud'), cue(52, 'softSwipe')];
 
 const PUNCH_C = [
 	{at: 7, to: 1.2, rise: 5},

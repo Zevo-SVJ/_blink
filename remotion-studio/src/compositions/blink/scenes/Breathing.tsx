@@ -58,8 +58,8 @@ const HITS = [{at: 3, amplitude: 20, duration: 8, seed: 'b1', rotation: 1.1}];
  * d'arriver.
  */
 const SFX_FIRST = [cue(3, 'impactThud')];
-const SFX_NEXT = [cue(0, 'whooshFast', 0.3), cue(3, 'impactThud')];
-const SFX_LAST = [cue(0, 'whooshFast', 0.3), cue(3, 'impactThud'), cue(48, 'whooshFast', 0.3)];
+const SFX_NEXT = [cue(0, 'softSwipe'), cue(3, 'impactThud')];
+const SFX_LAST = [cue(0, 'softSwipe'), cue(3, 'impactThud'), cue(48, 'softSwipe')];
 
 const PUNCH = [{at: 3, to: 1.18, rise: 5}];
 const PUNCH_LAST = [

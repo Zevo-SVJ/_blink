@@ -59,7 +59,7 @@ const HITS_B = [
  * tombe sur le chiffre. Trois sons, trois fonctions — jamais deux sons pour
  * dire la même chose.
  */
-const SFX_A = [cue(0, 'cameraShutter'), cue(10, 'beep'), cue(36, 'whooshFast', 0.3)];
+const SFX_A = [cue(0, 'cameraShutter'), cue(10, 'beep'), cue(36, 'softSwipe')];
 const SFX_B = [cue(0, 'impactThud'), cue(8, 'clickMechanic', 0.35), cue(36, 'beep', 0.3)];
 
 /** Le punch tombe sur le chiffre, pas sur la phrase qui le suit. */

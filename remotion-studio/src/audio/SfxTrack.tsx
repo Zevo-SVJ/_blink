@@ -1,6 +1,7 @@
 import {Audio, Sequence, staticFile} from 'remotion';
 import type {SfxCue} from './sfx';
 import {SFX} from './sfx';
+import {SFX_DUCK, VOICE_ENABLED} from './voice';
 
 export type SfxTrackProps = {
 	/** Repères de la séquence, exprimés dans sa propre timeline. */
@@ -44,7 +45,10 @@ export const SfxTrack: React.FC<SfxTrackProps> = ({cues}) => (
 				>
 					<Audio
 						src={staticFile(sound.file)}
-						volume={item.volume ?? sound.volume}
+						// Les effets passent sous la voix dès qu'elle est présente : ils
+						// occupent la même bande de fréquences qu'elle, donc à plein
+						// niveau chacun viendrait mordre une syllabe.
+						volume={(item.volume ?? sound.volume) * (VOICE_ENABLED ? SFX_DUCK : 1)}
 						trimBefore={item.startFrom}
 					/>
 				</Sequence>

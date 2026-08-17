@@ -76,7 +76,7 @@ const SFX_B = [
 	cue(24, 'impactThud'),
 	cue(30, 'beep', 0.3),
 ];
-const SFX_C = [cue(2, 'clickMechanic', 0.3), cue(44, 'impactThud', 0.42), cue(60, 'whooshFast', 0.3)];
+const SFX_C = [cue(2, 'clickMechanic', 0.3), cue(44, 'impactThud', 0.42), cue(60, 'softSwipe')];
 
 /** Le punch tombe sur le verrouillage du chiffre, pas sur son départ. */
 const PUNCH_B = [{at: 24, to: 1.22, rise: 5}];

@@ -21,6 +21,7 @@
     "lint": "eslint .",
     "upgrade": "remotion upgrade",
     "sfx": "node scripts/sfx/build-sfx.mjs",
+    "vo": "node scripts/vo/index.mjs",
     "analyze": "node scripts/analysis/index.mjs",
     "analyze:find": "node scripts/analysis/index.mjs --find",
     "analyze:probe": "node scripts/analysis/index.mjs --probe"

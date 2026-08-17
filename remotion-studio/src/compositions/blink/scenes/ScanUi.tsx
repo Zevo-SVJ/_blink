@@ -82,9 +82,9 @@ const HITS_D = [
  * Le balayage laser a son propre whoosh : un instrument qui traverse l'image
  * sans qu'on l'entende n'aurait aucune matière.
  */
-const SFX_A = [cue(0, 'cameraShutter'), cue(18, 'whooshFast', 0.3)];
+const SFX_A = [cue(0, 'cameraShutter'), cue(18, 'softSwipe')];
 const SFX_B = [
-	cue(0, 'whooshFast', 0.26),
+	cue(0, 'softSwipe'),
 	cue(4, 'clickMechanic', 0.3),
 	cue(8, 'clickMechanic', 0.3),
 	cue(12, 'clickMechanic', 0.3),
@@ -96,7 +96,7 @@ const SFX_D = [
 	cue(8, 'clickMechanic', 0.3),
 	cue(14, 'impactThud'),
 	cue(30, 'beep', 0.32),
-	cue(48, 'whooshFast', 0.3),
+	cue(48, 'softSwipe'),
 ];
 
 const PUNCH_D = [
