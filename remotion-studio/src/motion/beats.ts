@@ -64,4 +64,14 @@ export const STAGGER = {
 	wide: 4,
 	/** 83 ms — éléments lourds, peu nombreux. */
 	loose: 5,
+	/**
+	 * 100 ms — cascade franchement marquée.
+	 *
+	 * Réservé aux **cascades de mots** : sur trois ou quatre fragments, l'écart
+	 * se lit comme une arrivée successive et non comme un bloc. À ne pas
+	 * employer sur une grille dense : six éléments à 6 frames étalent
+	 * l'apparition sur 36 frames, ce qui réintroduirait précisément la lenteur
+	 * qu'on cherche à supprimer.
+	 */
+	marked: 6,
 } as const;

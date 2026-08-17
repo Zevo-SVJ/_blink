@@ -71,7 +71,7 @@ export const Gaze: React.FC<GazeProps> = ({
 						spring="heavy"
 						preset="popIn"
 						squash={0.8}
-						out={200}
+						out={211}
 						exit="recede"
 						outDuration={18}
 					>
@@ -96,7 +96,7 @@ export const Gaze: React.FC<GazeProps> = ({
 			<AbsoluteFill
 				style={{alignItems: 'center', justifyContent: 'flex-start', paddingTop: 300}}
 			>
-				<Pop at={44} spring="popTight" preset="riseUp" out={198} exit="liftOut">
+				<Pop at={44} spring="ui" preset="riseUp" out={209} exit="liftOut">
 					<ViewCounter
 						at={48}
 						to={viewsTo}
@@ -121,12 +121,12 @@ export const Gaze: React.FC<GazeProps> = ({
 						<Pop
 							key={text}
 							at={90 + index * 30}
-							spring="popTight"
+							spring="ui"
 							preset="flyLeft"
 							tilt
 							index={index + 3}
 							shadow
-							out={196 + index * STAGGER.base}
+							out={207 + index * STAGGER.base}
 							exit="flyOutRight"
 						>
 							<Toast
@@ -145,7 +145,7 @@ export const Gaze: React.FC<GazeProps> = ({
 			<AbsoluteFill
 				style={{alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 300}}
 			>
-				<Pop at={150} spring="textPop" preset="riseUp" out={202} exit="crush">
+				<Pop at={150} spring="textPop" preset="riseUp" out={213} exit="crush">
 					<div
 						style={{
 							fontFamily: fonts.display,

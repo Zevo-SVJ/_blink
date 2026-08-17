@@ -15,7 +15,9 @@
  *   • une idée par scène, jamais deux ;
  *   • phrases courtes, dites à voix haute sans reprendre son souffle ;
  *   • le texte à l'écran **reprend ou complète** la réplique, il ne la double
- *     jamais mot pour mot sur les scènes longues ;
+ *     jamais mot pour mot. Les listes déjà écrites à l'écran — les quatre
+ *     lentilles, les leviers de progression — ne sont pas relues par la voix :
+ *     l'énumérer à l'oral n'ajoute rien et mange tout le temps du plan ;
  *   • ~2,5 mots par seconde en français — chaque réplique est vérifiée contre
  *     la durée de sa scène, avec une marge d'au moins 20 %.
  *
@@ -37,6 +39,15 @@ export type NarrationCue = {
 	leadInFrames?: number;
 	/** Ce que l'image raconte pendant la réplique — sert de note de montage. */
 	staging: string;
+	/**
+	 * Autorise la réplique à déborder sur le plan suivant.
+	 *
+	 * Une voix off n'a pas à être enfermée dans un plan : sur les punchlines et
+	 * les respirations, la phrase se prononce lentement et se termine
+	 * naturellement après le raccord. Le noter explicitement évite d'allonger un
+	 * plan typographique — qui perdrait sa brièveté, donc son intérêt.
+	 */
+	spansNextScene?: boolean;
 };
 
 /** ~2,5 mots par seconde en français, débit posé. */
@@ -69,7 +80,7 @@ export const narration: NarrationCue[] = [
 	},
 	{
 		scene: 'Identity',
-		line: 'Neuf images, une bio. C’est tout ce qu’ils ont.',
+		line: 'Neuf images, une bio. C’est tout.',
 		at: 10,
 		staging:
 			'Une carte d’identité flottante se retourne ; les fragments d’identité s’empilent en pseudo-3D.',
@@ -83,7 +94,7 @@ export const narration: NarrationCue[] = [
 	},
 	{
 		scene: 'Signals',
-		line: 'Le cadrage, les couleurs, les mots — tout compte.',
+		line: 'Le cadrage, les couleurs, les mots.',
 		at: 8,
 		staging:
 			'Machinerie d’analyse : champ de nœuds, radar de personnalité, fenêtres flottantes, cadre de scan.',
@@ -92,19 +103,20 @@ export const narration: NarrationCue[] = [
 		scene: 'Punchline',
 		line: 'Pas ce que tu crois.',
 		at: 4,
+		spansNextScene: true,
 		staging:
 			'Fond saturé plein cadre, trois mots noirs. Le contre-pied, sans aucun décor.',
 	},
 	{
 		scene: 'Lenses',
-		line: 'Ton crush, un inconnu, tes amis, un recruteur. Quatre regards, un seul profil.',
+		line: 'Quatre regards. Un seul profil.',
 		at: 10,
 		staging:
 			'Les quatre verdicts arrivent en cascade alternée ; le dernier reçoit une validation.',
 	},
 	{
 		scene: 'Mirror',
-		line: 'Ce que tu montres n’est pas ce qu’ils voient.',
+		line: 'Ce que tu montres, ils le lisent autrement.',
 		at: 12,
 		staging:
 			'Fond clair. Un miroir se fend en deux : à gauche l’intention, à droite la perception.',
@@ -113,18 +125,19 @@ export const narration: NarrationCue[] = [
 		scene: 'Reveal',
 		line: 'Voilà ce qu’ils voient.',
 		at: 4,
+		spansNextScene: true,
 		staging: 'Noir profond, quatre mots. La respiration avant le résultat.',
 	},
 	{
 		scene: 'Verdict',
-		line: 'Sept cent quarante-deux sur mille. Sharp : tout tire dans le même sens.',
+		line: 'Sept cent quarante-deux. Palier Sharp.',
 		at: 8,
 		staging:
 			'L’anneau se trace, le compteur monte, le palier s’abat avec la plus forte secousse de la vidéo.',
 	},
 	{
 		scene: 'Climb',
-		line: 'Quarante-huit points avant Magnetic. Blink te dit lesquels.',
+		line: 'Quarante-huit points avant Magnetic.',
 		at: 10,
 		staging:
 			'L’échelle des paliers se construit marche par marche ; un marqueur grimpe et s’arrête sous le palier suivant.',

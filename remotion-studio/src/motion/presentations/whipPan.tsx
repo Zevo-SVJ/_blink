@@ -3,6 +3,7 @@ import type {
 	TransitionPresentationComponentProps,
 } from '@remotion/transitions';
 import {AbsoluteFill, Easing, interpolate} from 'remotion';
+import type {EasingName} from '../dynamics';
 import {easings} from '../dynamics';
 
 export type WhipPanProps = {
@@ -13,6 +14,13 @@ export type WhipPanProps = {
 	blur?: number;
 	/** Recul d'anticipation avant le départ, en fraction de largeur. */
 	anticipation?: number;
+	/**
+	 * Courbe de forme. Laisser vide quand la transition est cadencée par une
+	 * Bézier ; passer `'linear'` quand son horloge est déjà un ressort
+	 * (`springTiming`) — sinon le même mouvement est lissé deux fois et la
+	 * transition se fige dans son premier tiers.
+	 */
+	curve?: EasingName;
 };
 
 /**
@@ -43,7 +51,7 @@ const WhipPan: React.FC<TransitionPresentationComponentProps<WhipPanProps>> = ({
 	const anticipation = passedProps.anticipation ?? 0.03;
 	const sign = direction === 'left' ? -1 : 1;
 
-	const [a, b, c, d] = easings.quint;
+	const [a, b, c, d] = easings[passedProps.curve ?? 'quint'];
 	const eased = interpolate(presentationProgress, [0, 1], [0, 1], {
 		easing: Easing.bezier(a, b, c, d),
 	});

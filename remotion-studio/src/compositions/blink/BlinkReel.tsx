@@ -1,6 +1,7 @@
-import {linearTiming, TransitionSeries} from '@remotion/transitions';
+import {springTiming, TransitionSeries} from '@remotion/transitions';
 import {AbsoluteFill} from 'remotion';
 import {blink} from '@/design/blink';
+import {springs} from '@/motion/dynamics';
 import {whipPan, wipeUp, zoomThrough} from '@/motion/presentations';
 import {BLINK_SCENES, BLINK_TRANSITIONS} from './manifest';
 import {Capture, captureDefaults} from './scenes/Capture';
@@ -40,20 +41,27 @@ import {
  *     franchit un palier : on entre dans l'analyse, dans le retournement, dans
  *     la conclusion.
  *
- * Le `timing` est **linéaire** et l'easing vit dans la présentation. Empiler un
- * ressort sur la courbe d'une présentation lisse deux fois le même mouvement :
- * la transition se termine dans son premier tiers puis se fige, ce qui se voit
- * immédiatement à l'image. Une horloge, une courbe.
+ * **Une seule mise en forme, jamais deux.** L'horloge de chaque transition est
+ * un ressort (`slideBig` : 220 / 18 / 1, ζ ≈ 0,61), et les présentations
+ * reçoivent donc `curve: 'linear'`. Empiler un ressort sur la Bézier d'une
+ * présentation lisse deux fois le même mouvement : la transition se termine
+ * dans son premier tiers puis se fige, ce qui se voit immédiatement à l'image.
  *
- * Et jamais de ressort au montage : le rebond appartient aux éléments. Faire
- * osciller l'image entière la rend illisible.
+ * Pourquoi le ressort plutôt que la Bézier : il apporte ~9 % de dépassement à
+ * l'arrivée du plan. Le raccord se pose au lieu de s'arrêter net — c'est ce
+ * léger débord qui rend l'enchaînement organique. Une courbe ne sait pas le
+ * produire.
+ *
+ * Le dépassement reste modéré à dessein : faire osciller franchement l'image
+ * entière la rendrait illisible. Le rebond appartient aux éléments.
  *
  * Le fond de marque est peint **sous** la série. Un plan qui recule (rideau) ou
  * un joint latéral d'un pixel (filé) laisserait sinon apparaître du noir — le
  * défaut le plus visible qui soit sur un fond sombre.
  */
 
-const timing = (durationInFrames: number) => linearTiming({durationInFrames});
+const timing = (durationInFrames: number) =>
+	springTiming({config: springs.slideBig, durationInFrames});
 
 export const BlinkReel: React.FC = () => (
 	<AbsoluteFill style={{backgroundColor: blink.navy}}>
@@ -66,7 +74,7 @@ export const BlinkReel: React.FC = () => (
 			{/* On plonge dans la lumière : le portail porte déjà le blanc cassé du
 			    plan typographique qui suit. */}
 			<TransitionSeries.Transition
-				presentation={zoomThrough({scale: 13, incomingScale: 0.78, blur: 18})}
+				presentation={zoomThrough({scale: 13, incomingScale: 0.78, blur: 18, curve: 'linear'})}
 				timing={timing(BLINK_TRANSITIONS.perceptionToSeconds)}
 			/>
 
@@ -75,7 +83,7 @@ export const BlinkReel: React.FC = () => (
 			</TransitionSeries.Sequence>
 
 			<TransitionSeries.Transition
-				presentation={whipPan({direction: 'left', overshoot: 0.05, blur: 32})}
+				presentation={whipPan({direction: 'left', overshoot: 0.05, blur: 32, curve: 'linear'})}
 				timing={timing(BLINK_TRANSITIONS.secondsToGaze)}
 			/>
 
@@ -84,7 +92,7 @@ export const BlinkReel: React.FC = () => (
 			</TransitionSeries.Sequence>
 
 			<TransitionSeries.Transition
-				presentation={whipPan({direction: 'right', overshoot: 0.045, blur: 28})}
+				presentation={whipPan({direction: 'right', overshoot: 0.045, blur: 28, curve: 'linear'})}
 				timing={timing(BLINK_TRANSITIONS.gazeToIdentity)}
 			/>
 
@@ -94,7 +102,7 @@ export const BlinkReel: React.FC = () => (
 
 			{/* ── ACTE II — L'ANALYSE ────────────────────────────────────────── */}
 			<TransitionSeries.Transition
-				presentation={wipeUp({recede: 0.09, wave: 64})}
+				presentation={wipeUp({recede: 0.09, wave: 64, curve: 'linear'})}
 				timing={timing(BLINK_TRANSITIONS.identityToCapture)}
 			/>
 
@@ -104,7 +112,7 @@ export const BlinkReel: React.FC = () => (
 
 			{/* On plonge dans le scan. */}
 			<TransitionSeries.Transition
-				presentation={zoomThrough({scale: 14, incomingScale: 0.72, blur: 22})}
+				presentation={zoomThrough({scale: 14, incomingScale: 0.72, blur: 22, curve: 'linear'})}
 				timing={timing(BLINK_TRANSITIONS.captureToSignals)}
 			/>
 
@@ -113,7 +121,7 @@ export const BlinkReel: React.FC = () => (
 			</TransitionSeries.Sequence>
 
 			<TransitionSeries.Transition
-				presentation={whipPan({direction: 'left', overshoot: 0.055, blur: 34})}
+				presentation={whipPan({direction: 'left', overshoot: 0.055, blur: 34, curve: 'linear'})}
 				timing={timing(BLINK_TRANSITIONS.signalsToPunchline)}
 			/>
 
@@ -124,7 +132,7 @@ export const BlinkReel: React.FC = () => (
 			{/* ── ACTE III — LES REGARDS ─────────────────────────────────────── */}
 			{/* L'aplat saturé fait masque à lui seul : aucun portail nécessaire. */}
 			<TransitionSeries.Transition
-				presentation={zoomThrough({scale: 11, incomingScale: 0.8, blur: 16})}
+				presentation={zoomThrough({scale: 11, incomingScale: 0.8, blur: 16, curve: 'linear'})}
 				timing={timing(BLINK_TRANSITIONS.punchlineToLenses)}
 			/>
 
@@ -134,7 +142,7 @@ export const BlinkReel: React.FC = () => (
 
 			{/* Le fond clair monte et recouvre le bleu nuit. */}
 			<TransitionSeries.Transition
-				presentation={wipeUp({recede: 0.12, wave: 78})}
+				presentation={wipeUp({recede: 0.12, wave: 78, curve: 'linear'})}
 				timing={timing(BLINK_TRANSITIONS.lensesToMirror)}
 			/>
 
@@ -143,7 +151,7 @@ export const BlinkReel: React.FC = () => (
 			</TransitionSeries.Sequence>
 
 			<TransitionSeries.Transition
-				presentation={whipPan({direction: 'right', overshoot: 0.05, blur: 30})}
+				presentation={whipPan({direction: 'right', overshoot: 0.05, blur: 30, curve: 'linear'})}
 				timing={timing(BLINK_TRANSITIONS.mirrorToReveal)}
 			/>
 
@@ -153,7 +161,7 @@ export const BlinkReel: React.FC = () => (
 
 			{/* ── ACTE IV — LA RÉVÉLATION ────────────────────────────────────── */}
 			<TransitionSeries.Transition
-				presentation={zoomThrough({scale: 12, incomingScale: 0.76, blur: 20})}
+				presentation={zoomThrough({scale: 12, incomingScale: 0.76, blur: 20, curve: 'linear'})}
 				timing={timing(BLINK_TRANSITIONS.revealToVerdict)}
 			/>
 
@@ -162,7 +170,7 @@ export const BlinkReel: React.FC = () => (
 			</TransitionSeries.Sequence>
 
 			<TransitionSeries.Transition
-				presentation={wipeUp({recede: 0.1, wave: 70})}
+				presentation={wipeUp({recede: 0.1, wave: 70, curve: 'linear'})}
 				timing={timing(BLINK_TRANSITIONS.verdictToClimb)}
 			/>
 
@@ -171,7 +179,7 @@ export const BlinkReel: React.FC = () => (
 			</TransitionSeries.Sequence>
 
 			<TransitionSeries.Transition
-				presentation={whipPan({direction: 'left', overshoot: 0.04, blur: 26})}
+				presentation={whipPan({direction: 'left', overshoot: 0.04, blur: 26, curve: 'linear'})}
 				timing={timing(BLINK_TRANSITIONS.climbToClose)}
 			/>
 

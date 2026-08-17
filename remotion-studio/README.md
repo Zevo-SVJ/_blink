@@ -359,7 +359,7 @@ conservé, ce sont les conclusions de motion design — pas la matière premièr
 
 ## 7. La piste Blink — langage « kinetic »
 
-Film produit vertical (1080 × 1920, 60 fps, **44,0 s**) pour **Blink**, l'app qui
+Film produit vertical (1080 × 1920, 60 fps, **43,0 s**) pour **Blink**, l'app qui
 montre la première impression que fait un profil.
 
 Vocabulaire de mouvement **délibérément opposé** aux scènes paysage : là où
@@ -382,14 +382,19 @@ moyen de l'inverser.
 | `pop` | 400 | 15 | 1 | entrée par défaut, ~28 % de dépassement |
 | `popTight` | 400 | 18 | 1 | blocs de texte longs, ~20 % |
 | `popSoft` | 400 | 24 | 1 | éléments secondaires nombreux, ~10 % |
-| `textPop` | 230 | 12 | 1 | typographie d'impact — plus élastique que l'UI |
+| **`ui`** | 400 | 22 | **0,8** | interfaces, cartes, badges, barres — arrivée en 0,18 s |
+| **`textPop`** | 320 | 14 | 1 | typographie d'impact, ~27 % — premier pic à 0,10 s |
 | `slam` | 500 | 30 | 1 | impact violent, aucune oscillation |
 | `heavy` | 145 | 17 | **1,7** | objets : sphères, cartes, prismes |
-| `slide` | 100 | 20 | 1 | glissements de plans entiers |
+| **`slideBig`** | 220 | 18 | 1 | **horloge** des transitions de plan |
 
-La masse de `heavy` est ce qui distingue un objet d'une interface : plus
-d'inertie, départ plus mou, oscillation plus longue. C'est cette seule valeur
-qui fait qu'une sphère « pèse » et qu'un bouton non.
+Deux leviers de nervosité, indépendants de la raideur :
+
+- **la masse sous 1** accélère tout sans toucher au rebond — `ui` arrive en
+  0,18 s là où un ressort de masse 1 met 0,22 s ;
+- **la masse au-dessus de 1** fait le contraire : `heavy` à 1,7 donne l'inertie
+  qui distingue un objet d'une interface. C'est cette seule valeur qui fait
+  qu'une sphère « pèse » et qu'un bouton non.
 
 ### La grille rythmique remplace l'audio
 
@@ -415,24 +420,24 @@ graphiques), **B** typographie seule, **C** hybride.
 
 | # | Plan | Durée | Type | Fond | Ce qu'il apporte |
 | --- | --- | --- | --- | --- | --- |
-| 1 | `Perception` | 240 f | A | nuit | typo qui s'abat, secousses, ondes, portail |
+| 1 | `Perception` | 228 f | A | nuit | typo qui s'abat, secousses, ondes, portail |
 | 2 | `Seconds` | 90 f | **B** | **clair** | respiration — un chiffre, rien d'autre |
-| 3 | `Gaze` | 240 f | A | nuit | nuée de curseurs, sphère, compteur, notifications |
-| 4 | `Identity` | 240 f | C | nuit | carte d'identité pseudo-3D, flèche manuscrite |
+| 3 | `Gaze` | 234 f | A | nuit | nuée de curseurs, sphère, compteur, notifications |
+| 4 | `Identity` | 234 f | C | nuit | carte d'identité pseudo-3D, flèche manuscrite |
 | 5 | `Capture` | 270 f | A | nuit | chute + squash, clic, éclats, viseur, jauge |
-| 6 | `Signals` | 210 f | A | quasi noir | champ de nœuds, radar, fenêtres flottantes |
+| 6 | `Signals` | 204 f | A | quasi noir | champ de nœuds, radar, fenêtres flottantes |
 | 7 | `Punchline` | 105 f | **B** | **saturé** | respiration — le contre-pied |
-| 8 | `Lenses` | 330 f | C | nuit | quatre verdicts en cascade alternée |
+| 8 | `Lenses` | 312 f | C | nuit | quatre verdicts en cascade alternée |
 | 9 | `Mirror` | 240 f | C | **clair** | intention contre perception, annotations |
 | 10 | `Reveal` | 105 f | **B** | **noir** | respiration avant le résultat |
-| 11 | `Verdict` | 270 f | A | nuit | anneau, compteur, tampon — pic d'intensité |
-| 12 | `Climb` | 210 f | C | nuit | échelle des paliers, marche suivante |
-| 13 | `Close` | 270 f | C | nuit | les curseurs reviennent sur la marque |
+| 11 | `Verdict` | 246 f | A | nuit | anneau, compteur, tampon — pic d'intensité |
+| 12 | `Climb` | 204 f | C | nuit | échelle des paliers, marche suivante |
+| 13 | `Close` | 258 f | C | nuit | les curseurs reviennent sur la marque |
 
-Montage : `Blink-Reel`, **2640 frames = 44,00 s** exactement.
+Montage : `Blink-Reel`, **2578 frames = 42,97 s**.
 
-**Les respirations typographiques ne représentent que 300 frames sur 2640, soit
-11 %.** Leur force vient de leur rareté : trois écrans dans tout le film, à
+**Les respirations typographiques ne représentent que 300 frames sur 2578, soit
+11,6 %.** Leur force vient de leur rareté : trois écrans dans tout le film, à
 trois moments où le récit a besoin d'un silence. Et leurs trois fonds — clair,
 saturé, presque noir — sont tous différents du bleu nuit dominant : c'est la
 rupture chromatique qui fait respirer, autant que le vide.
@@ -476,6 +481,34 @@ d'écran, et c'est ce qui manquait le plus à la première version.
 incohérent. `noise2D` de `@remotion/noise` est une fonction pure de la frame —
 imprévisible à l'œil, identique à chaque exécution.
 
+### La passe d'accélération
+
+Une passe dédiée a supprimé les lenteurs. Le diagnostic a été fait en mesurant,
+pour chaque plan, l'écart entre la fin de sa dernière animation de sortie et
+l'ouverture de la fenêtre de chevauchement :
+
+| Plan | Frames mortes avant | Après |
+| --- | --- | --- |
+| `Perception` | 34 | 0 |
+| `Lenses` | 15 | 0 |
+| `Verdict` | aucune sortie — 49 f immobiles | 0 |
+| `Close` | aucune sortie — 48 f immobiles | 0 |
+| autres | 2 à 6 | 0 |
+
+Ce qui a changé :
+
+- **transitions raccourcies de 16 %** (180 → 152 frames au total) ;
+- **durées de plan resserrées** là où le diagnostic montrait du vide
+  (2640 → 2578 frames) ;
+- **sorties recalées** pour rester en mouvement quand la fenêtre de
+  chevauchement s'ouvre — c'est ce qui supprime la sensation de diapositive ;
+- **`Verdict` et `Close` reçoivent une relance tardive** : le premier recule
+  d'un cran à f206, le second reçoit une seconde pulsation plus ample à f186.
+  Ces deux plans étaient les seuls à se figer complètement sur leur fin.
+
+Le script de diagnostic est reproductible : il lit les `out={…}` de chaque
+fichier de scène et les compare aux durées du manifest.
+
 ### Les transitions
 
 | Grammaire | Emploi | Courbe |
@@ -484,11 +517,17 @@ imprévisible à l'œil, identique à chaque exécution.
 | `whipPan` | on se déplace **à côté** — direction **alternée** | `quint` + anticipation + dépassement |
 | `wipeUp` | la suite **recouvre** — franchissement de palier | `expo` + recul du plan sortant |
 
+L'horloge de chaque transition est un **ressort** (`slideBig`), et les
+présentations reçoivent donc `curve: 'linear'`. Le ressort apporte ~9 % de
+dépassement à l'arrivée du plan : le raccord se pose au lieu de s'arrêter net,
+ce qu'une Bézier ne sait pas produire.
+
 Trois règles apprises en corrigeant le rendu, et qui valent d'être retenues :
 
-- **Le `timing` est linéaire, l'easing vit dans la présentation.** Empiler un
-  `springTiming` sur la courbe d'une présentation lisse deux fois le même
-  mouvement : la transition se termine dans son premier tiers puis se fige.
+- **Une seule mise en forme, jamais deux.** Empiler un `springTiming` sur la
+  courbe d'une présentation lisse deux fois le même mouvement : la transition se
+  termine dans son premier tiers puis se fige. Soit l'horloge est un ressort et
+  la présentation linéaire, soit l'inverse — jamais les deux.
 - **Le plan entrant doit déjà être en mouvement quand on le découvre.** Une
   scène dont le contenu démarre à la frame 0 de sa propre timeline apparaît vide
   pendant toute la transition.
@@ -533,7 +572,7 @@ npx remotion render Blink-Reel out/blink-44s.mp4
 npx remotion render Blink-Signals out/signals.mp4
 ```
 
-Compter environ 20 minutes pour les 2640 frames en 1080 × 1920.
+Compter environ 20 minutes pour les 2578 frames en 1080 × 1920.
 
 ### Origine et originalité
 

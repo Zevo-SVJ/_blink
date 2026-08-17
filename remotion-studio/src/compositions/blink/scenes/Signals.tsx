@@ -85,7 +85,7 @@ export const Signals: React.FC<SignalsProps> = ({
 					at={12}
 					spring="heavy"
 					preset="popIn"
-					out={170}
+					out={182}
 					exit="recede"
 					outDuration={18}
 				>
@@ -96,7 +96,7 @@ export const Signals: React.FC<SignalsProps> = ({
 							size={620}
 							color={blink.skyBright}
 							fontFamily={fonts.text}
-							step={STAGGER.base}
+							step={STAGGER.wide}
 						/>
 						<ScanFrame
 							at={30}
@@ -120,10 +120,10 @@ export const Signals: React.FC<SignalsProps> = ({
 			>
 				<Pop
 					at={60}
-					spring="popTight"
+					spring="ui"
 					preset="flyRight"
 					shadow
-					out={168}
+					out={180}
 					exit="flyOutLeft"
 				>
 					<FloatingWindow
@@ -168,10 +168,10 @@ export const Signals: React.FC<SignalsProps> = ({
 			>
 				<Pop
 					at={78}
-					spring="popTight"
+					spring="ui"
 					preset="flyLeft"
 					shadow
-					out={166}
+					out={178}
 					exit="flyOutRight"
 				>
 					<FloatingWindow
@@ -212,7 +212,7 @@ export const Signals: React.FC<SignalsProps> = ({
 					paddingLeft: 88,
 				}}
 			>
-				<Pop at={104} spring="popSoft" preset="riseUp" out={172} exit="crush">
+				<Pop at={104} spring="popSoft" preset="riseUp" out={184} exit="crush">
 					<div
 						style={{
 							fontFamily: fonts.text,
@@ -227,7 +227,7 @@ export const Signals: React.FC<SignalsProps> = ({
 						{kicker}
 					</div>
 				</Pop>
-				<Pop at={108} spring="slam" preset="slamIn" out={174} exit="liftOut">
+				<Pop at={108} spring="textPop" preset="slamIn" out={186} exit="liftOut">
 					<div
 						style={{
 							fontFamily: fonts.display,

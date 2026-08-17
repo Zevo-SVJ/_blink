@@ -47,15 +47,15 @@ export const Seconds: React.FC<SecondsProps> = ({kicker, number, unit}) => (
 			kicker={kicker}
 			kickerColor={blink.navy3}
 			words={[
-				{text: number, scale: 1.5, color: blink.navy},
-				{text: unit, scale: 0.86, color: blink.skyBright},
+				{text: number, scale: 1.62, color: blink.navy},
+				{text: unit, scale: 0.78, color: blink.skyBright},
 			]}
 			background={blink.cloud}
 			color={blink.navy}
 			size={150}
 			at={0}
-			step={4}
-			out={76}
+			step={6}
+			out={66}
 		/>
 	</Impact>
 );
@@ -81,8 +81,8 @@ export const Punchline: React.FC<PunchlineProps> = ({lineOne, lineTwo}) => (
 	<Impact hits={[{at: 3, amplitude: 26, duration: 9, seed: 'pl', rotation: 1.4}]}>
 		<TypeBreath
 			words={[
-				{text: lineOne, scale: 0.72},
-				{text: lineTwo, scale: 1.18},
+				{text: lineOne, scale: 0.62},
+				{text: lineTwo, scale: 1.34},
 			]}
 			// Noir sur bleu vif : le contraste le plus violent de la vidéo, réservé
 			// à la seule phrase qui contredit tout ce qui précède.
@@ -90,8 +90,8 @@ export const Punchline: React.FC<PunchlineProps> = ({lineOne, lineTwo}) => (
 			color={blink.navy}
 			size={140}
 			at={0}
-			step={3}
-			out={90}
+			step={6}
+			out={80}
 		/>
 	</Impact>
 );
@@ -117,8 +117,8 @@ export const Reveal: React.FC<RevealProps> = ({lineOne, lineTwo}) => (
 	<Impact hits={[{at: 2, amplitude: 12, duration: 6, seed: 'rv'}]}>
 		<TypeBreath
 			words={[
-				{text: lineOne, scale: 0.7, color: blink.gray},
-				{text: lineTwo, scale: 1.1, color: blink.white},
+				{text: lineOne, scale: 0.6, color: blink.gray},
+				{text: lineTwo, scale: 1.26, color: blink.white},
 			]}
 			// Presque noir : après le fond clair du miroir, l'œil se dilate et le
 			// score de la scène suivante paraîtra d'autant plus lumineux.
@@ -126,8 +126,8 @@ export const Reveal: React.FC<RevealProps> = ({lineOne, lineTwo}) => (
 			color={blink.white}
 			size={140}
 			at={0}
-			step={3}
-			out={90}
+			step={6}
+			out={82}
 		/>
 	</Impact>
 );

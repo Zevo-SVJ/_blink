@@ -42,20 +42,31 @@ export const closeDefaults: CloseProps = {
  *   f060  la baseline se pose
  *   f096  ▮ l'appel à l'action, avec sa flèche
  *   f150  pulsation unique
- *   f210  dernière onde, très lente : la vidéo s'éteint sans se figer
+ *   f186  seconde pulsation, plus ample — la relance qui évite les quarante
+ *         dernières frames immobiles
+ *   f198  dernière onde, très lente : la vidéo s'éteint sans se figer
  */
 
 const HITS = [
 	{at: 24, amplitude: 18, duration: 9, seed: 'cs1'},
 	{at: 96, amplitude: 12, duration: 7, seed: 'cs2'},
 	{at: 150, amplitude: 7, duration: 5, seed: 'cs3'},
+	{at: 186, amplitude: 10, duration: 6, seed: 'cs4'},
 ];
 
-/** Pulsation unique de l'appel à l'action, puis retour au calme. */
+/**
+ * Deux pulsations de l'appel à l'action.
+ *
+ * La seconde est plus ample et plus tardive : c'est elle qui empêche la fin du
+ * film d'être immobile. Le ralentissement voulu du dernier plan doit rester un
+ * ralentissement, pas un arrêt.
+ */
 const useCtaPulse = (): number => {
 	const grow = useProgress({delay: 150, duration: 7, easing: 'expo'});
 	const settle = useProgress({delay: 157, spring: 'pop'});
-	return 1 + grow * 0.07 - settle * 0.07;
+	const growAgain = useProgress({delay: 186, duration: 8, easing: 'expo'});
+	const settleAgain = useProgress({delay: 194, spring: 'pop'});
+	return 1 + grow * 0.07 - settle * 0.07 + growAgain * 0.1 - settleAgain * 0.1;
 };
 
 export const Close: React.FC<CloseProps> = ({wordmark, baseline, cta}) => {
@@ -67,7 +78,7 @@ export const Close: React.FC<CloseProps> = ({wordmark, baseline, cta}) => {
 				<AbsoluteFill style={{alignItems: 'center', justifyContent: 'center'}}>
 					<div style={{position: 'relative'}}>
 						<Shockwave at={36} count={3} step={14} size={1500} duration={60} color={blink.skyBright} />
-						<Shockwave at={210} count={2} step={20} size={1700} duration={80} color={blink.sky} thickness={3} />
+						<Shockwave at={198} count={2} step={18} size={1700} duration={70} color={blink.sky} thickness={3} />
 
 						{/* Les curseurs reviennent, mais convergent sur la marque. */}
 						<CursorSwarm
@@ -108,7 +119,7 @@ export const Close: React.FC<CloseProps> = ({wordmark, baseline, cta}) => {
 						</div>
 					</Pop>
 
-					<Pop at={60} spring="popSoft" preset="riseUp">
+					<Pop at={60} spring="ui" preset="riseUp">
 						<div
 							style={{
 								fontFamily: fonts.text,

@@ -3,6 +3,7 @@ import type {
 	TransitionPresentationComponentProps,
 } from '@remotion/transitions';
 import {AbsoluteFill, Easing, interpolate} from 'remotion';
+import type {EasingName} from '../dynamics';
 import {easings} from '../dynamics';
 
 export type ZoomThroughProps = {
@@ -12,6 +13,13 @@ export type ZoomThroughProps = {
 	incomingScale?: number;
 	/** Flou maximal pendant la traversée. */
 	blur?: number;
+	/**
+	 * Courbe de forme. Laisser vide quand la transition est cadencée par une
+	 * Bézier ; passer `'linear'` quand son horloge est déjà un ressort
+	 * (`springTiming`) — sinon le même mouvement est lissé deux fois et la
+	 * transition se fige dans son premier tiers.
+	 */
+	curve?: EasingName;
 };
 
 /**
@@ -40,7 +48,7 @@ const ZoomThrough: React.FC<TransitionPresentationComponentProps<ZoomThroughProp
 	const incomingScale = passedProps.incomingScale ?? 0.74;
 	const maxBlur = passedProps.blur ?? 22;
 
-	const [a, b, c, d] = easings.expoIn;
+	const [a, b, c, d] = easings[passedProps.curve ?? 'expoIn'];
 	const eased = interpolate(presentationProgress, [0, 1], [0, 1], {
 		easing: Easing.bezier(a, b, c, d),
 	});

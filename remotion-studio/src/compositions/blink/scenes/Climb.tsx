@@ -82,7 +82,7 @@ export const Climb: React.FC<ClimbProps> = ({
 					gap: 26,
 				}}
 			>
-				<Pop at={0} spring="popSoft" preset="riseUp" out={180} exit="liftOut">
+				<Pop at={0} spring="popSoft" preset="riseUp" out={183} exit="liftOut">
 					<div
 						style={{
 							fontFamily: fonts.text,
@@ -100,7 +100,7 @@ export const Climb: React.FC<ClimbProps> = ({
 				{/* Le compte de points : le chiffre monte, l'unité reste fixe. */}
 				{/* Pas de `shadow` sur du texte nu : l'élévation se sérialise en
 					    `box-shadow` et dessinerait un rectangle autour des glyphes. */}
-					<Pop at={54} spring="slam" preset="stampIn" out={182} exit="crush">
+					<Pop at={54} spring="slam" preset="stampIn" out={185} exit="crush">
 					<div
 						style={{
 							display: 'flex',
@@ -137,7 +137,7 @@ export const Climb: React.FC<ClimbProps> = ({
 					</div>
 				</Pop>
 
-				<Pop at={2} spring="popTight" preset="riseUp" out={178} exit="squashOut">
+				<Pop at={2} spring="ui" preset="riseUp" out={181} exit="squashOut">
 					<div style={{paddingBottom: 56}}>
 						<TierLadder
 							at={6}
@@ -154,7 +154,7 @@ export const Climb: React.FC<ClimbProps> = ({
 					</div>
 				</Pop>
 
-				<Pop at={150} spring="textPop" preset="riseUp" out={184} exit="crush">
+				<Pop at={150} spring="textPop" preset="riseUp" out={187} exit="crush">
 					<div
 						style={{
 							fontFamily: fonts.display,
@@ -185,12 +185,12 @@ export const Climb: React.FC<ClimbProps> = ({
 						<Pop
 							key={lever}
 							at={90 + index * 18}
-							spring="popTight"
+							spring="ui"
 							preset="flyLeft"
 							tilt
 							index={index + 5}
 							shadow
-							out={176 + index * STAGGER.base}
+							out={179 + index * STAGGER.base}
 							exit="flyOutRight"
 						>
 							<Toast accent={blink.success} fontFamily={fonts.text}>

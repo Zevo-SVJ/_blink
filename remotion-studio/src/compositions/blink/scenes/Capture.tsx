@@ -128,7 +128,7 @@ export const Capture: React.FC<CaptureProps> = ({
 						width: '100%',
 					}}
 				>
-					<Pop at={0} spring="popSoft" preset="riseUp" out={238} exit="liftOut">
+					<Pop at={0} spring="popSoft" preset="riseUp" out={246} exit="liftOut">
 						<div
 							style={{
 								fontFamily: fonts.text,
@@ -151,7 +151,7 @@ export const Capture: React.FC<CaptureProps> = ({
 						preset="dropIn"
 						squash={1.5}
 						shadow
-						out={240}
+						out={248}
 						exit="squashOut"
 						outDuration={16}
 					>
@@ -179,7 +179,7 @@ export const Capture: React.FC<CaptureProps> = ({
 						</div>
 					</Pop>
 
-					<Pop at={120} spring="popTight" preset="riseUp" out={236} exit="crush">
+					<Pop at={120} spring="ui" preset="riseUp" out={244} exit="crush">
 						<div style={{width: 700}}>
 							<div
 								style={{
@@ -258,12 +258,12 @@ export const Capture: React.FC<CaptureProps> = ({
 				>
 					<Pop
 						at={186}
-						spring="popTight"
+						spring="ui"
 						preset="flyLeft"
 						tilt
 						index={9}
 						shadow
-						out={234}
+						out={242}
 						exit="flyOutRight"
 					>
 						<Toast accent={blink.success} fontFamily={fonts.text}>

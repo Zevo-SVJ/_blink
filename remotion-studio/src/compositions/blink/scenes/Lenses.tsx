@@ -102,7 +102,7 @@ export const Lenses: React.FC<LensesProps> = ({title, closing, verdicts}) => (
 							text={title}
 							by="word"
 							preset="riseUp"
-							step={STAGGER.base}
+							step={STAGGER.marked}
 							timing={{delay: 0, spring: 'pop'}}
 						/>
 					</div>
@@ -128,7 +128,7 @@ export const Lenses: React.FC<LensesProps> = ({title, closing, verdicts}) => (
 							at={24 + index * 24}
 							preset={index % 2 === 0 ? 'flyRight' : 'flyLeft'}
 							index={index}
-							out={270 + index * STAGGER.base}
+							out={286 + index * STAGGER.base}
 							highlightAt={index === 3 ? 180 : undefined}
 						/>
 					))}
@@ -136,9 +136,9 @@ export const Lenses: React.FC<LensesProps> = ({title, closing, verdicts}) => (
 
 				<Pop
 					at={210}
-					spring="slam"
+					spring="textPop"
 					preset="slamIn"
-					out={282}
+					out={298}
 					exit="liftOut"
 					style={{alignSelf: 'flex-end'}}
 				>

@@ -44,7 +44,10 @@ export const verdictDefaults: VerdictProps = {
  *   f060  ▮▮ le palier s'abat — `stampIn`, ressort `slam`, onde + secousse max
  *   f078  ce que le palier signifie
  *   f114  la marche restante vers le palier suivant
- *   f180  une pulsation unique — le plan ne meurt jamais tout à fait
+ *   f168  une pulsation unique
+ *   f206  tout recule d'un cran — le plan est encore en mouvement quand le
+ *         rideau de la transition suivante commence à monter (f236). Sans ce
+ *         recul, les quarante dernières frames étaient parfaitement immobiles.
  *
  * Les chiffres restent vrais : 742 place bien le profil dans « Sharp »
  * (seuil 680) et il manque bien 48 points pour « Magnetic » (790). La jauge est
@@ -54,13 +57,14 @@ export const verdictDefaults: VerdictProps = {
 const HITS = [
 	{at: 60, amplitude: 30, duration: 11, seed: 'v1', rotation: 1.8},
 	{at: 114, amplitude: 10, duration: 6, seed: 'v2'},
-	{at: 180, amplitude: 7, duration: 5, seed: 'v3'},
+	{at: 168, amplitude: 7, duration: 5, seed: 'v3'},
+	{at: 208, amplitude: 9, duration: 6, seed: 'v4'},
 ];
 
 /** Pulsation unique du bloc de progression. */
 const usePulse = (): number => {
-	const grow = useProgress({delay: 180, duration: 7, easing: 'expo'});
-	const settle = useProgress({delay: 187, spring: 'pop'});
+	const grow = useProgress({delay: 168, duration: 7, easing: 'expo'});
+	const settle = useProgress({delay: 175, spring: 'pop'});
 	return 1 + grow * 0.05 - settle * 0.05;
 };
 
@@ -95,7 +99,7 @@ export const Verdict: React.FC<VerdictProps> = ({
 				>
 					{/* Démarré à la frame 0 : le zoom traversant découvre un cadran déjà
 					    en train de se remplir, pas un écran vide. */}
-					<Pop at={0} spring="popTight" preset="popIn">
+					<Pop at={0} spring="ui" preset="popIn" out={206} exit="recede" outDuration={20}>
 						<div
 							style={{
 								transform: `translateY(${ringIdle.y.toFixed(2)}px) scale(${ringIdle.scale.toFixed(4)})`,
@@ -107,7 +111,7 @@ export const Verdict: React.FC<VerdictProps> = ({
 
 					{/* Le palier s'abat : arrivée de très grand, rotation résiduelle,
 					    ombre dérivée de la vitesse. Le pic d'intensité du film. */}
-					<Pop at={60} spring="slam" preset="stampIn" shadow squash={0.9}>
+					<Pop at={60} spring="slam" preset="stampIn" shadow squash={0.9} out={210} exit="liftOut" outDuration={18}>
 						<div
 							style={{
 								padding: '24px 56px',
@@ -125,7 +129,7 @@ export const Verdict: React.FC<VerdictProps> = ({
 						</div>
 					</Pop>
 
-					<Pop at={78} spring="popTight" preset="riseUp">
+					<Pop at={78} spring="ui" preset="riseUp" out={208} exit="crush" outDuration={16}>
 						<div
 							style={{
 								fontFamily: fonts.display,
@@ -143,8 +147,11 @@ export const Verdict: React.FC<VerdictProps> = ({
 
 					<Pop
 						at={114}
-						spring="popSoft"
+						spring="ui"
 						preset="riseUp"
+						out={212}
+						exit="crush"
+						outDuration={16}
 						style={{width: '100%', marginTop: 20}}
 					>
 						<div style={{width: '100%', transform: `scale(${pulse.toFixed(4)})`}}>

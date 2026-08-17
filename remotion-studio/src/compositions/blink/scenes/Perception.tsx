@@ -34,12 +34,12 @@ export const perceptionDefaults: PerceptionProps = {
  *
  * Partition (frames ; 30 frames = 1 temps) :
  *   f000  les quatre regards entrent par les quatre bords, cascade de 3 f
- *   f030  ▮ « TON PROFIL »   slam + secousse
- *   f046  ▮ « PARLE »        slam + secousse
- *   f062  ▮ « AVANT TOI. »   slam + secousse, la plus forte
- *   f090  respiration — un temps entier sans nouvel évènement
- *   f105  les regards se resserrent vers le centre
- *   f150  la promesse monte du bas
+ *   f022  ▮ « TON PROFIL »   impact + secousse
+ *   f036  ▮ « PARLE »        impact + secousse
+ *   f050  ▮ « AVANT TOI. »   impact + secousse, la plus forte
+ *   f080  respiration
+ *   f096  les regards se resserrent vers le centre
+ *   f132  la promesse monte du bas
  *   f168  tout se retire
  *   f186  le portail s'ouvre — il porte le blanc cassé du plan suivant, donc
  *         le zoom traversant plonge dans une lumière et non dans un trou
@@ -50,10 +50,10 @@ export const perceptionDefaults: PerceptionProps = {
  */
 
 const HITS = [
-	{at: 30, amplitude: 14, duration: 7, seed: 'p1'},
-	{at: 46, amplitude: 17, duration: 7, seed: 'p2'},
-	{at: 62, amplitude: 26, duration: 10, seed: 'p3', rotation: 1.6},
-	{at: 105, amplitude: 9, duration: 6, seed: 'p4'},
+	{at: 22, amplitude: 15, duration: 7, seed: 'p1'},
+	{at: 36, amplitude: 18, duration: 7, seed: 'p2'},
+	{at: 50, amplitude: 27, duration: 10, seed: 'p3', rotation: 1.6},
+	{at: 96, amplitude: 9, duration: 6, seed: 'p4'},
 ];
 
 /**
@@ -82,7 +82,7 @@ const Converging: React.FC<{
 	y: number;
 	children: ReactNode;
 }> = ({index, x, y, children}) => {
-	const pull = useProgress({delay: 105 + index * STAGGER.tight, spring: 'popSoft'}) * 0.72;
+	const pull = useProgress({delay: 96 + index * STAGGER.tight, spring: 'popSoft'}) * 0.72;
 	// Micro-vie : même immobiles sur leur orbite, les regards ne sont jamais figés.
 	const idle = useIdle({float: 12, breathe: 0.03, speed: 0.16, phase: index * 1.6});
 
@@ -105,9 +105,9 @@ const Line: React.FC<{
 }> = ({text, at, size, color = blink.white}) => (
 	<Pop
 		at={at}
-		spring="slam"
+		spring="textPop"
 		preset="slamIn"
-		out={168}
+		out={208}
 		exit="liftOut"
 		outDuration={16}
 	>
@@ -142,8 +142,8 @@ export const Perception: React.FC<PerceptionProps> = ({
 			    arriver, il propage quelque chose. */}
 			<AbsoluteFill style={{alignItems: 'center', justifyContent: 'center'}}>
 				<div style={{position: 'relative'}}>
-					<Shockwave at={46} count={2} step={9} size={1300} color={blink.skyBright} thickness={3} />
-					<Shockwave at={62} count={3} step={8} size={1700} color={blink.sky} thickness={4} />
+					<Shockwave at={36} count={2} step={9} size={1300} color={blink.skyBright} thickness={3} />
+					<Shockwave at={50} count={3} step={8} size={1700} color={blink.sky} thickness={4} />
 				</div>
 			</AbsoluteFill>
 
@@ -157,7 +157,7 @@ export const Perception: React.FC<PerceptionProps> = ({
 						squash={1.3}
 						squashAxis={index % 2 === 0 ? 'y' : 'x'}
 						shadow
-						out={162}
+						out={202}
 						exit="crush"
 						outDuration={14}
 						style={{position: 'absolute'}}
@@ -186,15 +186,15 @@ export const Perception: React.FC<PerceptionProps> = ({
 					position: 'relative',
 				}}
 			>
-				<Line text={lineOne} at={30} size={126} />
-				<Line text={lineTwo} at={46} size={164} color={blink.sky} />
-				<Line text={lineThree} at={62} size={126} />
+				<Line text={lineOne} at={22} size={126} />
+				<Line text={lineTwo} at={36} size={164} color={blink.sky} />
+				<Line text={lineThree} at={50} size={126} />
 
 				<Pop
-					at={150}
-					spring="popTight"
+					at={132}
+					spring="ui"
 					preset="riseUp"
-					out={176}
+					out={216}
 					exit="crush"
 					outDuration={14}
 					style={{marginTop: 52}}
@@ -220,7 +220,7 @@ export const Perception: React.FC<PerceptionProps> = ({
 				<Portal
 					from={0}
 					to={360}
-					timing={{delay: 186, duration: 36, easing: 'expoIn'}}
+					timing={{delay: 176, duration: 32, easing: 'expoIn'}}
 					color={blink.white}
 					edge={blink.cloud}
 					glow={blink.sky}

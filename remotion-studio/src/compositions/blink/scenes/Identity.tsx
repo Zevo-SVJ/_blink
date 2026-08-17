@@ -79,7 +79,7 @@ export const Identity: React.FC<IdentityProps> = ({
 					gap: 30,
 				}}
 			>
-				<Pop at={4} spring="popSoft" preset="riseUp" out={196} exit="liftOut">
+				<Pop at={4} spring="popSoft" preset="riseUp" out={204} exit="liftOut">
 					<div
 						style={{
 							fontFamily: fonts.text,
@@ -94,7 +94,7 @@ export const Identity: React.FC<IdentityProps> = ({
 					</div>
 				</Pop>
 
-				<Pop at={10} spring="textPop" preset="riseUp" out={198} exit="liftOut">
+				<Pop at={10} spring="textPop" preset="riseUp" out={206} exit="liftOut">
 					<div
 						style={{
 							fontFamily: fonts.display,
@@ -116,7 +116,7 @@ export const Identity: React.FC<IdentityProps> = ({
 					preset="flyRight"
 					squash={0.7}
 					shadow
-					out={200}
+					out={208}
 					exit="flyOutRight"
 					outDuration={18}
 					style={{alignSelf: 'center', marginTop: 10}}
@@ -133,7 +133,7 @@ export const Identity: React.FC<IdentityProps> = ({
 					</Straighten>
 				</Pop>
 
-				<Pop at={120} spring="slam" preset="slamIn" out={202} exit="crush">
+				<Pop at={120} spring="textPop" preset="slamIn" out={210} exit="crush">
 					<div
 						style={{
 							fontFamily: fonts.display,

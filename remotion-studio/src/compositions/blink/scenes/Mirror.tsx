@@ -106,7 +106,7 @@ const Half: React.FC<{
 			spring="heavy"
 			preset={from === 'left' ? 'flyRight' : 'flyLeft'}
 			squash={0.6}
-			out={200}
+			out={218}
 			exit={from === 'left' ? 'flyOutLeft' : 'flyOutRight'}
 			outDuration={18}
 			style={{flex: 1}}
@@ -238,7 +238,7 @@ export const Mirror: React.FC<MirrorProps> = ({
 					paddingRight: 88,
 				}}
 			>
-				<Pop at={126} spring="slam" preset="slamIn" out={204} exit="crush">
+				<Pop at={126} spring="textPop" preset="slamIn" out={222} exit="crush">
 					<div
 						style={{
 							fontFamily: fonts.display,

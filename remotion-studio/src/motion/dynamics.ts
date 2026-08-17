@@ -65,8 +65,35 @@ export const springs = {
 	heavy: {stiffness: 145, damping: 17, mass: 1.7},
 	/** Glissements de plans entiers. Fluide, sans nervosité. */
 	slide: {stiffness: 100, damping: 20, mass: 1},
-	/** Typographie d'impact : plus rebondissante que l'UI, volontairement. */
-	textPop: {stiffness: 230, damping: 12, mass: 1},
+	/**
+	 * Typographie d'impact.
+	 *
+	 * Raideur portée à 320 : même dépassement (ζ ≈ 0,39, ~27 %) qu'auparavant,
+	 * mais premier pic à 0,10 s au lieu de 0,13 s. Le rebond est identique, le
+	 * mot arrive plus tôt — c'est exactement ce qu'on veut pour du peps.
+	 */
+	textPop: {stiffness: 320, damping: 14, mass: 1},
+
+	/**
+	 * Interfaces, cartes, badges, barres.
+	 *
+	 * La masse à 0,8 est le levier de nervosité : ωn = √(400/0,8) = 22,4 rad/s,
+	 * soit une arrivée en 0,18 s. Amortissement 22 → ζ ≈ 0,61, donc ~9 % de
+	 * dépassement : franc mais net, sans oscillation résiduelle qui traînerait
+	 * sur une grille de six éléments.
+	 */
+	ui: {stiffness: 400, damping: 22, mass: 0.8},
+
+	/**
+	 * Transitions de plans entiers.
+	 *
+	 * Employé comme **horloge** de transition (`springTiming`), pas comme
+	 * courbe : la présentation passe alors en `linear` pour qu'un seul lissage
+	 * s'applique. ζ ≈ 0,61 donne un léger dépassement à l'arrivée du plan, ce
+	 * qu'une Bézier ne sait pas produire — le raccord respire au lieu de
+	 * s'arrêter net.
+	 */
+	slideBig: {stiffness: 220, damping: 18, mass: 1},
 } as const satisfies Record<string, SpringConfig>;
 
 export type SpringName = keyof typeof springs;
