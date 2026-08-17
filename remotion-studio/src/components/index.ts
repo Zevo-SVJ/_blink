@@ -1,4 +1,5 @@
 export * from './background/Grain';
+export * from './blink';
 export * from './background/MeshGradient';
 export * from './DeviceFrame';
 export * from './GlassPanel';

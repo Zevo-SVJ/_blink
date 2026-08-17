@@ -21,6 +21,14 @@ export type MotionState = {
 	brightness?: number;
 	/** Écartement des lettres en px, pour les titres façon keynote. */
 	letterSpacing?: number;
+	/**
+	 * Élévation en px, sérialisée en `box-shadow`.
+	 *
+	 * C'est ce qui produit l'ombre portée dynamique : quand un élément grandit
+	 * ou saute, son ombre s'éloigne et se diffuse au lieu de rester collée.
+	 * Piloté par la même progression que le scale, les deux restent cohérents.
+	 */
+	elevation?: number;
 };
 
 export const REST: Required<MotionState> = {
@@ -36,6 +44,7 @@ export const REST: Required<MotionState> = {
 	blur: 0,
 	brightness: 1,
 	letterSpacing: 0,
+	elevation: 0,
 };
 
 /**
@@ -56,9 +65,52 @@ export const presets = {
 	settle: {opacity: 0, scale: 1.14, blur: 10, brightness: 1.3},
 	/** Titre keynote : les lettres se resserrent en se stabilisant. */
 	tighten: {opacity: 0, letterSpacing: 14, blur: 10, y: 10},
+
+	// ── Famille « kinetic » — entrées ─────────────────────────────────────
+	// Toutes partent d'un état franchement éloigné du repos : le ressort a
+	// besoin d'amplitude pour que son dépassement se voie.
+
+	/** L'entrée universelle : surgit de rien. */
+	popIn: {opacity: 0, scale: 0},
+	/** Surgit en tournant légèrement — casse la rigidité. */
+	popTilt: {opacity: 0, scale: 0, rotate: -8},
+	/** Arrive de trop grand : l'élément « atterrit » sur la caméra. */
+	slamIn: {opacity: 0, scale: 1.75, rotate: -12},
+	/** Tombe du haut. À combiner avec un squash à l'atterrissage. */
+	dropIn: {opacity: 0, y: -240, rotate: -5},
+	/** Monte du bas, à la manière d'une feuille modale. */
+	riseUp: {opacity: 0, y: 320},
+	/** Entrées latérales — le report de momentum d'une scène à l'autre. */
+	flyLeft: {opacity: 0, x: 520, rotate: 6},
+	flyRight: {opacity: 0, x: -520, rotate: -6},
+	/** Élément lourd qui arrive en s'écrasant. */
+	stampIn: {opacity: 0, scale: 2.4, rotate: -14, elevation: 60},
 } as const satisfies Record<string, MotionState>;
 
 export type PresetName = keyof typeof presets;
+
+/**
+ * États de **sortie** — la cible, pas le départ.
+ *
+ * Règle non négociable du langage kinetic : on entre au ressort, on sort à la
+ * courbe. Toutes ces sorties s'emploient avec `easing: 'back'`, qui produit
+ * l'anticipation (léger gonflement) avant l'accélération finale.
+ */
+export const exits = {
+	/** Se rétracte jusqu'à disparaître. La sortie par défaut. */
+	crush: {opacity: 0, scale: 0},
+	/** S'écrase au sol — pour les pop-ups qui « retombent ». */
+	squashOut: {opacity: 0, scaleY: 0.1, scaleX: 1.3, y: 60},
+	/** File hors champ, dans la direction du montage. */
+	flyOutLeft: {opacity: 0, x: -640, rotate: -8},
+	flyOutRight: {opacity: 0, x: 640, rotate: 8},
+	/** Recule et se floute — sortie douce sous un élément entrant. */
+	recede: {opacity: 0, scale: 0.82, blur: 14},
+	/** Disparaît vers le haut. */
+	liftOut: {opacity: 0, y: -220, scale: 0.9},
+} as const satisfies Record<string, MotionState>;
+
+export type ExitName = keyof typeof exits;
 
 const lerp = (from: number, to: number, t: number): number =>
 	from + (to - from) * t;
@@ -102,17 +154,28 @@ export const toStyle = (state: MotionState): CSSProperties => {
 	if (!near(s.rotateY, 0)) transforms.push(`rotateY(${s.rotateY}deg)`);
 	if (!near(s.rotate, 0)) transforms.push(`rotate(${s.rotate}deg)`);
 	if (!near(s.scale, 1) || !near(s.scaleX, 1) || !near(s.scaleY, 1)) {
-		transforms.push(`scale(${s.scale * s.scaleX}, ${s.scale * s.scaleY})`);
+		// Borné à zéro : une échelle négative retournerait l'élément en miroir,
+		// ce que la courbe `back` produirait sinon en fin de course.
+		const x = Math.max(0, s.scale * s.scaleX);
+		const y = Math.max(0, s.scale * s.scaleY);
+		transforms.push(`scale(${x}, ${y})`);
 	}
 
 	const filters: string[] = [];
 	if (!near(s.blur, 0)) filters.push(`blur(${Math.max(0, s.blur)}px)`);
-	if (!near(s.brightness, 1)) filters.push(`brightness(${s.brightness})`);
+	if (!near(s.brightness, 1)) filters.push(`brightness(${Math.max(0, s.brightness)})`);
 
-	const style: CSSProperties = {opacity: s.opacity};
+	// La courbe `back` sort volontairement de [0, 1] pour produire
+	// l'anticipation : les transforms doivent dépasser, mais une opacité
+	// négative ou un scale inversé seraient des artefacts, pas du mouvement.
+	const style: CSSProperties = {opacity: Math.min(1, Math.max(0, s.opacity))};
 	if (transforms.length > 0) style.transform = transforms.join(' ');
 	if (filters.length > 0) style.filter = filters.join(' ');
 	if (!near(s.letterSpacing, 0)) style.letterSpacing = `${s.letterSpacing}px`;
+	if (!near(s.elevation, 0)) {
+		const lift = Math.max(0, s.elevation);
+		style.boxShadow = `0 ${(lift * 0.9).toFixed(1)}px ${(lift * 2.2).toFixed(1)}px -${(lift * 0.5).toFixed(1)}px rgba(0, 6, 20, ${Math.min(0.6, 0.16 + lift * 0.006).toFixed(3)})`;
+	}
 	return style;
 };
 

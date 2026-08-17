@@ -134,16 +134,20 @@ remotion-studio/
 │   │
 │   ├── design/             Ce à quoi ça ressemble
 │   │   ├── tokens.ts       Palette, matières, rayons, ombres, formats de canvas
+│   │   ├── blink.ts        Charte Blink : couleurs, lentilles, paliers, safe area
 │   │   └── typography.ts   Chargement de la police + échelle typographique
 │   │
 │   ├── motion/             Comment ça bouge
 │   │   ├── dynamics.ts     ⚑ Ressorts et courbes — partagés Remotion ⇄ Framer
 │   │   ├── frame.ts        ⚑ Hooks frame → progression (le cœur du système)
+│   │   ├── beats.ts        Grille rythmique 120 BPM et valeurs de stagger
 │   │   ├── presets.ts      États de mouvement, interpolation, sérialisation CSS
 │   │   ├── FrameMotion.tsx <FrameMotion> et <Stagger>
 │   │   ├── SplitText.tsx   Titres animés mot à mot / lettre à lettre
-│   │   ├── presentations.tsx  Transition maison « glassCut »
-│   │   └── adapters.ts     Conversion des ressorts vers Framer Motion
+│   │   ├── adapters.ts     Conversion des ressorts vers Framer Motion
+│   │   ├── physics/        ⚑ velocity (squash · flou · ombre) · shake (noise2D)
+│   │   ├── kinetic/        Pop · Impact · Burst · TrimPath · Cursor · Gauge · Counter
+│   │   └── presentations/  glassCut · zoomThrough · whipPan · wipeUp
 │   │
 │   ├── components/         Briques visuelles réutilisables
 │   │   ├── Stage.tsx       Plateau : fond animé + grain + vignettage + safe area
@@ -151,14 +155,19 @@ remotion-studio/
 │   │   ├── DeviceFrame.tsx Mockup d'appareil
 │   │   ├── LightSweep.tsx  Balayage spéculaire
 │   │   ├── Text.tsx        Texte typé sur l'échelle
-│   │   └── background/     MeshGradient, Grain, Vignette
+│   │   ├── background/     MeshGradient, Grain, Vignette
+│   │   └── blink/          BlinkStage · ProfileCard · LensCard · ScoreRing · Portal
 │   │
 │   └── compositions/       Les scènes
 │       ├── manifest.ts     Durées centralisées
-│       ├── HeroReveal.tsx
-│       ├── FeatureShowcase.tsx
-│       ├── DeviceShowcase.tsx
-│       └── Reel.tsx        Montage des trois plans
+│       ├── HeroReveal.tsx  ┐
+│       ├── FeatureShowcase.tsx  ├ paysage, langage calme
+│       ├── DeviceShowcase.tsx   │
+│       ├── Reel.tsx        ┘
+│       └── blink/          Piste Blink — vertical, langage kinetic (§7)
+│           ├── manifest.ts     Partition : durées, transitions, score
+│           ├── BlinkReel.tsx   Montage des quatre plans
+│           └── scenes/         Perception · Capture · Lenses · Verdict
 │
 ├── playground/             App React interactive (Framer Motion + <Player />)
 ├── reference/              Dépôt des vidéos de référence à analyser (non versionné)
@@ -343,7 +352,124 @@ appartient à quelqu'un d'autre et n'a pas à être redistribuée dans le dépô
 les frames extraites se régénèrent en quelques secondes. Ce qui mérite d'être
 conservé, ce sont les conclusions de motion design — pas la matière première.
 
-## 7. Conventions
+## 7. La piste Blink — langage « kinetic »
+
+Vidéo produit verticale (1080 × 1920, 60 fps) pour **Blink**, l'app qui montre
+la première impression que fait un profil. Vocabulaire de mouvement
+**délibérément opposé** aux scènes paysage : là où celles-ci se posent sans
+rebondir, celui-ci rebondit systématiquement.
+
+Les deux langages cohabitent sans se mélanger — mêmes primitives, familles de
+ressorts distinctes.
+
+### La règle qui définit la signature
+
+> **On entre au ressort. On sort à la courbe. Jamais l'inverse.**
+
+L'entrée dépasse et oscille (`pop` : stiffness 400, damping 15, ζ ≈ 0,375, soit
+~28 % de dépassement, premier pic à 0,17 s). La sortie utilise `back`
+— `cubic-bezier(0.36, 0, 0.66, -0.56)` — qui recule légèrement avant
+d'accélérer : l'anticipation. `<Pop>` encode cette asymétrie et n'expose aucun
+moyen de l'inverser.
+
+Trois graduations pour le même geste, à raideur constante :
+
+| Ressort | Amortissement | Dépassement | Usage |
+| --- | --- | --- | --- |
+| `pop` | 15 | ~28 % | entrée par défaut |
+| `popTight` | 18 | ~20 % | blocs de texte longs |
+| `popSoft` | 24 | ~10 % | éléments secondaires nombreux |
+| `slam` | 30 | ~0 % | impact violent, aucune oscillation |
+
+### La grille rythmique remplace l'audio
+
+Sans piste sonore, le rythme est **écrit** : 120 BPM, soit exactement 30 frames
+par temps à 60 fps. Chaque temps fort tombe sur la grille, et l'œil perçoit la
+pulsation même en silence.
+
+| Subdivision | Frames | Usage |
+| --- | --- | --- |
+| 1 temps | 30 | respiration entre deux blocs |
+| ½ | 15 | transition rapide |
+| ⅓ | 10 | arrivée d'un ressort |
+| ⅙ | 5 | stagger large |
+| 1/10 | 3 | stagger serré — la valeur par défaut |
+
+La bande 0,04–0,08 s de stagger de la référence se traduit exactement en 2 à 5
+frames (`STAGGER.tight/base/wide/loose`).
+
+### Un seul signal pour trois effets
+
+`src/motion/physics/velocity.ts` calcule la dérivée de la progression :
+`p(n) − p(n−1)`. De cette unique valeur découlent le **squash & stretch** (à
+volume conservé : `scaleY = 1 + kv`, `scaleX = 1/(1 + kv)`), le **flou
+directionnel** et l'**ombre portée**. Ils ne peuvent pas se désynchroniser,
+puisqu'ils lisent la même chose.
+
+Un objet qui entre au ressort s'étire donc à l'aller et s'écrase au rebond —
+sans qu'aucun timing ne soit écrit à la main.
+
+### Le camera shake doit être déterministe
+
+`Math.random()` est proscrit : chaque frame étant peinte isolément, la secousse
+changerait à chaque rendu et le scrub serait incohérent. `noise2D` de
+`@remotion/noise` est une fonction pure de la frame — imprévisible à l'œil,
+identique à chaque exécution.
+
+### Les quatre scènes
+
+| # | Scène | Durée | Ce qu'elle démontre |
+| --- | --- | --- | --- |
+| 1 | `Blink-Perception` | 8 temps · 240 f | typographie qui s'abat, secousses, convergence, portail |
+| 2 | `Blink-Capture` | 10 temps · 300 f | chute + squash, curseur en arc, clic, éclats, scan, jauge |
+| 3 | `Blink-Lenses` | 12 temps · 360 f | cascade alternée, tracé vectoriel, flottement déphasé |
+| 4 | `Blink-Verdict` | 10 temps · 300 f | anneau tracé, compteur, tampon, pulsation finale |
+
+Montage : `Blink-Reel`, 1149 frames ≈ **19,2 s**.
+
+### Les trois transitions
+
+Chacune a une intention distincte — c'est le point de l'exercice.
+
+| Transition | Durée | Intention | Courbe |
+| --- | --- | --- | --- |
+| `zoomThrough` | 18 f | on entre **dans** le sujet | `expoIn` |
+| `whipPan` | 15 f | on se déplace **à côté** | `quint` + anticipation + dépassement |
+| `wipeUp` | 18 f | la conclusion **recouvre** | `expo` + recul du plan sortant |
+
+Deux règles apprises en corrigeant le rendu, et qui valent d'être retenues :
+
+- **Le `timing` est linéaire, l'easing vit dans la présentation.** Empiler un
+  `springTiming` sur la courbe d'une présentation lisse deux fois le même
+  mouvement : la transition se termine dans son premier tiers puis se fige.
+- **Le plan entrant doit déjà être en mouvement quand on le découvre.** Une
+  scène dont le contenu démarre à la frame 0 de sa propre timeline apparaît
+  vide pendant toute la transition. C'est ce qui produit le report de momentum
+  décrit dans la référence.
+
+### Rendu
+
+```bash
+npx remotion render Blink-Reel out/blink-reel.mp4
+npx remotion render Blink-Perception out/perception.mp4
+```
+
+Compter environ 9 minutes pour les 1149 frames en 1080 × 1920.
+
+### Origine et originalité
+
+Le langage de mouvement — rythme, chorégraphie, physique, transitions — est
+dérivé d'une analyse de vidéo de référence (§6). **Aucun asset, texte,
+composition ni élément graphique de cette référence n'est repris.** Le contenu,
+la charte et les objets à l'écran viennent de Blink.
+
+La carte de profil de la scène 2 est volontairement générique : pas de logo de
+réseau social, pas de photographie, pas de pseudonyme réel — un avatar en
+dégradé et le pronom `@toi`. Les chiffres montrés sont cohérents avec le
+produit : 742 place bien le profil dans le palier « Sharp » (seuil 680) et il
+manque bien 48 points pour « Magnetic » (790).
+
+## 8. Conventions
 
 - **Jamais de `animate` / `transition` Framer Motion dans une composition
   rendue.** Si un mouvement doit apparaître dans la vidéo, il passe par la
@@ -359,7 +485,7 @@ conservé, ce sont les conclusions de motion design — pas la matière premièr
   jamais en caractères Unicode : un glyphe absent de la police auto-hébergée
   produirait un « tofu » au rendu.
 
-## 8. Qualité
+## 9. Qualité
 
 ```bash
 npm run typecheck   # tsc --noEmit, mode strict
@@ -369,7 +495,7 @@ npm run lint        # eslint + typescript-eslint + react-hooks
 Les règles `react-hooks` s'appliquent aussi aux hooks Remotion : `useCurrentFrame()`
 appelé conditionnellement casse le rendu de façon difficile à diagnostiquer.
 
-## 9. Notes
+## 10. Notes
 
 - **Police** — Inter est auto-hébergée dans `public/fonts/` (SIL OFL 1.1, voir
   `public/fonts/OFL.txt`) plutôt que chargée depuis Google Fonts : les rendus

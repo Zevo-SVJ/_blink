@@ -31,6 +31,28 @@ export const springs = {
 	bouncy: {stiffness: 180, damping: 14, mass: 1},
 	/** Jamais de dépassement : idéal quand la valeur cible doit être exacte. */
 	precise: {stiffness: 260, damping: 32, mass: 1, overshootClamping: true},
+
+	// ── Famille « kinetic » ───────────────────────────────────────────────
+	// Langage rapide et élastique des formats sociaux verticaux. À ne pas
+	// mélanger avec la famille calme ci-dessus : ce sont deux vocabulaires
+	// distincts, chacun cohérent avec lui-même.
+	//
+	// Les trois `pop*` partagent la même raideur (400) et ne varient que par
+	// l'amortissement, ce qui gradue le dépassement sans changer la vitesse
+	// d'arrivée — ζ = damping / (2·√stiffness) :
+	//
+	//   damping 15 → ζ 0.375 → ~28 % de dépassement, 1er pic à 0.17 s
+	//   damping 18 → ζ 0.450 → ~20 %
+	//   damping 24 → ζ 0.600 → ~10 %
+
+	/** Entrée par défaut du langage kinetic. Rebond franc et joyeux. */
+	pop: {stiffness: 400, damping: 15, mass: 1},
+	/** Même vitesse, dépassement contenu. Pour les blocs de texte longs. */
+	popTight: {stiffness: 400, damping: 18, mass: 1},
+	/** Dépassement discret. Pour les éléments secondaires et nombreux. */
+	popSoft: {stiffness: 400, damping: 24, mass: 1},
+	/** Impact violent : arrivée quasi critique, aucune oscillation résiduelle. */
+	slam: {stiffness: 500, damping: 30, mass: 1},
 } as const satisfies Record<string, SpringConfig>;
 
 export type SpringName = keyof typeof springs;
@@ -50,6 +72,19 @@ export const easings = {
 	emphasized: [0.83, 0, 0.17, 1],
 	exit: [0.55, 0, 1, 0.45],
 	linear: [0, 0, 1, 1],
+
+	// ── Famille « kinetic » ───────────────────────────────────────────────
+	/**
+	 * `back` recule avant de partir : c'est l'anticipation. La courbe sort de
+	 * l'intervalle [0, 1], ce qui fait volontairement dépasser les transforms —
+	 * l'opacité, elle, est bornée à l'affichage (voir `presets.toStyle`).
+	 * C'est LA courbe de sortie du langage kinetic. Jamais de ressort en sortie.
+	 */
+	back: [0.36, 0, 0.66, -0.56],
+	/** Translation très rapide : quasi immobile, fulgurante, puis freinage sec. */
+	quint: [0.87, 0, 0.13, 1],
+	/** Lent puis brutal — la courbe des zooms traversants. */
+	expoIn: [0.7, 0, 0.84, 0],
 } as const satisfies Record<string, BezierCurve>;
 
 export type EasingName = keyof typeof easings;

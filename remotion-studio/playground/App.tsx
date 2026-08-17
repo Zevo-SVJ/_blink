@@ -3,6 +3,18 @@ import {AnimatePresence, motion} from 'framer-motion';
 import {useMemo, useState} from 'react';
 import {SpringLab} from './SpringLab';
 import {canvas, materials, palette, radii} from '@/design/tokens';
+import {BlinkReel} from '@/compositions/blink/BlinkReel';
+import {
+	BLINK_REEL_DURATION,
+	BLINK_SCENES,
+} from '@/compositions/blink/manifest';
+import {Capture, captureDefaults} from '@/compositions/blink/scenes/Capture';
+import {Lenses, lensesDefaults} from '@/compositions/blink/scenes/Lenses';
+import {
+	Perception,
+	perceptionDefaults,
+} from '@/compositions/blink/scenes/Perception';
+import {Verdict, verdictDefaults} from '@/compositions/blink/scenes/Verdict';
 import {typeScale} from '@/design/typography';
 import {DeviceShowcase, deviceShowcaseDefaults} from '@/compositions/DeviceShowcase';
 import {
@@ -21,9 +33,18 @@ type SceneEntry = {
 	component: React.ComponentType<Record<string, unknown>>;
 	props: Record<string, unknown>;
 	duration: number;
+	/** Format de la composition. Les scènes Blink sont verticales. */
+	width: number;
+	height: number;
 };
 
 const asScene = (entry: SceneEntry): SceneEntry => entry;
+
+const landscape = {
+	width: canvas.landscape.width,
+	height: canvas.landscape.height,
+};
+const vertical = {width: canvas.vertical.width, height: canvas.vertical.height};
 
 const scenes: SceneEntry[] = [
 	asScene({
@@ -33,6 +54,7 @@ const scenes: SceneEntry[] = [
 		component: HeroReveal as unknown as SceneEntry['component'],
 		props: heroRevealDefaults as unknown as Record<string, unknown>,
 		duration: SCENE_DURATIONS.HeroReveal,
+		...landscape,
 	}),
 	asScene({
 		id: 'FeatureShowcase',
@@ -41,6 +63,7 @@ const scenes: SceneEntry[] = [
 		component: FeatureShowcase as unknown as SceneEntry['component'],
 		props: featureShowcaseDefaults as unknown as Record<string, unknown>,
 		duration: SCENE_DURATIONS.FeatureShowcase,
+		...landscape,
 	}),
 	asScene({
 		id: 'DeviceShowcase',
@@ -49,6 +72,7 @@ const scenes: SceneEntry[] = [
 		component: DeviceShowcase as unknown as SceneEntry['component'],
 		props: deviceShowcaseDefaults as unknown as Record<string, unknown>,
 		duration: SCENE_DURATIONS.DeviceShowcase,
+		...landscape,
 	}),
 	asScene({
 		id: 'Reel',
@@ -57,6 +81,58 @@ const scenes: SceneEntry[] = [
 		component: Reel as unknown as SceneEntry['component'],
 		props: {},
 		duration: REEL_DURATION,
+		...landscape,
+	}),
+
+	// ── Piste Blink — langage kinetic, vertical 9:16 ──────────────────────
+	asScene({
+		id: 'Blink-Perception',
+		label: 'Blink · Perception',
+		blurb:
+			'Quatre regards convergent pendant qu’une phrase s’abat en trois temps forts.',
+		component: Perception as unknown as SceneEntry['component'],
+		props: perceptionDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.Perception,
+		...vertical,
+	}),
+	asScene({
+		id: 'Blink-Capture',
+		label: 'Blink · Capture',
+		blurb:
+			'La carte tombe et s’écrase, le curseur clique, les éclats partent, la lecture démarre.',
+		component: Capture as unknown as SceneEntry['component'],
+		props: captureDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.Capture,
+		...vertical,
+	}),
+	asScene({
+		id: 'Blink-Lenses',
+		label: 'Blink · Regards',
+		blurb:
+			'Quatre lentilles en cascade alternée, avec tracé vectoriel et flottement déphasé.',
+		component: Lenses as unknown as SceneEntry['component'],
+		props: lensesDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.Lenses,
+		...vertical,
+	}),
+	asScene({
+		id: 'Blink-Verdict',
+		label: 'Blink · Verdict',
+		blurb: 'Le score se dessine, le palier s’abat, l’appel à l’action reste.',
+		component: Verdict as unknown as SceneEntry['component'],
+		props: verdictDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.Verdict,
+		...vertical,
+	}),
+	asScene({
+		id: 'Blink-Reel',
+		label: 'Blink · Reel',
+		blurb:
+			'Les quatre plans enchaînés par zoom traversant, filé latéral et rideau montant.',
+		component: BlinkReel as unknown as SceneEntry['component'],
+		props: {},
+		duration: BLINK_REEL_DURATION,
+		...vertical,
 	}),
 ];
 
@@ -195,6 +271,12 @@ export const App: React.FC = () => {
 					style={{
 						borderRadius: radii.lg,
 						overflow: 'hidden',
+						// Largeur explicite plutôt que `maxWidth` : l'animation de
+						// `layout` de Framer Motion a besoin d'une dimension définie,
+						// sinon le conteneur s'effondre à zéro au changement de format.
+						// Le 9:16 est bridé, sinon il déborde d'un écran d'ordinateur.
+						width: active.height > active.width ? 420 : '100%',
+						alignSelf: 'center',
 						background: materials.glassDim.background,
 						border: materials.glassDim.border,
 						boxShadow: '0 48px 120px -32px rgba(0,0,0,0.8)',
@@ -205,8 +287,8 @@ export const App: React.FC = () => {
 						component={active.component}
 						inputProps={active.props}
 						durationInFrames={active.duration}
-						compositionWidth={canvas.landscape.width}
-						compositionHeight={canvas.landscape.height}
+						compositionWidth={active.width}
+						compositionHeight={active.height}
 						fps={canvas.landscape.fps}
 						controls
 						loop

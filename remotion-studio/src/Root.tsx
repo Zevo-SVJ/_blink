@@ -17,6 +17,28 @@ import {
 } from './compositions/HeroReveal';
 import {REEL_DURATION, SCENE_DURATIONS} from './compositions/manifest';
 import {Reel} from './compositions/Reel';
+import {BlinkReel} from './compositions/blink/BlinkReel';
+import {BLINK_REEL_DURATION, BLINK_SCENES} from './compositions/blink/manifest';
+import {
+	Capture,
+	captureDefaults,
+	captureSchema,
+} from './compositions/blink/scenes/Capture';
+import {
+	Lenses,
+	lensesDefaults,
+	lensesSchema,
+} from './compositions/blink/scenes/Lenses';
+import {
+	Perception,
+	perceptionDefaults,
+	perceptionSchema,
+} from './compositions/blink/scenes/Perception';
+import {
+	Verdict,
+	verdictDefaults,
+	verdictSchema,
+} from './compositions/blink/scenes/Verdict';
 
 /**
  * Catalogue des compositions.
@@ -75,6 +97,58 @@ export const RemotionRoot: React.FC = () => (
 				schema={heroRevealSchema}
 				defaultProps={heroRevealDefaults}
 				durationInFrames={SCENE_DURATIONS.HeroReveal}
+				{...canvas.vertical}
+			/>
+		</Folder>
+
+		{/*
+		 * Piste Blink — langage « kinetic », vertical 9:16.
+		 *
+		 * Vocabulaire de mouvement volontairement distinct de celui des scènes
+		 * paysage ci-dessus : ressorts sous-amortis, sorties en courbe `back`,
+		 * squash, secousses. Les deux langages cohabitent sans se mélanger.
+		 */}
+		<Folder name="Blink">
+			<Composition
+				id="Blink-Perception"
+				component={Perception}
+				schema={perceptionSchema}
+				defaultProps={perceptionDefaults}
+				durationInFrames={BLINK_SCENES.Perception}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Capture"
+				component={Capture}
+				schema={captureSchema}
+				defaultProps={captureDefaults}
+				durationInFrames={BLINK_SCENES.Capture}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Lenses"
+				component={Lenses}
+				schema={lensesSchema}
+				defaultProps={lensesDefaults}
+				durationInFrames={BLINK_SCENES.Lenses}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Verdict"
+				component={Verdict}
+				schema={verdictSchema}
+				defaultProps={verdictDefaults}
+				durationInFrames={BLINK_SCENES.Verdict}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Reel"
+				component={BlinkReel}
+				durationInFrames={BLINK_REEL_DURATION}
 				{...canvas.vertical}
 			/>
 		</Folder>
