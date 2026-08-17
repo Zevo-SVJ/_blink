@@ -94,6 +94,53 @@ export const springs = {
 	 * s'arrêter net.
 	 */
 	slideBig: {stiffness: 220, damping: 18, mass: 1},
+
+	// ── Famille « extrême » — le régime haute rétention ────────────────────
+	// Trois ressorts, trois emplois, aucun recouvrement. Ils remplacent la
+	// famille kinetic sur toute la piste Blink : plus raides, moins amortis,
+	// avec une masse qui dit explicitement ce que l'objet pèse.
+
+	/**
+	 * Textes, badges, pop-ups. LE ressort du régime.
+	 *
+	 * ωn = √(450/0,8) = 23,7 rad/s → premier pic à 0,073 s ;
+	 * ζ = 16/(2·√(450·0,8)) = 0,42 → ~25 % de dépassement.
+	 *
+	 * Autrement dit : l'élément est arrivé avant que l'œil ait fini de le
+	 * chercher, et il rebondit assez pour qu'on sente le choc. C'est la
+	 * combinaison exacte qui distingue une apparition d'un affichage.
+	 */
+	kick: {stiffness: 450, damping: 16, mass: 0.8},
+
+	/**
+	 * Caméra et glissements de plan entier.
+	 *
+	 * ζ = 22/(2·√300) = 0,635 → ~4 % de dépassement seulement. Un plan entier
+	 * qui oscille devient illisible : le rebond appartient aux éléments, pas au
+	 * cadre. Ce ressort est rapide et **puissant**, pas élastique.
+	 */
+	whip: {stiffness: 300, damping: 22, mass: 1},
+
+	/**
+	 * Objets lourds qui tombent : cartes, médaillon, plaques.
+	 *
+	 * La masse à 1,5 est tout l'effet — ωn = √(200/1,5) = 11,5 rad/s, donc une
+	 * chute qui prend son temps, et ζ = 0,346 → ~31 % de dépassement à
+	 * l'atterrissage. Associé à `squash`, l'objet s'écrase puis se rétablit :
+	 * c'est ce qui lui donne un poids perçu.
+	 */
+	heavyDrop: {stiffness: 200, damping: 12, mass: 1.5},
+
+	/**
+	 * Le tampon du premier plan, et lui seul.
+	 *
+	 * ζ = 15/(2·√500) = 0,335 → ~34 % de dépassement, le plus fort du film. Un
+	 * badge qui s'imprime doit rebondir plus qu'il n'est raisonnable : c'est le
+	 * premier évènement que voit le spectateur, et il doit paraître incontrôlé.
+	 * Employé ailleurs, ce ressort donnerait l'impression que l'animation est
+	 * mal réglée — c'est exactement pour ça qu'il n'apparaît qu'une fois.
+	 */
+	stamp: {stiffness: 500, damping: 15, mass: 1},
 } as const satisfies Record<string, SpringConfig>;
 
 export type SpringName = keyof typeof springs;

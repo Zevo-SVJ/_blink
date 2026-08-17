@@ -85,6 +85,23 @@ export const presets = {
 	flyRight: {opacity: 0, x: -520, rotate: -6},
 	/** Élément lourd qui arrive en s'écrasant. */
 	stampIn: {opacity: 0, scale: 2.4, rotate: -14, elevation: 60},
+
+	// ── Famille « extrême » — entrées sans fondu ───────────────────────────
+	// Le fondu est banni du régime haute rétention : un élément qui apparaît en
+	// gagnant de l'opacité *s'affiche*, il n'arrive pas. Ces états partent donc
+	// à `opacity: 1` et ne doivent leur apparition qu'au déplacement — l'élément
+	// est simplement hors cadre, puis dedans.
+
+	/** Entre par le bas, à pleine opacité. Le swipe. */
+	hardUp: {y: 760},
+	/** Entre par le haut, à pleine opacité. La chute. */
+	hardDown: {y: -760},
+	/** Chute de très haut, en tournant. Pour les objets lourds empilés. */
+	dropHigh: {opacity: 0, y: -680, rotate: -9, elevation: 70},
+	/** Tampon : s'imprime en venant de trop grand, incliné dans l'autre sens. */
+	printIn: {opacity: 0, scale: 2.1, rotate: 9, elevation: 52},
+	/** Arrive dans l'axe de la diagonale, en glissant. */
+	slashIn: {opacity: 0, x: -260, y: 260},
 } as const satisfies Record<string, MotionState>;
 
 export type PresetName = keyof typeof presets;
@@ -108,6 +125,21 @@ export const exits = {
 	recede: {opacity: 0, scale: 0.82, blur: 14},
 	/** Disparaît vers le haut. */
 	liftOut: {opacity: 0, y: -220, scale: 0.9},
+
+	// ── Famille « extrême » — sorties sans fondu ───────────────────────────
+
+	/**
+	 * Tombe hors cadre, **sans perdre son opacité**.
+	 *
+	 * C'est la sortie du match cut : l'objet doit encore être plein quand il
+	 * quitte le bas de l'image, sinon la trajectoire que le plan suivant
+	 * prolonge n'a jamais été visible jusqu'au bout.
+	 */
+	dropOut: {y: 1500, rotate: 9},
+	/** File vers le haut hors cadre, sans fondu. Le swipe de sortie. */
+	swipeOut: {y: -1500},
+	/** Part dans l'axe de la diagonale. */
+	slashOut: {opacity: 0, x: 340, y: -340, rotate: 6},
 } as const satisfies Record<string, MotionState>;
 
 export type ExitName = keyof typeof exits;

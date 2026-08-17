@@ -32,6 +32,31 @@ export const blink = {
 } as const;
 
 /**
+ * PALETTE DE RUPTURE.
+ *
+ * La charte Blink est un bleu nuit. Trente-sept secondes de bleu nuit sont
+ * monotones quoi qu'on y mette : la variété d'un film vertical vient d'abord de
+ * la **valeur du fond**, avant les objets qui s'y trouvent.
+ *
+ * Ces couleurs ne remplacent pas la charte, elles la ponctuent. Elles ne sont
+ * jamais employées comme couleur de marque — uniquement comme aplat de fond
+ * plein cadre, comme trait de feutre ou comme badge. La marque reste `sky` sur
+ * `navy` ; ce sont ces plans-là qui la mettent en valeur par contraste.
+ */
+export const pop = {
+	/** Jaune fluo — les respirations typographiques et les badges d'alerte. */
+	flare: '#FFE93D',
+	/** Orange fluo — le tampon du premier plan, la moitié « perception ». */
+	flareHot: '#FF6B1A',
+	/** Rouge feutre — la croix. Une seule apparition dans tout le film. */
+	cross: '#FF2D2D',
+	/** Le noir des écrans fluo. Jamais #000 : un noir pur bave à l'encodage. */
+	ink: '#0B0B12',
+	/** Vert acide — la moitié « intention ». */
+	lime: '#2BE08A',
+} as const;
+
+/**
  * Les quatre regards analysés par Blink.
  *
  * Chaque lentille a sa couleur : c'est ce qui permet de les identifier d'un

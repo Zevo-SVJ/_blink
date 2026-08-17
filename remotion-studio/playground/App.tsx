@@ -8,27 +8,20 @@ import {
 	BLINK_REEL_DURATION,
 	BLINK_SCENES,
 } from '@/compositions/blink/manifest';
-import {
-	Punchline,
-	punchlineDefaults,
-	Reveal,
-	revealDefaults,
-	Seconds,
-	secondsDefaults,
-} from '@/compositions/blink/scenes/Breaths';
-import {Capture, captureDefaults} from '@/compositions/blink/scenes/Capture';
-import {Climb, climbDefaults} from '@/compositions/blink/scenes/Climb';
-import {Close, closeDefaults} from '@/compositions/blink/scenes/Close';
-import {Gaze, gazeDefaults} from '@/compositions/blink/scenes/Gaze';
-import {Identity, identityDefaults} from '@/compositions/blink/scenes/Identity';
-import {Lenses, lensesDefaults} from '@/compositions/blink/scenes/Lenses';
-import {Mirror, mirrorDefaults} from '@/compositions/blink/scenes/Mirror';
+import {ActionPlan, actionPlanDefaults} from '@/compositions/blink/scenes/ActionPlan';
+import {Breathing, breathingDefaults} from '@/compositions/blink/scenes/Breathing';
+import {Contrast, contrastDefaults} from '@/compositions/blink/scenes/Contrast';
+import {Gap, gapDefaults} from '@/compositions/blink/scenes/Gap';
+import {Hook, hookDefaults} from '@/compositions/blink/scenes/Hook';
+import {Metaphor, metaphorDefaults} from '@/compositions/blink/scenes/Metaphor';
+import {Outro, outroDefaults} from '@/compositions/blink/scenes/Outro';
 import {
 	Perception,
 	perceptionDefaults,
 } from '@/compositions/blink/scenes/Perception';
-import {Signals, signalsDefaults} from '@/compositions/blink/scenes/Signals';
-import {Verdict, verdictDefaults} from '@/compositions/blink/scenes/Verdict';
+import {Rhythm, rhythmDefaults} from '@/compositions/blink/scenes/Rhythm';
+import {ScanUi, scanUiDefaults} from '@/compositions/blink/scenes/ScanUi';
+import {ScoreHero, scoreHeroDefaults} from '@/compositions/blink/scenes/ScoreHero';
 import {typeScale} from '@/design/typography';
 import {DeviceShowcase, deviceShowcaseDefaults} from '@/compositions/DeviceShowcase';
 import {
@@ -98,129 +91,111 @@ const scenes: SceneEntry[] = [
 		...landscape,
 	}),
 
-	// ── Piste Blink — langage kinetic, vertical 9:16 ──────────────────────
+	// ── Piste Blink — régime haute rétention, vertical 9:16 ───────────────
+	asScene({
+		id: 'Blink-Hook',
+		label: 'Blink · Hook',
+		blurb: 'Médaillon gravé en très gros plan, tampon fluo, phrase en trois frappes.',
+		component: Hook as unknown as SceneEntry['component'],
+		props: hookDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.Hook,
+		...vertical,
+	}),
+	asScene({
+		id: 'Blink-Rhythm',
+		label: 'Blink · Rhythm',
+		blurb: 'Viseur de capture : verrouillage, laser, compte à rebours de deux secondes.',
+		component: Rhythm as unknown as SceneEntry['component'],
+		props: rhythmDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.Rhythm,
+		...vertical,
+	}),
+	asScene({
+		id: 'Blink-Metaphor',
+		label: 'Blink · Metaphor',
+		blurb: 'Sphère centrale et rafale de clics — six regards en quarante frames.',
+		component: Metaphor as unknown as SceneEntry['component'],
+		props: metaphorDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.Metaphor,
+		...vertical,
+	}),
+	asScene({
+		id: 'Blink-Breathing',
+		label: 'Blink · Breathing',
+		blurb: 'Trois aplats fluo d’une seconde, avec inversion chromatique complète.',
+		component: Breathing as unknown as SceneEntry['component'],
+		props: breathingDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.Breathing,
+		...vertical,
+	}),
+	asScene({
+		id: 'Blink-ScanUi',
+		label: 'Blink · ScanUi',
+		blurb: 'Grille scannée au laser, signaux extraits, radar, relevé final.',
+		component: ScanUi as unknown as SceneEntry['component'],
+		props: scanUiDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.ScanUi,
+		...vertical,
+	}),
+	asScene({
+		id: 'Blink-Contrast',
+		label: 'Blink · Contrast',
+		blurb: 'Profil terne, croix au feutre, refus plein cadre — puis la chute.',
+		component: Contrast as unknown as SceneEntry['component'],
+		props: contrastDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.Contrast,
+		...vertical,
+	}),
 	asScene({
 		id: 'Blink-Perception',
 		label: 'Blink · Perception',
-		blurb: 'Quatre regards convergent pendant qu’une phrase s’abat en trois temps forts.',
+		blurb: 'Quatre cartes distribuées comme un paquet, puis ouvertes en éventail.',
 		component: Perception as unknown as SceneEntry['component'],
 		props: perceptionDefaults as unknown as Record<string, unknown>,
 		duration: BLINK_SCENES.Perception,
 		...vertical,
 	}),
 	asScene({
-		id: 'Blink-Seconds',
-		label: 'Blink · Seconds',
-		blurb: 'Respiration typographique : fond clair, un chiffre, rien d’autre.',
-		component: Seconds as unknown as SceneEntry['component'],
-		props: secondsDefaults as unknown as Record<string, unknown>,
-		duration: BLINK_SCENES.Seconds,
+		id: 'Blink-Gap',
+		label: 'Blink · Gap',
+		blurb: 'Écran fendu en diagonale : intention en vert, perception en orange.',
+		component: Gap as unknown as SceneEntry['component'],
+		props: gapDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.Gap,
 		...vertical,
 	}),
 	asScene({
-		id: 'Blink-Gaze',
-		label: 'Blink · Gaze',
-		blurb: 'Nuée de curseurs sur une sphère, compteur de regards, ondes concentriques.',
-		component: Gaze as unknown as SceneEntry['component'],
-		props: gazeDefaults as unknown as Record<string, unknown>,
-		duration: BLINK_SCENES.Gaze,
+		id: 'Blink-ScoreHero',
+		label: 'Blink · ScoreHero',
+		blurb: 'Compteur emballé, palier frappé, échelle des paliers.',
+		component: ScoreHero as unknown as SceneEntry['component'],
+		props: scoreHeroDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.ScoreHero,
 		...vertical,
 	}),
 	asScene({
-		id: 'Blink-Identity',
-		label: 'Blink · Identity',
-		blurb: 'Carte d’identité flottante en pseudo-3D et flèche dessinée à la main.',
-		component: Identity as unknown as SceneEntry['component'],
-		props: identityDefaults as unknown as Record<string, unknown>,
-		duration: BLINK_SCENES.Identity,
+		id: 'Blink-ActionPlan',
+		label: 'Blink · ActionPlan',
+		blurb: 'Écran de téléphone : trois actions qui s’activent seules, puis le gain.',
+		component: ActionPlan as unknown as SceneEntry['component'],
+		props: actionPlanDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.ActionPlan,
 		...vertical,
 	}),
 	asScene({
-		id: 'Blink-Capture',
-		label: 'Blink · Capture',
-		blurb: 'La carte tombe et s’écrase, le curseur clique, le viseur mesure.',
-		component: Capture as unknown as SceneEntry['component'],
-		props: captureDefaults as unknown as Record<string, unknown>,
-		duration: BLINK_SCENES.Capture,
-		...vertical,
-	}),
-	asScene({
-		id: 'Blink-Signals',
-		label: 'Blink · Signals',
-		blurb: 'Trois couches : champ de nœuds, radar de perception, fenêtres flottantes.',
-		component: Signals as unknown as SceneEntry['component'],
-		props: signalsDefaults as unknown as Record<string, unknown>,
-		duration: BLINK_SCENES.Signals,
-		...vertical,
-	}),
-	asScene({
-		id: 'Blink-Punchline',
-		label: 'Blink · Punchline',
-		blurb: 'Respiration : fond saturé, trois mots noirs, le contre-pied.',
-		component: Punchline as unknown as SceneEntry['component'],
-		props: punchlineDefaults as unknown as Record<string, unknown>,
-		duration: BLINK_SCENES.Punchline,
-		...vertical,
-	}),
-	asScene({
-		id: 'Blink-Lenses',
-		label: 'Blink · Lenses',
-		blurb: 'Quatre lentilles en cascade alternée, tracé vectoriel, flottement déphasé.',
-		component: Lenses as unknown as SceneEntry['component'],
-		props: lensesDefaults as unknown as Record<string, unknown>,
-		duration: BLINK_SCENES.Lenses,
-		...vertical,
-	}),
-	asScene({
-		id: 'Blink-Mirror',
-		label: 'Blink · Mirror',
-		blurb: 'Fond clair : intention contre perception, avec annotations manuscrites.',
-		component: Mirror as unknown as SceneEntry['component'],
-		props: mirrorDefaults as unknown as Record<string, unknown>,
-		duration: BLINK_SCENES.Mirror,
-		...vertical,
-	}),
-	asScene({
-		id: 'Blink-Reveal',
-		label: 'Blink · Reveal',
-		blurb: 'Respiration : noir profond, quatre mots avant le résultat.',
-		component: Reveal as unknown as SceneEntry['component'],
-		props: revealDefaults as unknown as Record<string, unknown>,
-		duration: BLINK_SCENES.Reveal,
-		...vertical,
-	}),
-	asScene({
-		id: 'Blink-Verdict',
-		label: 'Blink · Verdict',
-		blurb: 'Anneau tracé, compteur, tampon de palier — le pic d’intensité du film.',
-		component: Verdict as unknown as SceneEntry['component'],
-		props: verdictDefaults as unknown as Record<string, unknown>,
-		duration: BLINK_SCENES.Verdict,
-		...vertical,
-	}),
-	asScene({
-		id: 'Blink-Climb',
-		label: 'Blink · Climb',
-		blurb: 'L’échelle des paliers se construit ; le marqueur s’arrête avant la suivante.',
-		component: Climb as unknown as SceneEntry['component'],
-		props: climbDefaults as unknown as Record<string, unknown>,
-		duration: BLINK_SCENES.Climb,
-		...vertical,
-	}),
-	asScene({
-		id: 'Blink-Close',
-		label: 'Blink · Close',
-		blurb: 'Les curseurs reviennent et convergent sur la marque. Le rythme ralentit.',
-		component: Close as unknown as SceneEntry['component'],
-		props: closeDefaults as unknown as Record<string, unknown>,
-		duration: BLINK_SCENES.Close,
+		id: 'Blink-Outro',
+		label: 'Blink · Outro',
+		blurb: 'Marque plein cadre, nuée convergente, bouton qui insiste trois fois.',
+		component: Outro as unknown as SceneEntry['component'],
+		props: outroDefaults as unknown as Record<string, unknown>,
+		duration: BLINK_SCENES.Outro,
 		...vertical,
 	}),
 	asScene({
 		id: 'Blink-Reel',
-		label: 'Blink · Reel 44 s',
+		label: 'Blink · Reel 37 s',
 		blurb:
-			'Les treize plans enchaînés — zoom traversant, filé latéral alterné et rideau montant.',
+			'Les onze séquences enchaînées — scale-to-mask, slide whip, match cut et diagonal slash.',
 		component: BlinkReel as unknown as SceneEntry['component'],
 		props: {},
 		duration: BLINK_REEL_DURATION,

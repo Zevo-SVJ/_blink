@@ -20,54 +20,40 @@ import {Reel} from './compositions/Reel';
 import {BlinkReel} from './compositions/blink/BlinkReel';
 import {BLINK_REEL_DURATION, BLINK_SCENES} from './compositions/blink/manifest';
 import {
-	Punchline,
-	punchlineDefaults,
-	punchlineSchema,
-	Reveal,
-	revealDefaults,
-	revealSchema,
-	Seconds,
-	secondsDefaults,
-	secondsSchema,
-} from './compositions/blink/scenes/Breaths';
+	ActionPlan,
+	actionPlanDefaults,
+	actionPlanSchema,
+} from './compositions/blink/scenes/ActionPlan';
 import {
-	Capture,
-	captureDefaults,
-	captureSchema,
-} from './compositions/blink/scenes/Capture';
-import {Climb, climbDefaults, climbSchema} from './compositions/blink/scenes/Climb';
-import {Close, closeDefaults, closeSchema} from './compositions/blink/scenes/Close';
-import {Gaze, gazeDefaults, gazeSchema} from './compositions/blink/scenes/Gaze';
+	Breathing,
+	breathingDefaults,
+	breathingSchema,
+} from './compositions/blink/scenes/Breathing';
 import {
-	Identity,
-	identityDefaults,
-	identitySchema,
-} from './compositions/blink/scenes/Identity';
+	Contrast,
+	contrastDefaults,
+	contrastSchema,
+} from './compositions/blink/scenes/Contrast';
+import {Gap, gapDefaults, gapSchema} from './compositions/blink/scenes/Gap';
+import {Hook, hookDefaults, hookSchema} from './compositions/blink/scenes/Hook';
 import {
-	Lenses,
-	lensesDefaults,
-	lensesSchema,
-} from './compositions/blink/scenes/Lenses';
-import {
-	Mirror,
-	mirrorDefaults,
-	mirrorSchema,
-} from './compositions/blink/scenes/Mirror';
+	Metaphor,
+	metaphorDefaults,
+	metaphorSchema,
+} from './compositions/blink/scenes/Metaphor';
+import {Outro, outroDefaults, outroSchema} from './compositions/blink/scenes/Outro';
 import {
 	Perception,
 	perceptionDefaults,
 	perceptionSchema,
 } from './compositions/blink/scenes/Perception';
+import {Rhythm, rhythmDefaults, rhythmSchema} from './compositions/blink/scenes/Rhythm';
+import {ScanUi, scanUiDefaults, scanUiSchema} from './compositions/blink/scenes/ScanUi';
 import {
-	Signals,
-	signalsDefaults,
-	signalsSchema,
-} from './compositions/blink/scenes/Signals';
-import {
-	Verdict,
-	verdictDefaults,
-	verdictSchema,
-} from './compositions/blink/scenes/Verdict';
+	ScoreHero,
+	scoreHeroDefaults,
+	scoreHeroSchema,
+} from './compositions/blink/scenes/ScoreHero'
 
 /**
  * Catalogue des compositions.
@@ -138,6 +124,66 @@ export const RemotionRoot: React.FC = () => (
 		 * squash, secousses. Les deux langages cohabitent sans se mélanger.
 		 */}
 		<Folder name="Blink">
+			{/*
+			 * Chaque séquence est aussi une composition autonome : c'est ce qui
+			 * permet de scruber un battement isolé dans le studio sans rejouer les
+			 * trente-sept secondes. Sa durée inclut le raccord qu'elle partage avec
+			 * la suivante, donc elle est légèrement plus longue que sa durée utile.
+			 */}
+			<Composition
+				id="Blink-Hook"
+				component={Hook}
+				schema={hookSchema}
+				defaultProps={hookDefaults}
+				durationInFrames={BLINK_SCENES.Hook}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Rhythm"
+				component={Rhythm}
+				schema={rhythmSchema}
+				defaultProps={rhythmDefaults}
+				durationInFrames={BLINK_SCENES.Rhythm}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Metaphor"
+				component={Metaphor}
+				schema={metaphorSchema}
+				defaultProps={metaphorDefaults}
+				durationInFrames={BLINK_SCENES.Metaphor}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Breathing"
+				component={Breathing}
+				schema={breathingSchema}
+				defaultProps={breathingDefaults}
+				durationInFrames={BLINK_SCENES.Breathing}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-ScanUi"
+				component={ScanUi}
+				schema={scanUiSchema}
+				defaultProps={scanUiDefaults}
+				durationInFrames={BLINK_SCENES.ScanUi}
+				{...canvas.vertical}
+			/>
+
+			<Composition
+				id="Blink-Contrast"
+				component={Contrast}
+				schema={contrastSchema}
+				defaultProps={contrastDefaults}
+				durationInFrames={BLINK_SCENES.Contrast}
+				{...canvas.vertical}
+			/>
+
 			<Composition
 				id="Blink-Perception"
 				component={Perception}
@@ -148,110 +194,38 @@ export const RemotionRoot: React.FC = () => (
 			/>
 
 			<Composition
-				id="Blink-Seconds"
-				component={Seconds}
-				schema={secondsSchema}
-				defaultProps={secondsDefaults}
-				durationInFrames={BLINK_SCENES.Seconds}
+				id="Blink-Gap"
+				component={Gap}
+				schema={gapSchema}
+				defaultProps={gapDefaults}
+				durationInFrames={BLINK_SCENES.Gap}
 				{...canvas.vertical}
 			/>
 
 			<Composition
-				id="Blink-Gaze"
-				component={Gaze}
-				schema={gazeSchema}
-				defaultProps={gazeDefaults}
-				durationInFrames={BLINK_SCENES.Gaze}
+				id="Blink-ScoreHero"
+				component={ScoreHero}
+				schema={scoreHeroSchema}
+				defaultProps={scoreHeroDefaults}
+				durationInFrames={BLINK_SCENES.ScoreHero}
 				{...canvas.vertical}
 			/>
 
 			<Composition
-				id="Blink-Identity"
-				component={Identity}
-				schema={identitySchema}
-				defaultProps={identityDefaults}
-				durationInFrames={BLINK_SCENES.Identity}
+				id="Blink-ActionPlan"
+				component={ActionPlan}
+				schema={actionPlanSchema}
+				defaultProps={actionPlanDefaults}
+				durationInFrames={BLINK_SCENES.ActionPlan}
 				{...canvas.vertical}
 			/>
 
 			<Composition
-				id="Blink-Capture"
-				component={Capture}
-				schema={captureSchema}
-				defaultProps={captureDefaults}
-				durationInFrames={BLINK_SCENES.Capture}
-				{...canvas.vertical}
-			/>
-
-			<Composition
-				id="Blink-Signals"
-				component={Signals}
-				schema={signalsSchema}
-				defaultProps={signalsDefaults}
-				durationInFrames={BLINK_SCENES.Signals}
-				{...canvas.vertical}
-			/>
-
-			<Composition
-				id="Blink-Punchline"
-				component={Punchline}
-				schema={punchlineSchema}
-				defaultProps={punchlineDefaults}
-				durationInFrames={BLINK_SCENES.Punchline}
-				{...canvas.vertical}
-			/>
-
-			<Composition
-				id="Blink-Lenses"
-				component={Lenses}
-				schema={lensesSchema}
-				defaultProps={lensesDefaults}
-				durationInFrames={BLINK_SCENES.Lenses}
-				{...canvas.vertical}
-			/>
-
-			<Composition
-				id="Blink-Mirror"
-				component={Mirror}
-				schema={mirrorSchema}
-				defaultProps={mirrorDefaults}
-				durationInFrames={BLINK_SCENES.Mirror}
-				{...canvas.vertical}
-			/>
-
-			<Composition
-				id="Blink-Reveal"
-				component={Reveal}
-				schema={revealSchema}
-				defaultProps={revealDefaults}
-				durationInFrames={BLINK_SCENES.Reveal}
-				{...canvas.vertical}
-			/>
-
-			<Composition
-				id="Blink-Verdict"
-				component={Verdict}
-				schema={verdictSchema}
-				defaultProps={verdictDefaults}
-				durationInFrames={BLINK_SCENES.Verdict}
-				{...canvas.vertical}
-			/>
-
-			<Composition
-				id="Blink-Climb"
-				component={Climb}
-				schema={climbSchema}
-				defaultProps={climbDefaults}
-				durationInFrames={BLINK_SCENES.Climb}
-				{...canvas.vertical}
-			/>
-
-			<Composition
-				id="Blink-Close"
-				component={Close}
-				schema={closeSchema}
-				defaultProps={closeDefaults}
-				durationInFrames={BLINK_SCENES.Close}
+				id="Blink-Outro"
+				component={Outro}
+				schema={outroSchema}
+				defaultProps={outroDefaults}
+				durationInFrames={BLINK_SCENES.Outro}
 				{...canvas.vertical}
 			/>
 

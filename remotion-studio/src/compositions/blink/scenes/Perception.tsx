@@ -1,231 +1,285 @@
-import type {ReactNode} from 'react';
-import {AbsoluteFill} from 'remotion';
+import {AbsoluteFill, interpolate, Sequence} from 'remotion';
 import {z} from 'zod';
-import {BlinkStage, Portal} from '@/components/blink';
-import {Shockwave} from '@/components/kinetic';
-import {blink, lenses} from '@/design/blink';
+import {BlinkStage} from '@/components/blink';
+import {Cadence, Shockwave, Sparks} from '@/components/kinetic';
+import {blink, lenses, pop} from '@/design/blink';
 import {fonts} from '@/design/typography';
-import {STAGGER} from '@/motion/beats';
 import {useProgress} from '@/motion/frame';
 import {Impact, Pop} from '@/motion/kinetic';
 import {useIdle} from '@/motion/kinetic/idle';
 
 export const perceptionSchema = z.object({
-	lineOne: z.string(),
-	lineTwo: z.string(),
-	lineThree: z.string(),
-	subtitle: z.string(),
+	verdicts: z.array(z.string()),
+	line: z.string(),
+	emphasis: z.string(),
 });
 
 export type PerceptionProps = z.infer<typeof perceptionSchema>;
 
 export const perceptionDefaults: PerceptionProps = {
-	lineOne: 'TON PROFIL',
-	lineTwo: 'PARLE',
-	lineThree: 'AVANT TOI.',
-	subtitle: 'Blink te montre ce qu’ils voient.',
+	verdicts: [
+		'Intriguant. Un peu distant.',
+		'Soigné, difficile à situer.',
+		'C’est bien toi.',
+		'Sérieux. Peu de relief.',
+	],
+	line: 'QUATRE REGARDS',
+	emphasis: 'UN SEUL PROFIL',
 };
 
 /**
- * SCÈNE 1 — PERCEPTION  ·  8 temps (240 frames)
+ * 00:17 — PERCEPTION  ·  240 frames utiles
  *
- * L'accroche. Quatre regards convergent sur un profil pendant qu'une phrase
- * s'abat en trois temps.
+ * Quatre lectures du même profil, distribuées comme un jeu de cartes.
  *
- * Partition (frames ; 30 frames = 1 temps) :
- *   f000  les quatre regards entrent par les quatre bords, cascade de 3 f
- *   f022  ▮ « TON PROFIL »   impact + secousse
- *   f036  ▮ « PARLE »        impact + secousse
- *   f050  ▮ « AVANT TOI. »   impact + secousse, la plus forte
- *   f080  respiration
- *   f096  les regards se resserrent vers le centre
- *   f132  la promesse monte du bas
- *   f168  tout se retire
- *   f186  le portail s'ouvre — il porte le blanc cassé du plan suivant, donc
- *         le zoom traversant plonge dans une lumière et non dans un trou
+ * La séquence **commence en pleine chute** : à la frame 0, une carte entre par
+ * le haut à environ 45 px/frame et prolonge la trajectoire de la carte barrée
+ * du plan précédent, que le raccord `matchCut` maintient en mouvement pendant
+ * les huit frames de recouvrement. C'est la seule séquence du film qui ne
+ * démarre pas sur une composition posée, et c'est délibéré : le spectateur n'a
+ * pas le temps de voir qu'on a changé de plan.
  *
- * Enrichissements par rapport à la première version : chaque impact
- * typographique émet une onde concentrique, et les regards respirent en
- * permanence au lieu de se figer après leur entrée.
+ *   f000  ▮ les quatre cartes tombent, une toutes les 13 frames, et s'empilent
+ *   f000+ chaque atterrissage écrase la carte puis la rétablit (`squash` 1,6)
+ *   f078  ▮ COUPE. Le paquet s'ouvre en éventail — les quatre verdicts lisibles
+ *   f158  ▮ COUPE. La formule finale, en contraste d'échelle
+ *
+ * L'empilement est décalé de 72 px et de 3,5° par carte. La valeur n'est pas
+ * arbitraire : c'est la hauteur exacte de la ligne d'en-tête d'une carte, donc
+ * les quatre pastilles de couleur et les quatre étiquettes restent lisibles
+ * pendant que le reste se recouvre. Un décalage plus faible donnerait une pile
+ * indistincte, un décalage plus large une liste — et une liste n'est pas un
+ * paquet de cartes.
  */
 
-const HITS = [
-	{at: 22, amplitude: 15, duration: 7, seed: 'p1'},
-	{at: 36, amplitude: 18, duration: 7, seed: 'p2'},
-	{at: 50, amplitude: 27, duration: 10, seed: 'p3', rotation: 1.6},
-	{at: 96, amplitude: 9, duration: 6, seed: 'p4'},
+const DROP_STEP = 13;
+
+const HITS_A = lenses.map((_lens, index) => ({
+	at: index * DROP_STEP + 16,
+	amplitude: 16 + index * 4,
+	duration: 7,
+	seed: `pk${index}`,
+	rotation: index === lenses.length - 1 ? 1.5 : 0.8,
+}));
+
+const HITS_B = [
+	{at: 2, amplitude: 18, duration: 7, seed: 'pf1', rotation: 1.1},
+	{at: 40, amplitude: 10, duration: 5, seed: 'pf2'},
 ];
 
-/**
- * Position d'orbite de chaque regard, et le bord d'où il arrive.
- *
- * Volontairement dispersées plutôt qu'en croix : une croix parfaite place deux
- * regards en plein dans la bande de texte, et se lit comme un pictogramme. La
- * dispersion les garde au-dessus et en dessous du bloc typographique.
- */
-const WATCHERS = [
-	{preset: 'dropIn' as const, x: -290, y: -540},
-	{preset: 'flyLeft' as const, x: 330, y: -470},
-	{preset: 'riseUp' as const, x: -330, y: 430},
-	{preset: 'flyRight' as const, x: 300, y: 490},
+const HITS_C = [
+	{at: 0, amplitude: 20, duration: 8, seed: 'pl1'},
+	{at: 10, amplitude: 28, duration: 10, seed: 'pl2', rotation: 1.7},
 ];
 
-/**
- * Ramène un regard de son orbite vers le centre.
- *
- * Séparé du `<Pop>` : la convergence doit se **composer** avec l'entrée au
- * ressort, pas la remplacer. Deux transforms imbriqués, deux responsabilités.
- */
-const Converging: React.FC<{
+const GazeCard: React.FC<{
 	index: number;
-	x: number;
-	y: number;
-	children: ReactNode;
-}> = ({index, x, y, children}) => {
-	const pull = useProgress({delay: 96 + index * STAGGER.tight, spring: 'popSoft'}) * 0.72;
-	// Micro-vie : même immobiles sur leur orbite, les regards ne sont jamais figés.
-	const idle = useIdle({float: 12, breathe: 0.03, speed: 0.16, phase: index * 1.6});
+	verdict: string;
+	width?: number;
+	compact?: boolean;
+}> = ({index, verdict, width = 700, compact = false}) => {
+	const lens = lenses[index]!;
+	const idle = useIdle({float: 5, breathe: 0.005, speed: 0.12, phase: index * 1.3});
 
 	return (
 		<div
 			style={{
-				transform: `translate3d(${(x * (1 - pull)).toFixed(2)}px, ${(y * (1 - pull) + idle.y).toFixed(2)}px, 0) scale(${idle.scale.toFixed(4)})`,
+				width,
+				padding: compact ? '28px 32px' : '38px 42px',
+				borderRadius: 30,
+				background: `linear-gradient(150deg, ${blink.navy3}, ${blink.navy2})`,
+				border: `2px solid ${lens.color}66`,
+				boxShadow: `0 40px 90px -34px rgba(0,6,20,0.9), inset 0 1px 0 ${lens.color}33`,
+				transform: `translateY(${idle.y.toFixed(2)}px)`,
 			}}
 		>
-			{children}
+			<div style={{display: 'flex', alignItems: 'center', gap: 16}}>
+				<div
+					style={{
+						width: 22,
+						height: 22,
+						borderRadius: '50%',
+						background: lens.color,
+						boxShadow: `0 0 22px ${lens.color}`,
+						flexShrink: 0,
+					}}
+				/>
+				<div
+					style={{
+						fontFamily: fonts.display,
+						fontSize: compact ? 34 : 42,
+						fontWeight: 750,
+						letterSpacing: '-0.025em',
+						color: lens.color,
+						textTransform: 'uppercase',
+					}}
+				>
+					{lens.label}
+				</div>
+			</div>
+			<div
+				style={{
+					fontFamily: fonts.display,
+					fontSize: compact ? 38 : 50,
+					fontWeight: 650,
+					letterSpacing: '-0.03em',
+					color: blink.white,
+					marginTop: compact ? 10 : 16,
+					lineHeight: 1.1,
+				}}
+			>
+				{verdict}
+			</div>
 		</div>
 	);
 };
 
-const Line: React.FC<{
-	text: string;
-	at: number;
-	size: number;
-	color?: string;
-}> = ({text, at, size, color = blink.white}) => (
-	<Pop
-		at={at}
-		spring="textPop"
-		preset="slamIn"
-		out={208}
-		exit="liftOut"
-		outDuration={16}
-	>
-		<div
-			style={{
-				fontFamily: fonts.display,
-				fontSize: size,
-				fontWeight: 800,
-				letterSpacing: '-0.055em',
-				lineHeight: 0.92,
-				color,
-				textAlign: 'center',
-				textShadow: '0 24px 60px rgba(0,6,20,0.7)',
-			}}
+/** Une carte du paquet : elle tombe, atterrit, et reste décalée. */
+const Dealt: React.FC<{index: number; verdict: string}> = ({index, verdict}) => {
+	const at = index * DROP_STEP;
+	return (
+		<Pop
+			at={at}
+			spring="heavyDrop"
+			preset="dropHigh"
+			squash={1.6}
+			shadow
+			// Ancrage explicite : le parent du paquet a une taille fixe, sinon un
+			// enfant absolu se placerait à sa position statique — c'est-à-dire au
+			// point d'origine d'un conteneur de largeur nulle, donc décalé vers la
+			// droite au lieu d'être centré.
+			style={{position: 'absolute', left: 0, top: 190, width: 700}}
 		>
-			{text}
-		</div>
-	</Pop>
-);
-
-export const Perception: React.FC<PerceptionProps> = ({
-	lineOne,
-	lineTwo,
-	lineThree,
-	subtitle,
-}) => (
-	<Impact hits={HITS}>
-		<BlinkStage glow={blink.skyBright} glowStrength={0.34}>
-			{/* Les quatre regards, un par couleur de lentille. Ils se resserrent au
-			    temps 3,5 : le rapprochement dit « on te regarde » sans l'écrire. */}
-			{/* Chaque impact typographique émet une onde : le mot ne fait pas que
-			    arriver, il propage quelque chose. */}
-			<AbsoluteFill style={{alignItems: 'center', justifyContent: 'center'}}>
-				<div style={{position: 'relative'}}>
-					<Shockwave at={36} count={2} step={9} size={1300} color={blink.skyBright} thickness={3} />
-					<Shockwave at={50} count={3} step={8} size={1700} color={blink.sky} thickness={4} />
-				</div>
-			</AbsoluteFill>
-
-			<AbsoluteFill style={{alignItems: 'center', justifyContent: 'center'}}>
-				{WATCHERS.map((watcher, index) => (
-					<Pop
-						key={lenses[index]!.id}
-						at={6 + index * STAGGER.base}
-						spring="pop"
-						preset={watcher.preset}
-						squash={1.3}
-						squashAxis={index % 2 === 0 ? 'y' : 'x'}
-						shadow
-						out={202}
-						exit="crush"
-						outDuration={14}
-						style={{position: 'absolute'}}
-					>
-						<Converging index={index} x={watcher.x} y={watcher.y}>
-							<div
-								style={{
-									width: 74,
-									height: 74,
-									borderRadius: '50%',
-									background: `radial-gradient(circle at 36% 32%, ${lenses[index]!.color}, ${lenses[index]!.color}55)`,
-									boxShadow: `0 0 40px ${lenses[index]!.color}aa`,
-								}}
-							/>
-						</Converging>
-					</Pop>
-				))}
-			</AbsoluteFill>
-
 			<div
 				style={{
-					display: 'flex',
-					flexDirection: 'column',
-					alignItems: 'center',
-					gap: 2,
-					position: 'relative',
+					transform: `translate3d(${(index * 14 - 21).toFixed(1)}px, ${(index * 72 - 108).toFixed(1)}px, 0) rotate(${(index * 3.5 - 5.2).toFixed(2)}deg)`,
 				}}
 			>
-				<Line text={lineOne} at={22} size={126} />
-				<Line text={lineTwo} at={36} size={164} color={blink.sky} />
-				<Line text={lineThree} at={50} size={126} />
+				<GazeCard index={index} verdict={verdict} />
+			</div>
+		</Pop>
+	);
+};
 
-				<Pop
-					at={132}
-					spring="ui"
-					preset="riseUp"
-					out={216}
-					exit="crush"
-					outDuration={14}
-					style={{marginTop: 52}}
-				>
+export const Perception: React.FC<PerceptionProps> = ({verdicts, line, emphasis}) => (
+	<AbsoluteFill style={{backgroundColor: blink.navy}}>
+		{/* ── BATTEMENT 1 · la distribution ─────────────────────────────── */}
+		<Sequence durationInFrames={78} layout="none">
+			<Impact hits={HITS_A}>
+				<BlinkStage glow={blink.skyBright} glowStrength={0.36} glowY={0.46}>
+					<div style={{position: 'relative', width: 700, height: 580}}>
+						{lenses.map((lens, index) => (
+							<Dealt key={lens.id} index={index} verdict={verdicts[index] ?? ''} />
+						))}
+						<Shockwave at={16} count={1} size={900} color={lenses[0]!.color} thickness={3} />
+						<Shockwave at={55} count={2} step={7} size={1400} color={blink.sky} thickness={4} />
+					</div>
+				</BlinkStage>
+			</Impact>
+		</Sequence>
+
+		{/* ── BATTEMENT 2 · l'éventail ──────────────────────────────────── */}
+		<Sequence from={78} durationInFrames={80} layout="none">
+			<Impact hits={HITS_B}>
+				<BlinkStage glow={blink.sky} glowStrength={0.3} glowY={0.5}>
 					<div
 						style={{
-							fontFamily: fonts.text,
-							fontSize: 38,
-							fontWeight: 500,
-							letterSpacing: '-0.01em',
-							color: blink.gray,
-							textAlign: 'center',
+							display: 'flex',
+							flexDirection: 'column',
+							gap: 18,
+							width: '100%',
+							alignItems: 'center',
 						}}
 					>
-						{subtitle}
+						{lenses.map((lens, index) => (
+							<Pop
+								key={lens.id}
+								at={index * 5}
+								spring="kick"
+								preset={index % 2 === 0 ? 'flyRight' : 'flyLeft'}
+								tilt
+								index={index}
+							>
+								<GazeCard index={index} verdict={verdicts[index] ?? ''} width={780} compact />
+							</Pop>
+						))}
 					</div>
-				</Pop>
-			</div>
 
-			{/* Le portail. Sa couleur est celle du fond de la scène 2 : c'est ce
-			    qui rend le raccord invisible quand le zoom l'agrandit. */}
-			<AbsoluteFill style={{alignItems: 'center', justifyContent: 'center'}}>
-				<Portal
-					from={0}
-					to={360}
-					timing={{delay: 176, duration: 32, easing: 'expoIn'}}
-					color={blink.white}
-					edge={blink.cloud}
-					glow={blink.sky}
-				/>
-			</AbsoluteFill>
-		</BlinkStage>
-	</Impact>
+					<Cadence every={15} color={blink.sky} strength={0.55} />
+				</BlinkStage>
+			</Impact>
+		</Sequence>
+
+		{/* ── BATTEMENT 3 · la formule ──────────────────────────────────── */}
+		<Sequence from={158} layout="none">
+			<Impact hits={HITS_C}>
+				<BlinkStage glow={pop.flare} glowStrength={0.24} glowY={0.5}>
+					{/* Les quatre pastilles de couleur restent, réduites à leur signal :
+					    la couleur suffit désormais à identifier chaque regard. */}
+					<AbsoluteFill style={{alignItems: 'center', paddingTop: 420}}>
+						<div style={{display: 'flex', gap: 26}}>
+							{lenses.map((lens, index) => (
+								<Pop key={lens.id} at={index * 3} spring="kick" preset="popIn">
+									<Dot color={lens.color} at={index * 3} />
+								</Pop>
+							))}
+						</div>
+					</AbsoluteFill>
+
+					<div style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
+						<Pop at={0} spring="kick" preset="hardDown">
+							<div
+								style={{
+									fontFamily: fonts.display,
+									fontSize: 88,
+									fontWeight: 700,
+									letterSpacing: '-0.035em',
+									color: blink.gray,
+								}}
+							>
+								{line}
+							</div>
+						</Pop>
+
+						<Pop at={10} spring="kick" preset="slamIn" squash={1.2}>
+							<div
+								style={{
+									fontFamily: fonts.display,
+									fontSize: 172,
+									fontWeight: 800,
+									letterSpacing: '-0.065em',
+									lineHeight: 0.92,
+									color: pop.flare,
+									textAlign: 'center',
+									textShadow: '0 28px 80px rgba(0,6,20,0.85)',
+								}}
+							>
+								{emphasis}
+							</div>
+						</Pop>
+					</div>
+
+					<Sparks at={10} count={20} spread={520} color={pop.flare} color2={blink.sky} life={22} />
+					<Cadence every={15} offset={6} color={pop.flare} strength={0.5} />
+				</BlinkStage>
+			</Impact>
+		</Sequence>
+	</AbsoluteFill>
 );
+
+/** Pastille pulsée : elle respire au lieu de rester allumée. */
+const Dot: React.FC<{color: string; at: number}> = ({color, at}) => {
+	const pulse = useProgress({delay: at + 14, duration: 26, easing: 'expo'});
+	const size = interpolate(pulse, [0, 1], [46, 34]);
+	return (
+		<div
+			style={{
+				width: size,
+				height: size,
+				borderRadius: '50%',
+				background: color,
+				boxShadow: `0 0 ${(size * 0.9).toFixed(0)}px ${color}`,
+			}}
+		/>
+	);
+};

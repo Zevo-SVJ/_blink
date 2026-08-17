@@ -148,7 +148,8 @@ remotion-studio/
 │   │   ├── physics/        ⚑ velocity (squash · flou · ombre) · shake (noise2D)
 │   │   ├── kinetic/        Pop · Impact · Burst · TrimPath · Cursor · Gauge
 │   │   │                   Counter · idle (micro-vie permanente)
-│   │   └── presentations/  glassCut · zoomThrough · whipPan · wipeUp
+│   │   └── presentations/  zoomThrough · slideWhip · matchCut · diagonalSlash
+│   │                          glassCut · whipPan · wipeUp (piste paysage)
 │   │
 │   ├── components/         Briques visuelles réutilisables
 │   │   ├── Stage.tsx       Plateau : fond animé + grain + vignettage + safe area
@@ -158,9 +159,10 @@ remotion-studio/
 │   │   ├── Text.tsx        Texte typé sur l'échelle
 │   │   ├── background/     MeshGradient, Grain, Vignette
 │   │   ├── blink/          BlinkStage · ProfileCard · LensCard · ScoreRing · Portal
-│   │   └── kinetic/        ⚑ Univers hors interface : Orb · CursorSwarm · Shockwave
-│   │                          NodeField · Radar · ScanFrame · FloatingWindow
-│   │                          IdCard · Toast · Marks · TierLadder · TypeBreath
+│   │   └── kinetic/        ⚑ Univers hors interface : Medallion · CameraChrome
+│   │                          PhotoGrid · LaserSweep · DullProfile · FeltCross
+│   │                          SplitDiagonal · PhoneFrame · Sparks · Cadence
+│   │                          Orb · CursorSwarm · NodeField · Radar · TypeBreath
 │   │
 │   └── compositions/       Les scènes
 │       ├── manifest.ts     Durées centralisées
@@ -171,8 +173,8 @@ remotion-studio/
 │       └── blink/          Piste Blink — vertical, langage kinetic (§7)
 │           ├── manifest.ts     Partition : durées, transitions, score, positions
 │           ├── narration.ts    ⚑ Contrat voix off ↔ image
-│           ├── BlinkReel.tsx   Montage des treize plans
-│           └── scenes/         13 plans, un fichier par plan
+│           ├── BlinkReel.tsx   Montage des onze séquences
+│           └── scenes/         11 séquences, un fichier par séquence
 │
 ├── playground/             App React interactive (Framer Motion + <Player />)
 ├── reference/              Dépôt des vidéos de référence à analyser (non versionné)
@@ -357,180 +359,209 @@ appartient à quelqu'un d'autre et n'a pas à être redistribuée dans le dépô
 les frames extraites se régénèrent en quelques secondes. Ce qui mérite d'être
 conservé, ce sont les conclusions de motion design — pas la matière première.
 
-## 7. La piste Blink — langage « kinetic »
+## 7. La piste Blink — régime « haute rétention »
 
-Film produit vertical (1080 × 1920, 60 fps, **43,0 s**) pour **Blink**, l'app qui
+Film produit vertical (1080 × 1920, 60 fps, **37,0 s**) pour **Blink**, l'app qui
 montre la première impression que fait un profil.
 
-Vocabulaire de mouvement **délibérément opposé** aux scènes paysage : là où
-celles-ci se posent sans rebondir, celui-ci rebondit systématiquement. Les deux
-langages cohabitent sans se mélanger — mêmes primitives, familles de ressorts
-distinctes.
+Cette piste a été **refondue** après une version de 43 s qui, malgré des
+animations correctes, se regardait comme un diaporama. Le diagnostic était
+structurel et pas cosmétique : treize plans longs séparés par des raccords doux
+laissent à chaque plan le temps de s'installer, donc de se lire comme une
+diapositive. Accélérer les animations n'y change rien — c'est l'unité de montage
+qu'il faut changer.
 
-### La règle qui définit la signature
+### Les quatre décisions de la refonte
 
-> **On entre au ressort. On sort à la courbe. Jamais l'inverse.**
+**1 · La séquence n'est plus l'unité de montage.** Chacune des 11 séquences est
+subdivisée en *battements* de 45 à 80 frames séparés par des coupes internes
+franches (`<Sequence>` imbriquées, donc chaque battement redémarre à sa propre
+frame 0). Le spectateur voit une trentaine de compositions distinctes en 37
+secondes, contre 13 en 43 secondes.
 
-L'entrée dépasse et oscille (`pop` : stiffness 400, damping 15, ζ ≈ 0,375, soit
-~28 % de dépassement, premier pic à 0,17 s). La sortie utilise `back`
-— `cubic-bezier(0.36, 0, 0.66, -0.56)` — qui recule légèrement avant
-d'accélérer : l'anticipation. `<Pop>` encode cette asymétrie et n'expose aucun
-moyen de l'inverser.
+**2 · L'univers visuel change à chaque séquence.** Cinq registres alternent, et
+deux séquences voisines ne partagent jamais ni leur fond ni leur registre :
 
-| Ressort | Raideur | Amortissement | Masse | Emploi |
-| --- | --- | --- | --- | --- |
-| `pop` | 400 | 15 | 1 | entrée par défaut, ~28 % de dépassement |
-| `popTight` | 400 | 18 | 1 | blocs de texte longs, ~20 % |
-| `popSoft` | 400 | 24 | 1 | éléments secondaires nombreux, ~10 % |
-| **`ui`** | 400 | 22 | **0,8** | interfaces, cartes, badges, barres — arrivée en 0,18 s |
-| **`textPop`** | 320 | 14 | 1 | typographie d'impact, ~27 % — premier pic à 0,10 s |
-| `slam` | 500 | 30 | 1 | impact violent, aucune oscillation |
-| `heavy` | 145 | 17 | **1,7** | objets : sphères, cartes, prismes |
-| **`slideBig`** | 220 | 18 | 1 | **horloge** des transitions de plan |
-
-Deux leviers de nervosité, indépendants de la raideur :
-
-- **la masse sous 1** accélère tout sans toucher au rebond — `ui` arrive en
-  0,18 s là où un ressort de masse 1 met 0,22 s ;
-- **la masse au-dessus de 1** fait le contraire : `heavy` à 1,7 donne l'inertie
-  qui distingue un objet d'une interface. C'est cette seule valeur qui fait
-  qu'une sphère « pèse » et qu'un bouton non.
-
-### La grille rythmique remplace l'audio
-
-Sans piste sonore, le rythme est **écrit** : 120 BPM, soit exactement 30 frames
-par temps à 60 fps. Chaque temps fort tombe sur la grille, et l'œil perçoit la
-pulsation même en silence.
-
-| Subdivision | Frames | Usage |
+| Registre | Où | Ce qu'il apporte |
 | --- | --- | --- |
-| 1 temps | 30 | respiration entre deux blocs |
-| ½ | 15 | transition rapide |
-| ⅓ | 10 | arrivée d'un ressort |
-| ⅙ | 5 | stagger large |
-| 1/10 | 3 | stagger serré — la valeur par défaut |
+| objet gravé | `Hook` | une matière, un reflet qui tourne, un relief |
+| viseur de capture | `Rhythm`, `ScanUi` | le cadre devient un lieu ; cadence gratuite |
+| typographie fluo | `Breathing` | rupture chromatique totale |
+| rupture au feutre | `Contrast` | le contre-exemple, tracé à la main |
+| interface de téléphone | `ActionPlan` | le propos redevient une chose faisable |
 
-La bande 0,04–0,08 s de stagger de la référence se traduit exactement en 2 à 5
-frames (`STAGGER.tight/base/wide/loose`).
+**3 · Quatre raccords, et seulement quatre.** Le fondu enchaîné est banni : deux
+images superposées à 50 % ne sont ni l'une ni l'autre, et cette demi-seconde
+d'indécision est exactement là où l'on décroche.
 
-### Les treize plans
+**4 · Des ressorts extrêmes.** Trois configurations remplacent la famille
+précédente sur toute la piste — plus raides, moins amorties, avec une masse qui
+dit explicitement ce que l'objet pèse.
 
-Trois types en alternance délibérée : **A** riche (objets, métaphores,
-graphiques), **B** typographie seule, **C** hybride.
+### Le vocabulaire de ressorts
 
-| # | Plan | Durée | Type | Fond | Ce qu'il apporte |
+| Ressort | Raideur | Amortissement | Masse | ζ | Emploi |
 | --- | --- | --- | --- | --- | --- |
-| 1 | `Perception` | 228 f | A | nuit | typo qui s'abat, secousses, ondes, portail |
-| 2 | `Seconds` | 90 f | **B** | **clair** | respiration — un chiffre, rien d'autre |
-| 3 | `Gaze` | 234 f | A | nuit | nuée de curseurs, sphère, compteur, notifications |
-| 4 | `Identity` | 234 f | C | nuit | carte d'identité pseudo-3D, flèche manuscrite |
-| 5 | `Capture` | 270 f | A | nuit | chute + squash, clic, éclats, viseur, jauge |
-| 6 | `Signals` | 204 f | A | quasi noir | champ de nœuds, radar, fenêtres flottantes |
-| 7 | `Punchline` | 105 f | **B** | **saturé** | respiration — le contre-pied |
-| 8 | `Lenses` | 312 f | C | nuit | quatre verdicts en cascade alternée |
-| 9 | `Mirror` | 240 f | C | **clair** | intention contre perception, annotations |
-| 10 | `Reveal` | 105 f | **B** | **noir** | respiration avant le résultat |
-| 11 | `Verdict` | 246 f | A | nuit | anneau, compteur, tampon — pic d'intensité |
-| 12 | `Climb` | 204 f | C | nuit | échelle des paliers, marche suivante |
-| 13 | `Close` | 258 f | C | nuit | les curseurs reviennent sur la marque |
+| **`kick`** | 450 | 16 | **0,8** | 0,42 | textes, badges, pop-ups — pic à 0,073 s, ~25 % de dépassement |
+| **`whip`** | 300 | 22 | 1 | 0,635 | caméra et plans entiers — ~4 % seulement |
+| **`heavyDrop`** | 200 | 12 | **1,5** | 0,346 | objets qui tombent — ~31 %, chute lente |
+| **`stamp`** | 500 | 15 | 1 | 0,335 | **le tampon du premier plan, et rien d'autre** — ~34 % |
 
-Montage : `Blink-Reel`, **2578 frames = 42,97 s**.
+Deux principes derrière ces valeurs :
 
-**Les respirations typographiques ne représentent que 300 frames sur 2578, soit
-11,6 %.** Leur force vient de leur rareté : trois écrans dans tout le film, à
-trois moments où le récit a besoin d'un silence. Et leurs trois fonds — clair,
-saturé, presque noir — sont tous différents du bleu nuit dominant : c'est la
-rupture chromatique qui fait respirer, autant que le vide.
+- **la masse est le levier de vitesse**, pas la raideur. `kick` à 0,8 arrive
+  avant que l'œil ait fini de chercher l'élément ; `heavyDrop` à 1,5 donne
+  l'inertie qui distingue un objet d'une interface ;
+- **le rebond appartient aux éléments, la puissance appartient au cadre.** Un
+  plan entier qui oscille devient illisible, d'où `whip` très amorti pour la
+  caméra et les raccords.
+
+`stamp` n'apparaît qu'une fois dans tout le film. Employé ailleurs, un
+dépassement de 34 % donnerait l'impression que l'animation est mal réglée —
+c'est précisément pour cela qu'il est réservé au premier évènement que voit le
+spectateur, qui doit paraître incontrôlé.
+
+### Les onze séquences
+
+Les durées ci-dessous sont les durées **utiles** (`BLINK_SPANS`). La durée réelle
+de chaque séquence dans la `TransitionSeries` y ajoute le raccord qui la suit,
+ce qui garantit que les timecodes de départ tombent juste — 0, 120, 240, 420,
+600, 840, 1020, 1260, 1500, 1740, 1980.
+
+| Timecode | Séquence | Durée | Registre | Battements |
+| --- | --- | --- | --- | --- |
+| 00:00 | `Hook` | 120 f | objet gravé | médaillon → phrase → chute |
+| 00:02 | `Rhythm` | 120 f | viseur | verrouillage + frappe → compte à rebours |
+| 00:04 | `Metaphor` | 180 f | objet | arrivée → rafale de clics → verdict |
+| 00:07 | `Breathing` | 180 f | **typo fluo** | jaune → **noir inversé** → orange |
+| 00:10 | `ScanUi` | 240 f | viseur | grille+laser → signaux → radar → relevé |
+| 00:14 | `Contrast` | 180 f | **rupture** | profil terne → croix → « NON » + chute |
+| 00:17 | `Perception` | 240 f | objet | distribution → éventail → formule |
+| 00:21 | `Gap` | 240 f | **split diagonal** | fente → deux camps → l'écart |
+| 00:25 | `ScoreHero` | 240 f | objet lumineux | compteur → palier → échelle |
+| 00:29 | `ActionPlan` | 240 f | **téléphone** | notification → plan → gain |
+| 00:33 | `Outro` | 240 f | marque | mot-marque → convergence → verrouillage |
+
+Montage : `Blink-Reel`, **2220 frames = 37,00 s**.
+
+### La cadence, tenue par construction
+
+Trois mécanismes garantissent qu'aucune frame n'est immobile, sans qu'aucun
+timing n'ait à être écrit à la main :
+
+- **`<Cadence>`** (`src/components/kinetic/Cadence.tsx`) émet un évènement de
+  fond toutes les 15 frames, en **alternant quatre natures** — balayage
+  horizontal, marqueurs d'angle, anneau concentrique, bande verticale. Quatre et
+  non une seule : un même évènement répété huit fois devient un décor, l'œil
+  l'apprend et cesse de le voir ;
+- **`<CameraChrome>`** fournit la cadence gratuitement sur les plans viseur — le
+  timecode change à chaque frame, le voyant clignote toutes les 30 ;
+- **`<Typewriter>`** produit un caractère toutes les 1 à 2 frames, soit un
+  évènement toutes les 16 à 33 ms pendant qu'un texte s'installe. Le texte
+  complet reste dans le DOM en transparent, sinon une ligne centrée tremblerait
+  latéralement à chaque caractère.
+
+### Les quatre raccords
+
+| Raccord | Emploi | Nombre |
+| --- | --- | --- |
+| `zoomThrough` | scale-to-mask — on entre **dans** le sujet, aux changements d'échelle du récit | 3 |
+| `slideWhip` | balayage vertical, le geste du pouce sur un fil | 3 |
+| `matchCut` | la **trajectoire survit** au raccord | **1** |
+| `diagonalSlash` | un trait **ouvre** l'image, aux ruptures de registre | 3 |
+
+**Le match cut est le seul procédé du film utilisé une seule fois.** Employé
+deux fois, il deviendrait un effet. Son mécanisme est en deux moitiés, et les
+deux sont obligatoires :
+
+- *côté contenu* — la carte barrée de `Contrast` tombe en **chute libre
+  quadratique** (`y = ½·g·t²`, g = 2,15 px/frame²) et passe la frame 180 à
+  ~52 px/frame ; `Perception` démarre avec une carte qui entre par le haut au
+  ressort `heavyDrop`, dont le pic de vitesse est du même ordre ;
+- *côté caméra* — les deux plans partagent une **dérive verticale à vitesse
+  identique**. Leurs dérivées sont égales, donc au moment de l'échange la vitesse
+  apparente de l'image ne change pas d'un poil. C'est cette égalité qui fait le
+  raccord ; sans elle on ne voit qu'une coupe sèche.
+
+La chute est une parabole et non un ressort : un objet qui tombe accélère, il ne
+décélère jamais avant d'avoir touché quelque chose. Un ressort en sortie aurait
+ralenti la carte juste avant la coupe — exactement le détail qui fait qu'un
+match cut marche ou ne marche pas.
+
+Le raccord `matchCut` est aussi le seul cadencé en `linearTiming` ; tous les
+autres ont pour horloge le ressort `whip`, avec `curve: 'linear'` passé à la
+présentation.
 
 ### L'univers visuel, hors interface
 
-L'app Blink n'apparaît que dans deux plans sur treize. Tout le reste est un
-vocabulaire d'objets créé pour le film, dans `src/components/kinetic/` :
+L'app Blink n'apparaît directement que dans deux séquences sur onze. Tout le
+reste est un vocabulaire d'objets créé pour le film, dans
+`src/components/kinetic/` :
 
 | Objet | Rôle narratif |
 | --- | --- |
-| `Orb` | représentation abstraite d'une identité — trois couches font le volume |
-| `CursorSwarm` | le regard des autres ; les curseurs **s'arrêtent à distance** |
-| `Shockwave` | quelque chose a été vu, et ça se propage |
-| `NodeField` | l'analyse comme topologie, pas comme barre de chargement |
-| `Radar` | instrument de mesure ; chaque sommet pousse à son rythme |
-| `ScanFrame` | quatre équerres — un viseur, pas une bordure |
-| `FloatingWindow` | chrome d'interface détourné en objet |
-| `IdCard` | « ce qu'ils ont de toi » tient sur un rectangle |
-| `Toast` | le système commente, en marge du récit |
-| `CircleMark` `ArrowMark` `CrossMark` | annotations manuscrites — elles cassent le trop propre |
-| `TierLadder` | la progression, avec un marqueur qui s'arrête |
+| `Medallion` | un regard gravé dans du métal — la matière, pas le pictogramme |
+| `CameraChrome` `FocusBox` | le cadre devient un viseur ; générique, sans marque |
+| `PhotoGrid` `LaserSweep` | une grille de vignettes qu'un instrument traverse |
+| `DullProfile` `FeltCross` | le contre-exemple, et la croix tracée à la main |
+| `SplitDiagonal` | deux propositions contradictoires dans le même cadre |
+| `PhoneFrame` `ToggleRow` `NotifBanner` | l'interface qui s'utilise sans doigt |
+| `Sparks` | éclat déterministe : angle, rayon et taille tirés d'un bruit indexé |
+| `Cadence` | le métronome visuel du fond |
+| `Orb` `CursorSwarm` `Shockwave` | l'identité, les regards, ce qui se propage |
+| `NodeField` `Radar` `TierLadder` | l'analyse comme topologie et comme mesure |
 | `TypeBreath` | l'écran texte seul |
+
+Trois précautions tenues à la lettre dans ces composants :
+
+- **personne n'est représenté.** L'avatar du profil terne est un disque et un
+  arc ; les vignettes sont des dégradés indexés, jamais des photographies ;
+- **aucune interface n'est imitée.** Pas de logo, pas de pseudo, pas d'icône
+  empruntée — la grammaire d'un téléphone ou d'un appareil photo appartient à
+  tout le monde, l'interface d'un système en particulier non ;
+- **la croix n'apparaît qu'une fois**, et elle est tracée : courbes plutôt que
+  segments, dépassement aux extrémités, double passe d'encre.
 
 ### Trois techniques qui portent la qualité
 
-**Un seul signal pour trois effets.** `src/motion/physics/velocity.ts` calcule
-la dérivée de la progression : `p(n) − p(n−1)`. De cette unique valeur découlent
-le **squash & stretch** (à volume conservé : `scaleY = 1 + kv`,
+**Un seul signal pour trois effets.** `src/motion/physics/velocity.ts` calcule la
+dérivée de la progression : `p(n) − p(n−1)`. De cette unique valeur découlent le
+**squash & stretch** (à volume conservé : `scaleY = 1 + kv`,
 `scaleX = 1/(1 + kv)`), le **flou directionnel** et l'**ombre portée**. Ils ne
-peuvent pas se désynchroniser. Un objet qui entre au ressort s'étire donc à
-l'aller et s'écrase au rebond, sans qu'aucun timing ne soit écrit à la main.
+peuvent pas se désynchroniser.
+
+L'ombre portée de `<Pop>` est un `box-shadow`, donc **rectangulaire** : elle ne
+s'emploie que sur des surfaces qui ont réellement un fond (cartes, badges,
+pastilles). Sur du texte nu ou sur une sphère, elle dessine un carré derrière
+l'élément — c'est `textShadow` qui prend le relais.
 
 **La micro-vie permanente.** `useIdle` fait respirer chaque objet posé —
 quelques pixels de flottement, un ou deux pour cent d'échelle, sous le seuil de
-perception consciente. C'est ce qui distingue une image vivante d'une capture
-d'écran, et c'est ce qui manquait le plus à la première version.
+perception consciente. C'est l'équivalent frame-par-frame du `repeat: Infinity`
+de Framer Motion, qui ne progresserait pas sous un rendu headless.
 
 **Le camera shake déterministe.** `Math.random()` est proscrit : chaque frame
 étant peinte isolément, la secousse changerait à chaque rendu et le scrub serait
 incohérent. `noise2D` de `@remotion/noise` est une fonction pure de la frame —
 imprévisible à l'œil, identique à chaque exécution.
 
-### La passe d'accélération
-
-Une passe dédiée a supprimé les lenteurs. Le diagnostic a été fait en mesurant,
-pour chaque plan, l'écart entre la fin de sa dernière animation de sortie et
-l'ouverture de la fenêtre de chevauchement :
-
-| Plan | Frames mortes avant | Après |
-| --- | --- | --- |
-| `Perception` | 34 | 0 |
-| `Lenses` | 15 | 0 |
-| `Verdict` | aucune sortie — 49 f immobiles | 0 |
-| `Close` | aucune sortie — 48 f immobiles | 0 |
-| autres | 2 à 6 | 0 |
-
-Ce qui a changé :
-
-- **transitions raccourcies de 16 %** (180 → 152 frames au total) ;
-- **durées de plan resserrées** là où le diagnostic montrait du vide
-  (2640 → 2578 frames) ;
-- **sorties recalées** pour rester en mouvement quand la fenêtre de
-  chevauchement s'ouvre — c'est ce qui supprime la sensation de diapositive ;
-- **`Verdict` et `Close` reçoivent une relance tardive** : le premier recule
-  d'un cran à f206, le second reçoit une seconde pulsation plus ample à f186.
-  Ces deux plans étaient les seuls à se figer complètement sur leur fin.
-
-Le script de diagnostic est reproductible : il lit les `out={…}` de chaque
-fichier de scène et les compare aux durées du manifest.
-
-### Les transitions
-
-| Grammaire | Emploi | Courbe |
-| --- | --- | --- |
-| `zoomThrough` | on entre **dans** le sujet — lumière, scan, résultat | `expoIn` |
-| `whipPan` | on se déplace **à côté** — direction **alternée** | `quint` + anticipation + dépassement |
-| `wipeUp` | la suite **recouvre** — franchissement de palier | `expo` + recul du plan sortant |
-
-L'horloge de chaque transition est un **ressort** (`slideBig`), et les
-présentations reçoivent donc `curve: 'linear'`. Le ressort apporte ~9 % de
-dépassement à l'arrivée du plan : le raccord se pose au lieu de s'arrêter net,
-ce qu'une Bézier ne sait pas produire.
-
-Trois règles apprises en corrigeant le rendu, et qui valent d'être retenues :
+### Cinq pièges rencontrés, et leur correction
 
 - **Une seule mise en forme, jamais deux.** Empiler un `springTiming` sur la
   courbe d'une présentation lisse deux fois le même mouvement : la transition se
-  termine dans son premier tiers puis se fige. Soit l'horloge est un ressort et
-  la présentation linéaire, soit l'inverse — jamais les deux.
-- **Le plan entrant doit déjà être en mouvement quand on le découvre.** Une
-  scène dont le contenu démarre à la frame 0 de sa propre timeline apparaît vide
-  pendant toute la transition.
+  termine dans son premier tiers puis se fige. D'où le prop `curve` sur chaque
+  présentation, et `curve: 'linear'` partout où l'horloge est un ressort.
+- **Un `clip-path` de balayage doit couvrir le cadre à l'arrivée.** La première
+  version de `diagonalSlash` en sens montant laissait un coin non révélé sur
+  toute la durée du plan suivant — le fond de la série apparaissait en triangle.
+  La droite est hors cadre par le haut quand `edgeLeft ≤ 0` et par le bas quand
+  `edgeLeft ≥ 100 + steepness` : le balayage doit aller d'une borne à l'autre.
+- **Un enfant absolu se cale sur la *padding box* de son ancêtre.** Le
+  `paddingTop` du châssis de téléphone ne pousse donc pas un `<AbsoluteFill>`
+  enfant : la marge sous la barre d'état doit être reprise dans l'enfant.
+- **Un enfant absolu dans un parent de taille nulle part du coin, pas du
+  centre.** Le paquet de cartes de `Perception` a besoin d'un parent
+  explicitement dimensionné, sinon les cartes se rangent vers la droite.
 - **Le portail d'un zoom traversant doit être plus lumineux que son entourage.**
   Un disque plus sombre se lit comme un trou : l'œil comprend « il manque
   quelque chose » au lieu de « quelque chose avance vers moi ».
@@ -538,41 +569,43 @@ Trois règles apprises en corrigeant le rendu, et qui valent d'être retenues :
 ### La partition, pensée pour la voix off
 
 `src/compositions/blink/narration.ts` est le contrat entre la voix et l'image.
-Chaque réplique y est rattachée à un plan, à une position dans sa timeline, et à
-ce que l'image met en scène pendant qu'elle est prononcée.
+Chaque réplique y est rattachée à une séquence, à une position dans sa timeline,
+et à ce que l'image met en scène pendant qu'elle est prononcée.
 
 ```ts
 {
-  scene: 'Gaze',
-  line: 'C’est tout ce qu’il leur faut.',
-  at: 12,           // frame, relative au plan
-  staging: 'Une nuée de curseurs converge sur une sphère…',
+  scene: 'Metaphor',
+  line: 'Et ils ont déjà décidé.',
+  at: 100,          // frame, relative à la séquence
+  staging: 'La rafale de clics vient de s’achever…',
 }
 ```
 
-`sceneStarts()` dans `manifest.ts` donne la position absolue de chaque plan dans
-le montage : une réplique se situe à `sceneStarts()[scene] + cue.at`. Recalculé
-depuis les durées, jamais écrit à la main — allonger un plan décale
-automatiquement tous les suivants.
+`sceneStarts()` donne la position absolue de chaque séquence : une réplique se
+situe à `sceneStarts()[scene] + cue.at`. Recalculé depuis les durées, jamais
+écrit à la main.
 
-Règles de rédaction appliquées : une idée par plan, phrases dites à voix haute
-sans reprendre son souffle, ~2,5 mots/seconde en français, et une marge d'au
-moins 20 % entre la durée parlée estimée et la durée du plan. L'animation
-démarre 3 à 5 frames avant le premier mot (`leadInFrames`), pour guider l'œil
-avant que l'oreille suive.
+Le découpage en battements change une chose pour la voix : une réplique est
+presque toujours à cheval sur deux ou trois coupes internes, et c'est
+souhaitable — une voix qui s'arrêterait à chaque coupe soulignerait le découpage
+au lieu de le porter.
 
-Quand la piste ElevenLabs arrivera, il ne restera qu'à caler chaque `cue` sur le
-début réel de sa phrase et à ajuster les durées de plan. La structure motion ne
-bouge pas : les délais internes sont tous relatifs à la frame 0 de leur plan.
+`narrationBudget()` vérifie, séquence par séquence, que le temps de parole estimé
+(~2,5 mots/seconde en français) reste sous 80 % du temps disponible. Ce n'est pas
+décoratif : sur la version précédente, quatre répliques dépassaient leur plan, ce
+qui aurait forcé à rallonger le montage au moment de poser l'audio — donc à
+défaire le travail de rythme.
 
 ### Rendu
 
 ```bash
-npx remotion render Blink-Reel out/blink-44s.mp4
-npx remotion render Blink-Signals out/signals.mp4
+npx remotion render Blink-Reel out/blink-37s.mp4
+npx remotion render Blink-Hook out/hook.mp4
 ```
 
-Compter environ 20 minutes pour les 2578 frames en 1080 × 1920.
+Compter environ 20 minutes pour les 2220 frames en 1080 × 1920. Chaque séquence
+est aussi une composition autonome, ce qui permet de scruber un battement isolé
+sans rejouer les trente-sept secondes.
 
 ### Origine et originalité
 
@@ -582,11 +615,9 @@ composition typographique — est dérivé de deux analyses de vidéo de référ
 repris.** Le contenu, la charte et les objets à l'écran viennent de Blink ou ont
 été créés pour ce film.
 
-La carte de profil de la scène 5 est volontairement générique : pas de logo de
-réseau social, pas de photographie, pas de pseudonyme réel — un avatar en
-dégradé et le pronom `@toi`. Les chiffres montrés sont cohérents avec le
-produit : 742 place bien le profil dans le palier « Sharp » (seuil 680) et il
-manque bien 48 points pour « Magnetic » (790).
+Les chiffres montrés sont cohérents avec le produit : 742 place bien le profil
+dans le palier « Sharp » (seuil 680) et il manque bien 48 points pour
+« Magnetic » (790).
 
 ## 8. Conventions
 

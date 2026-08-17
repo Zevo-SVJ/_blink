@@ -1,190 +1,208 @@
-import {springTiming, TransitionSeries} from '@remotion/transitions';
+import {linearTiming, springTiming, TransitionSeries} from '@remotion/transitions';
 import {AbsoluteFill} from 'remotion';
-import {blink} from '@/design/blink';
+import {blink, pop} from '@/design/blink';
 import {springs} from '@/motion/dynamics';
-import {whipPan, wipeUp, zoomThrough} from '@/motion/presentations';
+import {diagonalSlash, matchCut, slideWhip, zoomThrough} from '@/motion/presentations';
 import {BLINK_SCENES, BLINK_TRANSITIONS} from './manifest';
-import {Capture, captureDefaults} from './scenes/Capture';
-import {Climb, climbDefaults} from './scenes/Climb';
-import {Close, closeDefaults} from './scenes/Close';
-import {Gaze, gazeDefaults} from './scenes/Gaze';
-import {Identity, identityDefaults} from './scenes/Identity';
-import {Lenses, lensesDefaults} from './scenes/Lenses';
-import {Mirror, mirrorDefaults} from './scenes/Mirror';
+import {ActionPlan, actionPlanDefaults} from './scenes/ActionPlan';
+import {Breathing, breathingDefaults} from './scenes/Breathing';
+import {Contrast, contrastDefaults} from './scenes/Contrast';
+import {Gap, gapDefaults} from './scenes/Gap';
+import {Hook, hookDefaults} from './scenes/Hook';
+import {Metaphor, metaphorDefaults} from './scenes/Metaphor';
+import {Outro, outroDefaults} from './scenes/Outro';
 import {Perception, perceptionDefaults} from './scenes/Perception';
-import {Signals, signalsDefaults} from './scenes/Signals';
-import {Verdict, verdictDefaults} from './scenes/Verdict';
-import {
-	Punchline,
-	punchlineDefaults,
-	Reveal,
-	revealDefaults,
-	Seconds,
-	secondsDefaults,
-} from './scenes/Breaths';
+import {Rhythm, rhythmDefaults} from './scenes/Rhythm';
+import {ScanUi, scanUiDefaults} from './scenes/ScanUi';
+import {ScoreHero, scoreHeroDefaults} from './scenes/ScoreHero';
 
 /**
- * LE MONTAGE — 13 plans, 12 transitions, 44,0 s
+ * LE MONTAGE — 11 séquences, 10 raccords, 37,0 s
  *
- * Trois grammaires de raccord, et le choix n'est jamais décoratif :
+ * ─────────────────────────────────────────────────────────────────────────────
+ * QUATRE RACCORDS, ET SEULEMENT QUATRE
  *
- *   **zoomThrough** — on entre *dans* le sujet. Réservé aux moments où le récit
- *     change d'échelle : on plonge dans la lumière, dans le scan, dans le
- *     résultat. Le plan sortant doit présenter au centre une surface pleine
- *     (un `<Portal>`, ou l'aplat d'un plan typographique) qui fait masque.
+ * Le fondu enchaîné est banni. Deux images superposées à 50 % ne sont ni l'une
+ * ni l'autre, et cette demi-seconde d'indécision est précisément l'endroit où
+ * un spectateur décroche. Chacun des quatre raccords conservés déplace quelque
+ * chose — l'échelle, le cadre, la trajectoire ou la découpe — donc chacun
+ * maintient le mouvement pendant la coupe au lieu de le suspendre.
  *
- *   **whipPan** — on se déplace *à côté*. Sa direction **alterne**
- *     systématiquement : gauche, droite, gauche, droite. Deux filés de suite
- *     dans le même sens donneraient l'impression de tourner en rond.
+ *   **zoomThrough** (scale-to-mask) — on entre *dans* le sujet. Trois emplois,
+ *     tous à un changement d'échelle du récit : on plonge dans l'objectif, dans
+ *     le résultat, dans la marque. Le plan sortant doit présenter au centre une
+ *     surface pleine — un `<Portal>` — qui fait masque ;
  *
- *   **wipeUp** — la suite *recouvre*. Employé aux trois moments où le récit
- *     franchit un palier : on entre dans l'analyse, dans le retournement, dans
- *     la conclusion.
+ *   **slideWhip** — le balayage vertical, geste du pouce. Trois emplois, aux
+ *     endroits où le récit *change de sujet* sans changer d'échelle ;
  *
- * **Une seule mise en forme, jamais deux.** L'horloge de chaque transition est
- * un ressort (`slideBig` : 220 / 18 / 1, ζ ≈ 0,61), et les présentations
- * reçoivent donc `curve: 'linear'`. Empiler un ressort sur la Bézier d'une
- * présentation lisse deux fois le même mouvement : la transition se termine
- * dans son premier tiers puis se fige, ce qui se voit immédiatement à l'image.
+ *   **matchCut** — la trajectoire survit au raccord. **Un seul emploi**, entre
+ *     la carte barrée qui tombe et la carte de regard qui reprend sa chute.
+ *     Employé deux fois, le procédé deviendrait un effet ;
  *
- * Pourquoi le ressort plutôt que la Bézier : il apporte ~9 % de dépassement à
- * l'arrivée du plan. Le raccord se pose au lieu de s'arrêter net — c'est ce
- * léger débord qui rend l'enchaînement organique. Une courbe ne sait pas le
- * produire.
+ *   **diagonalSlash** — un trait ouvre l'image. Trois emplois, tous à une
+ *     rupture de registre visuel : objet → viseur, typo fluo → viseur, objet →
+ *     écran fendu. La diagonale est le seul angle absent du reste du film, donc
+ *     le seul qui signale « on change de monde ».
  *
- * Le dépassement reste modéré à dessein : faire osciller franchement l'image
- * entière la rendrait illisible. Le rebond appartient aux éléments.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * UNE SEULE MISE EN FORME, JAMAIS DEUX
  *
- * Le fond de marque est peint **sous** la série. Un plan qui recule (rideau) ou
- * un joint latéral d'un pixel (filé) laisserait sinon apparaître du noir — le
- * défaut le plus visible qui soit sur un fond sombre.
+ * L'horloge de chaque raccord est un ressort (`whip` : 300 / 22 / 1, ζ ≈ 0,635)
+ * et les présentations reçoivent donc `curve: 'linear'`. Empiler un ressort sur
+ * la Bézier d'une présentation lisse deux fois le même mouvement : la
+ * transition se termine dans son premier tiers puis se fige, ce qui se voit
+ * immédiatement à l'image.
+ *
+ * `whip` plutôt que le `slideBig` de la version précédente : ~4 % de
+ * dépassement au lieu de 9 %. Sur des raccords de 8 à 12 frames, un dépassement
+ * de 9 % se lit comme un flottement. Le rebond appartient aux éléments, la
+ * puissance appartient au cadre.
+ *
+ * Le `matchCut` fait exception et reçoit une horloge **linéaire** : la
+ * continuité de trajectoire repose sur une vitesse de caméra constante, et un
+ * ressort la ferait varier pendant le raccord — ce qui détruirait exactement ce
+ * que le raccord cherche à produire.
+ *
+ * Le fond de marque est peint sous la série : un plan qui recule ou un joint
+ * d'un pixel laisserait sinon apparaître du noir.
  */
 
+/** Horloge commune : ressort `whip`, cadre rapide et peu élastique. */
 const timing = (durationInFrames: number) =>
-	springTiming({config: springs.slideBig, durationInFrames});
+	springTiming({config: springs.whip, durationInFrames});
+
+/**
+ * Le match cut, lui, exige une vitesse strictement constante — d'où
+ * `linearTiming`. Un ressort ferait varier la vitesse de la caméra pendant le
+ * raccord, et c'est l'égalité des vitesses de part et d'autre de l'échange qui
+ * fait tenir la continuité de trajectoire.
+ */
+const constant = (durationInFrames: number) => linearTiming({durationInFrames});
 
 export const BlinkReel: React.FC = () => (
 	<AbsoluteFill style={{backgroundColor: blink.navy}}>
 		<TransitionSeries>
-			{/* ── ACTE I — LA PERCEPTION ─────────────────────────────────────── */}
+			{/* ── ACTE I — ON TE REGARDE ─────────────────────────────────────── */}
+			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Hook}>
+				<Hook {...hookDefaults} />
+			</TransitionSeries.Sequence>
+
+			{/* Rupture de registre : l'objet gravé cède au viseur. */}
+			<TransitionSeries.Transition
+				presentation={diagonalSlash({
+					steepness: 72,
+					direction: 'down',
+					color: pop.flare,
+					thickness: 9,
+					curve: 'linear',
+				})}
+				timing={timing(BLINK_TRANSITIONS.hookToRhythm.frames)}
+			/>
+
+			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Rhythm}>
+				<Rhythm {...rhythmDefaults} />
+			</TransitionSeries.Sequence>
+
+			{/* On plonge dans l'objectif. */}
+			<TransitionSeries.Transition
+				presentation={zoomThrough({scale: 13, incomingScale: 0.74, blur: 20, curve: 'linear'})}
+				timing={timing(BLINK_TRANSITIONS.rhythmToMetaphor.frames)}
+			/>
+
+			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Metaphor}>
+				<Metaphor {...metaphorDefaults} />
+			</TransitionSeries.Sequence>
+
+			<TransitionSeries.Transition
+				presentation={slideWhip({direction: 'up', overshoot: 0.035, blur: 36, curve: 'linear'})}
+				timing={timing(BLINK_TRANSITIONS.metaphorToBreathing.frames)}
+			/>
+
+			{/* ── ACTE II — CE QU'ILS LISENT ─────────────────────────────────── */}
+			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Breathing}>
+				<Breathing {...breathingDefaults} />
+			</TransitionSeries.Sequence>
+
+			<TransitionSeries.Transition
+				presentation={diagonalSlash({
+					steepness: 68,
+					direction: 'up',
+					color: pop.ink,
+					thickness: 9,
+					curve: 'linear',
+				})}
+				timing={timing(BLINK_TRANSITIONS.breathingToScanUi.frames)}
+			/>
+
+			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.ScanUi}>
+				<ScanUi {...scanUiDefaults} />
+			</TransitionSeries.Sequence>
+
+			<TransitionSeries.Transition
+				presentation={slideWhip({direction: 'up', overshoot: 0.04, blur: 38, curve: 'linear'})}
+				timing={timing(BLINK_TRANSITIONS.scanUiToContrast.frames)}
+			/>
+
+			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Contrast}>
+				<Contrast {...contrastDefaults} />
+			</TransitionSeries.Sequence>
+
+			{/* LE match cut. La carte barrée tombe ; une carte de regard reprend
+			    exactement sa trajectoire. */}
+			<TransitionSeries.Transition
+				presentation={matchCut({drift: 0.22, direction: 'down', swapAt: 0.5, blur: 18, flash: 0.12})}
+				timing={constant(BLINK_TRANSITIONS.contrastToPerception.frames)}
+			/>
+
+			{/* ── ACTE III — CE QUE ÇA VAUT ──────────────────────────────────── */}
 			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Perception}>
 				<Perception {...perceptionDefaults} />
 			</TransitionSeries.Sequence>
 
-			{/* On plonge dans la lumière : le portail porte déjà le blanc cassé du
-			    plan typographique qui suit. */}
 			<TransitionSeries.Transition
-				presentation={zoomThrough({scale: 13, incomingScale: 0.78, blur: 18, curve: 'linear'})}
-				timing={timing(BLINK_TRANSITIONS.perceptionToSeconds)}
+				presentation={diagonalSlash({
+					steepness: 70,
+					direction: 'down',
+					color: blink.white,
+					thickness: 8,
+					curve: 'linear',
+				})}
+				timing={timing(BLINK_TRANSITIONS.perceptionToGap.frames)}
 			/>
 
-			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Seconds}>
-				<Seconds {...secondsDefaults} />
+			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Gap}>
+				<Gap {...gapDefaults} />
 			</TransitionSeries.Sequence>
 
-			<TransitionSeries.Transition
-				presentation={whipPan({direction: 'left', overshoot: 0.05, blur: 32, curve: 'linear'})}
-				timing={timing(BLINK_TRANSITIONS.secondsToGaze)}
-			/>
-
-			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Gaze}>
-				<Gaze {...gazeDefaults} />
-			</TransitionSeries.Sequence>
-
-			<TransitionSeries.Transition
-				presentation={whipPan({direction: 'right', overshoot: 0.045, blur: 28, curve: 'linear'})}
-				timing={timing(BLINK_TRANSITIONS.gazeToIdentity)}
-			/>
-
-			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Identity}>
-				<Identity {...identityDefaults} />
-			</TransitionSeries.Sequence>
-
-			{/* ── ACTE II — L'ANALYSE ────────────────────────────────────────── */}
-			<TransitionSeries.Transition
-				presentation={wipeUp({recede: 0.09, wave: 64, curve: 'linear'})}
-				timing={timing(BLINK_TRANSITIONS.identityToCapture)}
-			/>
-
-			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Capture}>
-				<Capture {...captureDefaults} />
-			</TransitionSeries.Sequence>
-
-			{/* On plonge dans le scan. */}
+			{/* On plonge dans le résultat. */}
 			<TransitionSeries.Transition
 				presentation={zoomThrough({scale: 14, incomingScale: 0.72, blur: 22, curve: 'linear'})}
-				timing={timing(BLINK_TRANSITIONS.captureToSignals)}
+				timing={timing(BLINK_TRANSITIONS.gapToScoreHero.frames)}
 			/>
 
-			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Signals}>
-				<Signals {...signalsDefaults} />
+			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.ScoreHero}>
+				<ScoreHero {...scoreHeroDefaults} />
 			</TransitionSeries.Sequence>
 
+			{/* ── ACTE IV — CE QUE TU EN FAIS ────────────────────────────────── */}
 			<TransitionSeries.Transition
-				presentation={whipPan({direction: 'left', overshoot: 0.055, blur: 34, curve: 'linear'})}
-				timing={timing(BLINK_TRANSITIONS.signalsToPunchline)}
+				presentation={slideWhip({direction: 'up', overshoot: 0.03, blur: 32, curve: 'linear'})}
+				timing={timing(BLINK_TRANSITIONS.scoreHeroToActionPlan.frames)}
 			/>
 
-			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Punchline}>
-				<Punchline {...punchlineDefaults} />
+			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.ActionPlan}>
+				<ActionPlan {...actionPlanDefaults} />
 			</TransitionSeries.Sequence>
 
-			{/* ── ACTE III — LES REGARDS ─────────────────────────────────────── */}
-			{/* L'aplat saturé fait masque à lui seul : aucun portail nécessaire. */}
+			{/* On plonge dans la marque. */}
 			<TransitionSeries.Transition
-				presentation={zoomThrough({scale: 11, incomingScale: 0.8, blur: 16, curve: 'linear'})}
-				timing={timing(BLINK_TRANSITIONS.punchlineToLenses)}
+				presentation={zoomThrough({scale: 12, incomingScale: 0.78, blur: 18, curve: 'linear'})}
+				timing={timing(BLINK_TRANSITIONS.actionPlanToOutro.frames)}
 			/>
 
-			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Lenses}>
-				<Lenses {...lensesDefaults} />
-			</TransitionSeries.Sequence>
-
-			{/* Le fond clair monte et recouvre le bleu nuit. */}
-			<TransitionSeries.Transition
-				presentation={wipeUp({recede: 0.12, wave: 78, curve: 'linear'})}
-				timing={timing(BLINK_TRANSITIONS.lensesToMirror)}
-			/>
-
-			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Mirror}>
-				<Mirror {...mirrorDefaults} />
-			</TransitionSeries.Sequence>
-
-			<TransitionSeries.Transition
-				presentation={whipPan({direction: 'right', overshoot: 0.05, blur: 30, curve: 'linear'})}
-				timing={timing(BLINK_TRANSITIONS.mirrorToReveal)}
-			/>
-
-			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Reveal}>
-				<Reveal {...revealDefaults} />
-			</TransitionSeries.Sequence>
-
-			{/* ── ACTE IV — LA RÉVÉLATION ────────────────────────────────────── */}
-			<TransitionSeries.Transition
-				presentation={zoomThrough({scale: 12, incomingScale: 0.76, blur: 20, curve: 'linear'})}
-				timing={timing(BLINK_TRANSITIONS.revealToVerdict)}
-			/>
-
-			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Verdict}>
-				<Verdict {...verdictDefaults} />
-			</TransitionSeries.Sequence>
-
-			<TransitionSeries.Transition
-				presentation={wipeUp({recede: 0.1, wave: 70, curve: 'linear'})}
-				timing={timing(BLINK_TRANSITIONS.verdictToClimb)}
-			/>
-
-			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Climb}>
-				<Climb {...climbDefaults} />
-			</TransitionSeries.Sequence>
-
-			<TransitionSeries.Transition
-				presentation={whipPan({direction: 'left', overshoot: 0.04, blur: 26, curve: 'linear'})}
-				timing={timing(BLINK_TRANSITIONS.climbToClose)}
-			/>
-
-			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Close}>
-				<Close {...closeDefaults} />
+			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Outro}>
+				<Outro {...outroDefaults} />
 			</TransitionSeries.Sequence>
 		</TransitionSeries>
 	</AbsoluteFill>

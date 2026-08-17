@@ -1,121 +1,142 @@
 /**
- * PARTITION DE LA VIDÉO BLINK — 13 plans, 43,0 s
+ * PARTITION DE LA VIDÉO BLINK — 11 séquences, 37,0 s
  *
- * Tout est exprimé en frames à 60 fps, calé sur la grille 120 BPM
- * (1 temps = 30 frames = 0,5 s). Les durées sont des multiples de 6 frames —
- * un cinquième de temps — ce qui garde les raccords sur la pulsation tout en
- * autorisant le resserrage nécessaire au rythme.
+ * Refonte complète du montage en régime **haute rétention**. La version
+ * précédente (13 plans, 43 s) enchaînait des plans longs séparés par des
+ * raccords doux : chaque plan avait le temps de s'installer, donc chaque plan se
+ * lisait comme une diapositive. Le problème n'était pas la vitesse des
+ * animations, il était structurel.
  *
- * Cette version a été **accélérée** : transitions réduites de 16 % (180 → 152
- * frames) et durées de plan resserrées là où le diagnostic montrait des frames
- * mortes. Les sorties de chaque plan sont désormais calées pour être encore en
- * mouvement quand la fenêtre de chevauchement s'ouvre — c'est ce qui supprime
- * la sensation de diapositive.
+ * Ce qui change, et pourquoi :
  *
- * Trois types de plans, en alternance délibérée :
+ *   • **la séquence n'est plus l'unité de montage.** Chacune des 11 séquences
+ *     ci-dessous est subdivisée en *battements* de 45 à 75 frames, séparés par
+ *     des coupes internes franches (`<Sequence>` imbriquées). Le spectateur voit
+ *     donc une trentaine de compositions distinctes en 37 secondes, là où il en
+ *     voyait 13 en 43 ;
  *
- *   A — riche      objets, métaphores, interfaces détournées, graphiques
- *   B — typo seule respiration : un fond uni, deux ou trois mots, rien d'autre
- *   C — hybride    texte porté par des éléments qui le mettent en scène
+ *   • **l'univers visuel change à chaque séquence.** Cinq registres alternent —
+ *     objet gravé, viseur de capture, typographie fluo, rupture au feutre,
+ *     interface de téléphone — et deux séquences voisines ne partagent jamais ni
+ *     leur fond ni leur registre. C'est la variété de *valeur* qui porte
+ *     l'énergie, avant celle des mouvements ;
  *
- * Les plans B ne représentent que 300 frames sur 2578, soit 11,6 % du film. Leur
- * force vient de leur rareté : trois écrans dans toute la vidéo, placés
- * exactement là où le récit a besoin d'un silence.
+ *   • **quatre raccords, et seulement quatre.** Scale-to-mask, slide whip, match
+ *     cut d'objet, diagonal slash. Aucun fondu enchaîné : deux images
+ *     superposées à 50 % ne sont ni l'une ni l'autre, et cette demi-seconde
+ *     d'indécision est exactement là où l'on décroche.
  *
- * La colonne « fond » sert la rupture chromatique. Deux plans consécutifs ne
- * partagent jamais la même valeur, et trois plans basculent franchement en
- * clair ou en couleur saturée — c'est ce contraste qui empêche 44 secondes de
- * bleu nuit de devenir monotones.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * POURQUOI LES DURÉES SONT ÉCRITES EN DEUX COLONNES
+ *
+ * `BLINK_SPANS` porte la durée **utile** de chaque séquence : c'est la grille de
+ * temps du récit, et elle reproduit à la frame les timecodes du brief.
+ * `BLINK_SCENES` en dérive en ajoutant la transition qui suit chaque séquence,
+ * parce qu'une `TransitionSeries` consomme le raccord sur les deux plans qu'il
+ * relie. Cette addition est ce qui garantit que `sceneStarts()` retombe
+ * exactement sur 00:00, 00:02, 00:04, 00:07… au lieu de dériver de quelques
+ * frames à chaque raccord.
+ *
+ * Écrire une seule colonne à la main serait rejouer le calcul dans la tête à
+ * chaque modification — et c'est précisément l'erreur qui a produit des
+ * timecodes faux dans une version précédente.
  */
 
-export const BLINK_SCENES = {
-	/** A — l'accroche. Le regard des autres arrive. */
-	Perception: 228,
-	/** B — fond clair. Un chiffre, rien d'autre. */
-	Seconds: 90,
-	/** A — la nuée de curseurs, les vues, les ondes. */
-	Gaze: 234,
-	/** C — ce qu'ils ont de toi tient sur une carte. */
-	Identity: 234,
-	/** A — la capture, le clic, le scan. */
-	Capture: 270,
-	/** A — la machinerie d'analyse. */
-	Signals: 204,
-	/** B — fond saturé. Le contre-pied. */
-	Punchline: 105,
-	/** C — les quatre regards. */
-	Lenses: 312,
-	/** C — fond clair. Intention contre perception. */
-	Mirror: 240,
-	/** B — noir profond. La respiration avant le résultat. */
-	Reveal: 105,
-	/** A — score, palier, secousse maximale. */
-	Verdict: 246,
-	/** C — l'échelle des paliers, la marche suivante. */
-	Climb: 204,
-	/** C — la marque, la baseline, l'appel à l'action. */
-	Close: 258,
+/** Durée utile de chaque séquence, transition exclue. */
+export const BLINK_SPANS = {
+	/** 00:00 — Objet gravé. Le médaillon, le tampon fluo, la phrase. */
+	Hook: 120,
+	/** 00:02 — Viseur de capture. « Deux secondes pour convaincre », frappé. */
+	Rhythm: 120,
+	/** 00:04 — Objet. La sphère et la nuée de curseurs qui cliquent. */
+	Metaphor: 180,
+	/** 00:07 — Typographie fluo. Jaune, noir, deux mots, deux battements. */
+	Breathing: 180,
+	/** 00:10 — Viseur de capture. La grille scannée au laser. */
+	ScanUi: 240,
+	/** 00:14 — Rupture. Le profil terne, la croix au feutre. */
+	Contrast: 180,
+	/** 00:17 — Objet. Quatre cartes de regard qui tombent en deck. */
+	Perception: 240,
+	/** 00:21 — Écran fendu en diagonale. Intention contre perception. */
+	Gap: 240,
+	/** 00:25 — Objet lumineux. Le score, la jauge, les particules. */
+	ScoreHero: 240,
+	/** 00:29 — Interface de téléphone. Le plan d'action qui s'exécute seul. */
+	ActionPlan: 240,
+	/** 00:33 — La marque, la nuée, l'appel à l'action. */
+	Outro: 240,
 } as const;
 
-export type BlinkSceneId = keyof typeof BLINK_SCENES;
+export type BlinkSceneId = keyof typeof BLINK_SPANS;
 
 /**
- * Durées des transitions, dans l'ordre du montage.
+ * Le raccord qui **suit** chaque séquence, et sa durée en frames.
  *
- * Raccourcies de ~16 % par rapport à la première version (180 → 152 frames au
- * total) : chaque raccord tombe dans la bande 0,17–0,25 s. Plus long installait
- * une sensation de diapositive ; plus court se lirait comme une coupe sèche.
+ * Quatre grammaires, choisies sur ce que le récit fait à cet endroit précis —
+ * jamais pour varier :
  *
- * Les valeurs les plus basses (10 f) encadrent les plans typographiques, où la
- * brutalité de l'entrée et de la sortie est l'effet recherché.
+ *   `mask`  scale-to-mask — on **entre dans** le sujet. Réservé aux changements
+ *           d'échelle du récit : on plonge dans l'objectif, dans le résultat,
+ *           dans l'application ;
+ *   `whip`  slide whip — on **balaie**. Le geste du pouce sur un fil vertical ;
+ *   `match` match cut d'objet — la **trajectoire survit** au raccord. Un seul
+ *           emploi dans le film, là où la carte barrée tombe et où une carte de
+ *           regard reprend exactement sa chute ;
+ *   `slash` diagonal cut — un trait **ouvre** l'image. Réservé aux ruptures de
+ *           registre, parce que la diagonale est le seul angle qui n'existe
+ *           nulle part ailleurs dans un cadre vertical.
  *
- * Ces durées sont aussi **la fenêtre de chevauchement** : dans une
- * `TransitionSeries`, le plan N+1 commence sa propre frame 0 exactement
- * `T` frames avant la fin du plan N. Les sorties de chaque plan sont calées
- * pour être encore en mouvement quand cette fenêtre s'ouvre.
+ * Les durées tiennent dans la bande 8–12 frames, soit 0,13 à 0,20 s. Au-delà de
+ * 15, un raccord commence à se regarder lui-même.
  */
 export const BLINK_TRANSITIONS = {
-	perceptionToSeconds: 10,
-	secondsToGaze: 15,
-	gazeToIdentity: 13,
-	identityToCapture: 15,
-	captureToSignals: 13,
-	signalsToPunchline: 10,
-	punchlineToLenses: 15,
-	lensesToMirror: 13,
-	mirrorToReveal: 10,
-	revealToVerdict: 13,
-	verdictToClimb: 10,
-	climbToClose: 15,
+	hookToRhythm: {kind: 'slash', frames: 12},
+	rhythmToMetaphor: {kind: 'mask', frames: 12},
+	metaphorToBreathing: {kind: 'whip', frames: 10},
+	breathingToScanUi: {kind: 'slash', frames: 12},
+	scanUiToContrast: {kind: 'whip', frames: 10},
+	contrastToPerception: {kind: 'match', frames: 8},
+	perceptionToGap: {kind: 'slash', frames: 12},
+	gapToScoreHero: {kind: 'mask', frames: 12},
+	scoreHeroToActionPlan: {kind: 'whip', frames: 10},
+	actionPlanToOutro: {kind: 'mask', frames: 12},
 } as const;
 
-const totalScenes = Object.values(BLINK_SCENES).reduce((a, b) => a + b, 0);
-const totalTransitions = Object.values(BLINK_TRANSITIONS).reduce(
-	(a, b) => a + b,
+export type BlinkTransitionId = keyof typeof BLINK_TRANSITIONS;
+
+const SPAN_IDS = Object.keys(BLINK_SPANS) as BlinkSceneId[];
+const TRANSITION_FRAMES = Object.values(BLINK_TRANSITIONS).map((t) => t.frames);
+
+/**
+ * Durée réelle de chaque séquence dans la `TransitionSeries` : sa durée utile
+ * plus le raccord qu'elle doit partager avec la suivante.
+ */
+export const BLINK_SCENES = Object.fromEntries(
+	SPAN_IDS.map((id, index) => [id, BLINK_SPANS[id] + (TRANSITION_FRAMES[index] ?? 0)]),
+) as Record<BlinkSceneId, number>;
+
+/** 2 220 frames = 37,00 s. La somme des durées utiles, ni plus ni moins. */
+export const BLINK_REEL_DURATION = SPAN_IDS.reduce(
+	(total, id) => total + BLINK_SPANS[id],
 	0,
 );
 
-/** Une transition consomme du temps sur les deux plans qu'elle relie. */
-export const BLINK_REEL_DURATION = totalScenes - totalTransitions;
-
 /**
- * Position absolue du début de chaque plan dans le montage.
+ * Position absolue du début de chaque séquence.
  *
- * Indispensable pour caler la future voix off : une réplique se situe à
- * `sceneStart(id) + cue.at`. Recalculé depuis les durées, jamais écrit à la
- * main — allonger un plan décale automatiquement tous les suivants.
+ * Par construction — `cursor += span` — ces valeurs sont exactement les
+ * timecodes du brief : 0, 120, 240, 420, 600, 840, 1020, 1260, 1500, 1740,
+ * 1980. Indispensable pour caler la voix off : une réplique se prononce à
+ * `sceneStarts()[id] + cue.at`.
  */
 export const sceneStarts = (): Record<BlinkSceneId, number> => {
-	const ids = Object.keys(BLINK_SCENES) as BlinkSceneId[];
-	const transitions = Object.values(BLINK_TRANSITIONS);
 	const starts = {} as Record<BlinkSceneId, number>;
-
 	let cursor = 0;
-	ids.forEach((id, index) => {
+	for (const id of SPAN_IDS) {
 		starts[id] = cursor;
-		cursor += BLINK_SCENES[id] - (transitions[index] ?? 0);
-	});
-
+		cursor += BLINK_SPANS[id];
+	}
 	return starts;
 };
 
