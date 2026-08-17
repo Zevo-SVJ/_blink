@@ -19,7 +19,10 @@
     "compositions": "remotion compositions",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "upgrade": "remotion upgrade"
+    "upgrade": "remotion upgrade",
+    "analyze": "node scripts/analysis/index.mjs",
+    "analyze:find": "node scripts/analysis/index.mjs --find",
+    "analyze:probe": "node scripts/analysis/index.mjs --probe"
   },
   "dependencies": {
     "@remotion/cli": "4.0.512",

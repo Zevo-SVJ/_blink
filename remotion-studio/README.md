@@ -161,7 +161,12 @@ remotion-studio/
 │       └── Reel.tsx        Montage des trois plans
 │
 ├── playground/             App React interactive (Framer Motion + <Player />)
-└── scripts/render-all.mjs  Rendu par lot via l'API programmatique
+├── reference/              Dépôt des vidéos de référence à analyser (non versionné)
+└── scripts/
+    ├── render-all.mjs      Rendu par lot via l'API programmatique
+    └── analysis/           Chaîne d'analyse de vidéo de référence (§6)
+        ├── index.mjs       Orchestrateur CLI
+        └── lib/            ffmpeg · probe · motion · extract · sheet · png
 ```
 
 L'alias `@/…` pointe sur `src/` et est déclaré **trois fois** — dans
@@ -228,7 +233,117 @@ franc), `precise` (jamais de dépassement).
 
 ---
 
-## 6. Conventions
+## 6. Analyser une vidéo de référence
+
+Chaîne outillée pour décoder le langage de motion design d'une vidéo existante
+avant d'en reproduire quoi que ce soit. Elle ne fait que **lire** — aucune
+composition du projet n'est touchée.
+
+### Déposer la vidéo
+
+```
+remotion-studio/reference/ma-video.mov
+```
+
+Tout ce qui sort d'un iPhone convient : `.mov` ou `.mp4`, H.264 comme HEVC, y
+compris HDR, ralenti et vidéo tournée à la verticale (la rotation stockée dans
+les métadonnées est appliquée automatiquement).
+
+### Lancer
+
+```bash
+npm run analyze:find     # quelles vidéos l'outil voit-il ?
+npm run analyze:probe    # format, codec, définition, cadence, durée, HDR
+npm run analyze          # analyse complète
+```
+
+Sans argument, la vidéo la plus récemment modifiée est retenue. Pour cibler un
+fichier précis :
+
+```bash
+node scripts/analysis/index.mjs reference/ma-video.mov
+```
+
+### Ce que ça produit
+
+```
+.analysis/<nom-de-la-video>/
+├── 00-RAPPORT.md        Synthèse : format, évènements, segments, chemins
+├── metadata.json        Toutes les mesures, exploitables par script
+├── motion.csv           Le signal image par image (frame, temps, mouvement, luma)
+├── planches/            ⚑ Planches contact — le point d'entrée de la lecture
+│   ├── 00-structure.png
+│   ├── 01-signal-mouvement.png
+│   ├── evt-01.png …
+│   └── pic-01.png …
+├── 01-structure/        Niveau 1 — frames réparties sur toute la durée
+├── 02-transitions/      Niveau 2 — rafales autour de chaque évènement
+└── 03-mouvement/        Niveau 3 — rafales sur les pics d'animation
+```
+
+Les **trois niveaux** répondent à trois questions différentes :
+
+| Niveau | Question | Échantillonnage |
+| --- | --- | --- |
+| 1 · structure | Combien de plans, quel rythme d'ensemble ? | 16 frames réparties uniformément |
+| 2 · transitions | Comment passe-t-on d'un plan à l'autre ? | toutes les frames natives autour de chaque évènement |
+| 3 · mouvement | À quoi ressemble l'animation à son plus fort ? | toutes les frames natives sur les fenêtres les plus énergiques |
+
+Chaque vignette porte son index et son horodatage incrustés dans l'image :
+impossible de confondre une frame et sa position dans le film.
+
+### Comment les évènements sont détectés
+
+Le signal est la **différence moyenne absolue entre images consécutives**,
+calculée sur des frames décimées en niveaux de gris — assez basse définition
+pour que le grain et le bruit de compression ne soient pas comptés comme du
+mouvement.
+
+Une frame devient un évènement quand elle dépasse d'au moins `--sensitivity`
+fois (6 par défaut) l'agitation **médiane de son propre voisinage**, et non un
+seuil global. C'est ce qui permet de capter les transitions *animées* d'un
+motion design soigné : elles étalent le changement sur plusieurs frames et
+passeraient sous n'importe quel seuil fixe calibré pour des coupes franches.
+
+Le **ratio** rapporté classe les candidats par force. Il ne les tranche pas :
+au niveau des pixels, un changement de plan et une animation intra-plan très
+énergique se ressemblent. La planche contact de chaque évènement permet de
+conclure à l'œil — c'est le rôle du niveau 2.
+
+### Options
+
+| Option | Défaut | Effet |
+| --- | --- | --- |
+| `--probe` | — | S'arrête après la vérification du format |
+| `--find` | — | Liste les vidéos candidates et s'arrête |
+| `--structure=N` | 16 | Nombre de frames du niveau 1 |
+| `--width=N` | 1280 | Largeur des frames extraites |
+| `--sensitivity=N` | 6 | Seuil de détection ; baisser pour capter des transitions plus douces |
+| `--max-motion=N` | 6 | Nombre de pics de mouvement retenus |
+| `--pre-roll=N` / `--post-roll=N` | 5 / 10 | Frames avant/après chaque évènement |
+| `--tonemap` | — | Tone mapping HDR → SDR (indispensable sur une vidéo HDR) |
+| `--out=DIR` | `.analysis/<slug>` | Dossier de sortie |
+
+### FFmpeg
+
+Aucune dépendance FFmpeg n'est déclarée : Remotion en embarque déjà un (n7.1,
+avec les décodeurs h264 / hevc / prores). Un FFmpeg système est préféré quand
+il existe — `FFMPEG_PATH` / `FFPROBE_PATH` permettent d'en imposer un.
+
+Toute la chaîne est écrite pour ne dépendre que du plus petit dénominateur
+commun : démux mov/mp4, décodage, filtre `scale`, sorties `image2` et
+`image2pipe`. Ni `select`, ni `scdet`, ni `tile` — la détection d'évènements et
+les planches contact sont calculées côté Node, ce qui les rend indépendantes du
+build de FFmpeg installé.
+
+### Rien n'est versionné
+
+`reference/` et `.analysis/` sont exclus de Git. Une vidéo de référence
+appartient à quelqu'un d'autre et n'a pas à être redistribuée dans le dépôt ;
+les frames extraites se régénèrent en quelques secondes. Ce qui mérite d'être
+conservé, ce sont les conclusions de motion design — pas la matière première.
+
+## 7. Conventions
 
 - **Jamais de `animate` / `transition` Framer Motion dans une composition
   rendue.** Si un mouvement doit apparaître dans la vidéo, il passe par la
@@ -244,7 +359,7 @@ franc), `precise` (jamais de dépassement).
   jamais en caractères Unicode : un glyphe absent de la police auto-hébergée
   produirait un « tofu » au rendu.
 
-## 7. Qualité
+## 8. Qualité
 
 ```bash
 npm run typecheck   # tsc --noEmit, mode strict
@@ -254,7 +369,7 @@ npm run lint        # eslint + typescript-eslint + react-hooks
 Les règles `react-hooks` s'appliquent aussi aux hooks Remotion : `useCurrentFrame()`
 appelé conditionnellement casse le rendu de façon difficile à diagnostiquer.
 
-## 8. Notes
+## 9. Notes
 
 - **Police** — Inter est auto-hébergée dans `public/fonts/` (SIL OFL 1.1, voir
   `public/fonts/OFL.txt`) plutôt que chargée depuis Google Fonts : les rendus

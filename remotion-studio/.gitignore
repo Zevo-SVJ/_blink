@@ -4,6 +4,12 @@ node_modules
 out
 dist-playground
 
+# Analyse de vidéos de référence
+.analysis
+.tmp-validation
+reference/*
+!reference/README.md
+
 # Caches Remotion / Vite
 .remotion
 .vite
