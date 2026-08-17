@@ -1,5 +1,6 @@
 import {AbsoluteFill, interpolate, Sequence} from 'remotion';
 import {z} from 'zod';
+import {cue, SfxTrack} from '@/audio';
 import {BlinkStage} from '@/components/blink';
 import {Cadence, Shockwave, Sparks} from '@/components/kinetic';
 import {blink, lenses, pop} from '@/design/blink';
@@ -28,7 +29,7 @@ export const perceptionDefaults: PerceptionProps = {
 };
 
 /**
- * 00:17 — PERCEPTION  ·  240 frames utiles
+ * 00:17.8 — PERCEPTION  ·  240 frames utiles
  *
  * Quatre lectures du même profil, distribuées comme un jeu de cartes.
  *
@@ -61,6 +62,22 @@ const HITS_A = lenses.map((_lens, index) => ({
 	seed: `pk${index}`,
 	rotation: index === lenses.length - 1 ? 1.5 : 0.8,
 }));
+
+/**
+ * Un pop par carte, calé sur l'**atterrissage** et non sur le départ.
+ *
+ * `heavyDrop` met environ 16 frames à poser la carte : déclencher le son à
+ * l'instant où la carte quitte le haut du cadre l'aurait désynchronisé d'un
+ * quart de seconde, ce qui s'entend immédiatement.
+ */
+const SFX_A = lenses.map((_lens, index) => cue(index * DROP_STEP + 16, 'cardPop'));
+const SFX_B = lenses.map((_lens, index) => cue(index * 5 + 8, 'cardPop', 0.3));
+const SFX_C = [cue(10, 'impactThud'), cue(60, 'whooshFast', 0.3)];
+
+const PUNCH_C = [
+	{at: 10, to: 1.2, rise: 5},
+	{at: 60, to: 0.9, rise: 10, hold: true},
+];
 
 const HITS_B = [
 	{at: 2, amplitude: 18, duration: 7, seed: 'pf1', rotation: 1.1},
@@ -165,6 +182,7 @@ export const Perception: React.FC<PerceptionProps> = ({verdicts, line, emphasis}
 	<AbsoluteFill style={{backgroundColor: blink.navy}}>
 		{/* ── BATTEMENT 1 · la distribution ─────────────────────────────── */}
 		<Sequence durationInFrames={78} layout="none">
+			<SfxTrack cues={SFX_A} />
 			<Impact hits={HITS_A}>
 				<BlinkStage glow={blink.skyBright} glowStrength={0.36} glowY={0.46}>
 					<div style={{position: 'relative', width: 700, height: 580}}>
@@ -180,6 +198,7 @@ export const Perception: React.FC<PerceptionProps> = ({verdicts, line, emphasis}
 
 		{/* ── BATTEMENT 2 · l'éventail ──────────────────────────────────── */}
 		<Sequence from={78} durationInFrames={80} layout="none">
+			<SfxTrack cues={SFX_B} />
 			<Impact hits={HITS_B}>
 				<BlinkStage glow={blink.sky} glowStrength={0.3} glowY={0.5}>
 					<div
@@ -212,7 +231,8 @@ export const Perception: React.FC<PerceptionProps> = ({verdicts, line, emphasis}
 
 		{/* ── BATTEMENT 3 · la formule ──────────────────────────────────── */}
 		<Sequence from={158} layout="none">
-			<Impact hits={HITS_C}>
+			<SfxTrack cues={SFX_C} />
+			<Impact hits={HITS_C} punches={PUNCH_C}>
 				<BlinkStage glow={pop.flare} glowStrength={0.24} glowY={0.5}>
 					{/* Les quatre pastilles de couleur restent, réduites à leur signal :
 					    la couleur suffit désormais à identifier chaque regard. */}

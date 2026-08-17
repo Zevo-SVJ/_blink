@@ -1,6 +1,7 @@
 import type {ReactNode} from 'react';
 import {AbsoluteFill, Sequence, useCurrentFrame} from 'remotion';
 import {z} from 'zod';
+import {cue, SfxTrack} from '@/audio';
 import {Cadence, DullProfile, FeltCross} from '@/components/kinetic';
 import {blink, pop} from '@/design/blink';
 import {fonts} from '@/design/typography';
@@ -22,7 +23,7 @@ export const contrastDefaults: ContrastProps = {
 };
 
 /**
- * 00:14 — CONTRAST  ·  180 frames utiles
+ * 00:14.8 — CONTRAST  ·  180 frames utiles
  *
  * La séquence de dénonciation. Un profil délibérément terne, puis une croix au
  * feutre, puis un refus en toutes lettres. C'est le seul moment du film où
@@ -62,6 +63,19 @@ const HITS_C = [
 	{at: 36, amplitude: 12, duration: 6, seed: 'c6'},
 ];
 
+/**
+ * Le grattement de feutre n'existe qu'ici.
+ *
+ * C'est le seul son du film à occurrence unique, comme la croix qu'il
+ * accompagne. Un effet qu'on n'entend qu'une fois est celui dont on se
+ * souvient.
+ */
+const SFX_A = [cue(0, 'impactThud', 0.42)];
+const SFX_B = [cue(4, 'markerScratch'), cue(16, 'clickMechanic'), cue(16, 'impactThud', 0.4)];
+const SFX_C = [cue(0, 'impactThud'), cue(36, 'whooshFast', 0.32)];
+
+const PUNCH_C = [{at: 0, to: 1.22, rise: 5}];
+
 /** Accélération de la chute, en px par frame². */
 const GRAVITY = 2.15;
 
@@ -93,10 +107,13 @@ const Card: React.FC<{idlePhase?: number}> = ({idlePhase = 0}) => {
 	);
 };
 
+// Racine en noir : c'est la couleur du dernier battement, celui que le raccord
+// emmène. Le recul de caméra ne découvre donc jamais une couleur étrangère.
 export const Contrast: React.FC<ContrastProps> = ({before, reject, shout}) => (
-	<AbsoluteFill style={{backgroundColor: pop.flare}}>
+	<AbsoluteFill style={{backgroundColor: pop.ink}}>
 		{/* ── BATTEMENT 1 · le profil terne ─────────────────────────────── */}
 		<Sequence durationInFrames={54} layout="none">
+			<SfxTrack cues={SFX_A} />
 			<Impact hits={HITS_A}>
 				<AbsoluteFill
 					style={{
@@ -133,6 +150,7 @@ export const Contrast: React.FC<ContrastProps> = ({before, reject, shout}) => (
 
 		{/* ── BATTEMENT 2 · la croix ────────────────────────────────────── */}
 		<Sequence from={54} durationInFrames={66} layout="none">
+			<SfxTrack cues={SFX_B} />
 			<Impact hits={HITS_B}>
 				<AbsoluteFill
 					style={{
@@ -173,7 +191,8 @@ export const Contrast: React.FC<ContrastProps> = ({before, reject, shout}) => (
 
 		{/* ── BATTEMENT 3 · le refus, puis la chute ─────────────────────── */}
 		<Sequence from={120} layout="none">
-			<Impact hits={HITS_C}>
+			<SfxTrack cues={SFX_C} />
+			<Impact hits={HITS_C} punches={PUNCH_C}>
 				<AbsoluteFill
 					style={{
 						backgroundColor: pop.ink,

@@ -1,9 +1,11 @@
 import {linearTiming, springTiming, TransitionSeries} from '@remotion/transitions';
 import {AbsoluteFill} from 'remotion';
+import type {SfxCue} from '@/audio';
+import {cue, SfxTrack} from '@/audio';
 import {blink, pop} from '@/design/blink';
 import {springs} from '@/motion/dynamics';
 import {diagonalSlash, matchCut, slideWhip, zoomThrough} from '@/motion/presentations';
-import {BLINK_SCENES, BLINK_TRANSITIONS} from './manifest';
+import {BLINK_SCENES, BLINK_SPANS, BLINK_TRANSITIONS, sceneStarts} from './manifest';
 import {ActionPlan, actionPlanDefaults} from './scenes/ActionPlan';
 import {Breathing, breathingDefaults} from './scenes/Breathing';
 import {Contrast, contrastDefaults} from './scenes/Contrast';
@@ -80,8 +82,49 @@ const timing = (durationInFrames: number) =>
  */
 const constant = (durationInFrames: number) => linearTiming({durationInFrames});
 
+/**
+ * LE SON DES RACCORDS.
+ *
+ * Les repères sonores des scènes sont relatifs à leur propre timeline ; ceux
+ * des raccords, eux, n'appartiennent à aucune scène — ils appartiennent au
+ * montage. Ils sont donc calculés ici, en absolu, depuis le manifeste.
+ *
+ * Un raccord commence exactement au début de la séquence suivante : par
+ * construction de `sceneStarts()`, le recouvrement occupe les `frames` premières
+ * frames de la scène entrante. Le whoosh est donc calé sur `start(N+1)`, avec
+ * l'avance de deux frames que `cue()` applique partout ailleurs.
+ *
+ * Les volumes distinguent les trois grammaires :
+ *
+ *   `whip`  0,35  le balayage — c'est un geste, il s'entend ;
+ *   `slash` 0,40  la lame — elle tranche, donc elle est plus présente ;
+ *   `mask`  0,22  la plongée — l'image avance vers nous, elle ne passe pas à
+ *                 côté ; un whoosh fort y sonnerait faux ;
+ *   `match` aucun son de raccord. Le principe du match cut est qu'il ne se voit
+ *                 pas — le souligner d'un whoosh reviendrait à l'annoncer.
+ */
+const TRANSITION_VOLUME = {whip: 0.35, slash: 0.4, mask: 0.22, match: 0} as const;
+
+const transitionCues = (): SfxCue[] => {
+	const starts = sceneStarts();
+	const ids = Object.keys(BLINK_SPANS) as (keyof typeof BLINK_SPANS)[];
+	const kinds = Object.values(BLINK_TRANSITIONS);
+
+	return kinds.flatMap((transition, index) => {
+		const volume = TRANSITION_VOLUME[transition.kind];
+		if (volume === 0) return [];
+		const next = ids[index + 1];
+		if (next === undefined) return [];
+		return [cue(starts[next], 'whooshFast', volume)];
+	});
+};
+
+const TRANSITION_SFX = transitionCues();
+
 export const BlinkReel: React.FC = () => (
 	<AbsoluteFill style={{backgroundColor: blink.navy}}>
+		<SfxTrack cues={TRANSITION_SFX} />
+
 		<TransitionSeries>
 			{/* ── ACTE I — ON TE REGARDE ─────────────────────────────────────── */}
 			<TransitionSeries.Sequence durationInFrames={BLINK_SCENES.Hook}>

@@ -141,6 +141,22 @@ export const springs = {
 	 * mal réglée — c'est exactement pour ça qu'il n'apparaît qu'une fois.
 	 */
 	stamp: {stiffness: 500, damping: 15, mass: 1},
+
+	/**
+	 * Le ressort de **lisibilité**.
+	 *
+	 * ζ = 20/(2·√(450·0,8)) = 0,527 → ~14 % de dépassement. Sur une entrée qui
+	 * part de 0,7, ça donne exactement la course 0,7 → 1,05 → 1 : assez de
+	 * rebond pour que le mot claque, assez peu pour qu'il soit stable en douze
+	 * frames.
+	 *
+	 * `kick` (0,42) dépasse à 1,075 et met vingt frames à se poser ; sur une
+	 * phrase de trois mots qui doivent tous être lus, ces huit frames de
+	 * différence décident de la lisibilité. C'est le seul ressort du film choisi
+	 * pour ce que l'œil doit *faire* — lire — et non pour ce que l'objet doit
+	 * paraître.
+	 */
+	read: {stiffness: 450, damping: 20, mass: 0.8},
 } as const satisfies Record<string, SpringConfig>;
 
 export type SpringName = keyof typeof springs;

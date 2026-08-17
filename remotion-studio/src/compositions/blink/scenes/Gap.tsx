@@ -1,5 +1,6 @@
 import {AbsoluteFill, Sequence} from 'remotion';
 import {z} from 'zod';
+import {cue, SfxTrack} from '@/audio';
 import {Portal} from '@/components/blink';
 import {Cadence, SplitDiagonal} from '@/components/kinetic';
 import {blink, pop} from '@/design/blink';
@@ -26,7 +27,7 @@ export const gapDefaults: GapProps = {
 };
 
 /**
- * 00:21 — GAP  ·  240 frames utiles
+ * 00:21.8 — GAP  ·  240 frames utiles
  *
  * L'écran se fend en diagonale. En haut, l'intention ; en bas, la perception.
  * Deux couleurs qui ne se ressemblent en rien — vert acide contre orange fluo —
@@ -61,6 +62,18 @@ const HITS_C = [
 	{at: 0, amplitude: 26, duration: 10, seed: 'g5', rotation: 1.6},
 	{at: 46, amplitude: 12, duration: 6, seed: 'g6'},
 ];
+
+/**
+ * La lame a son whoosh, à plein volume.
+ *
+ * C'est le seul endroit du film où un raccord sonore est plus fort qu'un
+ * impact : ici le mouvement *est* l'évènement, il n'accompagne rien.
+ */
+const SFX_A = [cue(0, 'whooshFast', 0.45)];
+const SFX_B = [cue(0, 'whooshFast', 0.24), cue(6, 'clickMechanic', 0.28), cue(12, 'clickMechanic', 0.28)];
+const SFX_C = [cue(0, 'whooshFast'), cue(4, 'whooshFast', 0.26), cue(10, 'impactThud')];
+
+const PUNCH_C = [{at: 10, to: 1.2, rise: 5}];
 
 const Half: React.FC<{
 	title: string;
@@ -131,6 +144,7 @@ export const Gap: React.FC<GapProps> = ({
 	<AbsoluteFill style={{backgroundColor: blink.navy}}>
 		{/* ── BATTEMENT 1 · la fente ────────────────────────────────────── */}
 		<Sequence durationInFrames={90} layout="none">
+			<SfxTrack cues={SFX_A} />
 			<Impact hits={HITS_A}>
 				<SplitDiagonal
 					at={0}
@@ -146,6 +160,7 @@ export const Gap: React.FC<GapProps> = ({
 
 		{/* ── BATTEMENT 2 · les deux camps ──────────────────────────────── */}
 		<Sequence from={90} durationInFrames={80} layout="none">
+			<SfxTrack cues={SFX_B} />
 			<Impact hits={HITS_B}>
 				<SplitDiagonal
 					at={-30}
@@ -166,7 +181,8 @@ export const Gap: React.FC<GapProps> = ({
 
 		{/* ── BATTEMENT 3 · l'écart nommé ───────────────────────────────── */}
 		<Sequence from={170} layout="none">
-			<Impact hits={HITS_C}>
+			<SfxTrack cues={SFX_C} />
+			<Impact hits={HITS_C} punches={PUNCH_C}>
 				<AbsoluteFill
 					style={{
 						backgroundColor: blink.navy,

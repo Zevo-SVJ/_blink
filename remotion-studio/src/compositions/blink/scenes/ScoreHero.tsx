@@ -1,5 +1,6 @@
 import {AbsoluteFill, Sequence} from 'remotion';
 import {z} from 'zod';
+import {cue, SfxTrack} from '@/audio';
 import {BlinkStage, ScoreRing} from '@/components/blink';
 import {Cadence, Shockwave, Sparks, TierLadder} from '@/components/kinetic';
 import {blink, pop, tiers} from '@/design/blink';
@@ -27,7 +28,7 @@ export const scoreHeroDefaults: ScoreHeroProps = {
 };
 
 /**
- * 00:25 — SCORE HERO  ·  240 frames utiles
+ * 00:25.8 — SCORE HERO  ·  240 frames utiles
  *
  * Le sommet. Tout ce qui précède existe pour rendre ce moment attendu, donc ce
  * plan ne porte qu'**une** information à la fois — jamais le score, le palier,
@@ -61,6 +62,29 @@ const HITS_C = [
 	{at: 44, amplitude: 20, duration: 8, seed: 'sh7', rotation: 1.2},
 ];
 
+/**
+ * Le rouleau court **pendant** la montée, l'impact tombe **sur** l'arrêt.
+ *
+ * Les deux sons ne se recouvrent pas : le tick s'éteint au moment où le
+ * compteur se verrouille, et c'est ce silence d'un dixième de seconde qui rend
+ * l'impact aussi net.
+ */
+const SFX_A = [cue(0, 'countUpTick'), cue(50, 'impactThud')];
+const SFX_B = [
+	cue(0, 'countUpTick', 0.32),
+	cue(0, 'clickMechanic', 0.3),
+	cue(24, 'impactThud'),
+	cue(30, 'beep', 0.3),
+];
+const SFX_C = [cue(2, 'clickMechanic', 0.3), cue(44, 'impactThud', 0.42), cue(60, 'whooshFast', 0.3)];
+
+/** Le punch tombe sur le verrouillage du chiffre, pas sur son départ. */
+const PUNCH_B = [{at: 24, to: 1.22, rise: 5}];
+const PUNCH_C = [
+	{at: 44, to: 1.16, rise: 5},
+	{at: 60, to: 0.9, rise: 10, hold: true},
+];
+
 const RingBlock: React.FC<{score: number}> = ({score}) => {
 	const idle = useIdle({float: 6, breathe: 0.008, speed: 0.1});
 	return (
@@ -84,6 +108,7 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
 	<AbsoluteFill style={{backgroundColor: blink.navy}}>
 		{/* ── BATTEMENT 1 · le chiffre ──────────────────────────────────── */}
 		<Sequence durationInFrames={78} layout="none">
+			<SfxTrack cues={SFX_A} />
 			<Impact hits={HITS_A}>
 				<BlinkStage glow={blink.skyBright} glowStrength={0.5} glowY={0.44}>
 					<div style={{position: 'relative'}}>
@@ -117,7 +142,8 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
 
 		{/* ── BATTEMENT 2 · le palier ───────────────────────────────────── */}
 		<Sequence from={78} durationInFrames={80} layout="none">
-			<Impact hits={HITS_B}>
+			<SfxTrack cues={SFX_B} />
+			<Impact hits={HITS_B} punches={PUNCH_B}>
 				<BlinkStage glow={blink.sky} glowStrength={0.42} glowY={0.4}>
 					<div
 						style={{
@@ -139,7 +165,10 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
 									fontVariantNumeric: 'tabular-nums',
 								}}
 							>
-								<Counter from={0} to={score} timing={{duration: 26, easing: 'expo'}} />
+								{/* Ressort et non courbe : le chiffre dépasse légèrement puis revient se
+											    poser sur 742. Une courbe s'arrêterait net, ce qui se lit comme
+											    un affichage ; le dépassement se lit comme un verrouillage. */}
+											<Counter from={0} to={score} timing={{spring: 'kick', durationInFrames: 26}} />
 							</div>
 						</Pop>
 
@@ -186,7 +215,8 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
 
 		{/* ── BATTEMENT 3 · la marche suivante ──────────────────────────── */}
 		<Sequence from={158} layout="none">
-			<Impact hits={HITS_C}>
+			<SfxTrack cues={SFX_C} />
+			<Impact hits={HITS_C} punches={PUNCH_C}>
 				<BlinkStage glow={pop.flare} glowStrength={0.26} glowY={0.5}>
 					<div
 						style={{

@@ -102,6 +102,20 @@ export const presets = {
 	printIn: {opacity: 0, scale: 2.1, rotate: 9, elevation: 52},
 	/** Arrive dans l'axe de la diagonale, en glissant. */
 	slashIn: {opacity: 0, x: -260, y: 260},
+
+	/**
+	 * L'entrée **lisible**. À employer avec le ressort `read`.
+	 *
+	 * Une échelle, une opacité, rien d'autre : aucune rotation, aucune
+	 * translation, et surtout **aucun flou**. Un mot qui arrive en tournant ou
+	 * en filant demande à l'œil de le suivre avant de le lire ; un mot qui
+	 * grandit sur place est lisible dès la première frame où il est net.
+	 *
+	 * 0,7 et non 0 : partir de zéro impose de traverser toutes les tailles
+	 * intermédiaires, donc une phase illisible. Partir de 70 % garde le mot
+	 * déchiffrable pendant toute son entrée.
+	 */
+	readPop: {opacity: 0, scale: 0.7},
 } as const satisfies Record<string, MotionState>;
 
 export type PresetName = keyof typeof presets;

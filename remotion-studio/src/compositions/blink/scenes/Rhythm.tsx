@@ -1,5 +1,6 @@
 import {AbsoluteFill, interpolate, Sequence, useCurrentFrame} from 'remotion';
 import {z} from 'zod';
+import {cue, SfxTrack} from '@/audio';
 import {ProfileCard} from '@/components/blink';
 import {CameraChrome, FocusBox, LaserSweep} from '@/components/kinetic';
 import {blink, pop} from '@/design/blink';
@@ -21,7 +22,7 @@ export const rhythmDefaults: RhythmProps = {
 };
 
 /**
- * 00:02 — RHYTHM  ·  120 frames utiles
+ * 00:02.8 — RHYTHM  ·  120 frames utiles
  *
  * Rupture d'univers immédiate : on quitte l'objet gravé pour un **viseur**. Le
  * fond passe du bleu nuit à un quasi-noir, le vocabulaire devient celui de la
@@ -50,6 +51,19 @@ const HITS_B = [
 	{at: 0, amplitude: 24, duration: 9, seed: 'r3', rotation: 1.3},
 	{at: 36, amplitude: 18, duration: 7, seed: 'r4'},
 ];
+
+/**
+ * Repères sonores.
+ *
+ * L'obturateur ouvre le viseur, le bip verrouille le sujet, l'impact grave
+ * tombe sur le chiffre. Trois sons, trois fonctions — jamais deux sons pour
+ * dire la même chose.
+ */
+const SFX_A = [cue(0, 'cameraShutter'), cue(10, 'beep'), cue(36, 'whooshFast', 0.3)];
+const SFX_B = [cue(0, 'impactThud'), cue(8, 'clickMechanic', 0.35), cue(36, 'beep', 0.3)];
+
+/** Le punch tombe sur le chiffre, pas sur la phrase qui le suit. */
+const PUNCH_B = [{at: 0, to: 1.22, rise: 5}];
 
 const VIEWFINDER = '#07090F';
 
@@ -99,6 +113,7 @@ export const Rhythm: React.FC<RhythmProps> = ({typed, headline, tail}) => (
 	<AbsoluteFill style={{backgroundColor: VIEWFINDER}}>
 		{/* ── BATTEMENT 1 · le viseur ───────────────────────────────────── */}
 		<Sequence durationInFrames={54} layout="none">
+			<SfxTrack cues={SFX_A} />
 			<Impact hits={HITS_A}>
 				<AbsoluteFill
 					style={{
@@ -152,7 +167,8 @@ export const Rhythm: React.FC<RhythmProps> = ({typed, headline, tail}) => (
 
 		{/* ── BATTEMENT 2 · le compte à rebours ─────────────────────────── */}
 		<Sequence from={54} layout="none">
-			<Impact hits={HITS_B}>
+			<SfxTrack cues={SFX_B} />
+			<Impact hits={HITS_B} punches={PUNCH_B}>
 				<AbsoluteFill
 					style={{
 						backgroundColor: VIEWFINDER,

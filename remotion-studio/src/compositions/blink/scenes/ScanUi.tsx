@@ -1,5 +1,6 @@
 import {AbsoluteFill, Sequence} from 'remotion';
 import {z} from 'zod';
+import {cue, SfxTrack} from '@/audio';
 import {
 	Cadence,
 	CameraChrome,
@@ -41,7 +42,7 @@ export const scanUiDefaults: ScanUiProps = {
 };
 
 /**
- * 00:10 — SCAN UI  ·  240 frames utiles
+ * 00:10.8 — SCAN UI  ·  240 frames utiles
  *
  * Retour au viseur, mais cette fois l'instrument travaille. Quatre battements
  * de 60 frames, chacun avec une composition différente — c'est la séquence la
@@ -76,12 +77,40 @@ const HITS_D = [
 	{at: 30, amplitude: 18, duration: 7, seed: 's8', rotation: 1.2},
 ];
 
+/**
+ * Le viseur s'ouvre à l'obturateur, les signaux cliquent, le relevé frappe.
+ * Le balayage laser a son propre whoosh : un instrument qui traverse l'image
+ * sans qu'on l'entende n'aurait aucune matière.
+ */
+const SFX_A = [cue(0, 'cameraShutter'), cue(18, 'whooshFast', 0.3)];
+const SFX_B = [
+	cue(0, 'whooshFast', 0.26),
+	cue(4, 'clickMechanic', 0.3),
+	cue(8, 'clickMechanic', 0.3),
+	cue(12, 'clickMechanic', 0.3),
+	cue(16, 'clickMechanic', 0.3),
+];
+const SFX_C = [cue(4, 'beep', 0.32)];
+const SFX_D = [
+	cue(2, 'clickMechanic', 0.3),
+	cue(8, 'clickMechanic', 0.3),
+	cue(14, 'impactThud'),
+	cue(30, 'beep', 0.32),
+	cue(48, 'whooshFast', 0.3),
+];
+
+const PUNCH_D = [
+	{at: 14, to: 1.16, rise: 5},
+	{at: 48, to: 0.9, rise: 10, hold: true},
+];
+
 const SCAN_BG = '#050B18';
 
 export const ScanUi: React.FC<ScanUiProps> = ({signals, axes, readout}) => (
 	<AbsoluteFill style={{backgroundColor: SCAN_BG}}>
 		{/* ── BATTEMENT 1 · la grille sous le laser ─────────────────────── */}
 		<Sequence durationInFrames={60} layout="none">
+			<SfxTrack cues={SFX_A} />
 			<Impact hits={HITS_A}>
 				<AbsoluteFill
 					style={{backgroundColor: SCAN_BG, alignItems: 'center', justifyContent: 'center'}}
@@ -102,6 +131,7 @@ export const ScanUi: React.FC<ScanUiProps> = ({signals, axes, readout}) => (
 
 		{/* ── BATTEMENT 2 · les signaux extraits ────────────────────────── */}
 		<Sequence from={60} durationInFrames={60} layout="none">
+			<SfxTrack cues={SFX_B} />
 			<Impact hits={HITS_B}>
 				<AbsoluteFill style={{backgroundColor: SCAN_BG}}>
 					{/* La grille recule et se floute : elle devient la source, pas le
@@ -157,6 +187,7 @@ export const ScanUi: React.FC<ScanUiProps> = ({signals, axes, readout}) => (
 
 		{/* ── BATTEMENT 3 · la machinerie ───────────────────────────────── */}
 		<Sequence from={120} durationInFrames={60} layout="none">
+			<SfxTrack cues={SFX_C} />
 			<Impact hits={HITS_C}>
 				<AbsoluteFill style={{backgroundColor: SCAN_BG}}>
 					<NodeField
@@ -187,7 +218,8 @@ export const ScanUi: React.FC<ScanUiProps> = ({signals, axes, readout}) => (
 
 		{/* ── BATTEMENT 4 · le relevé ───────────────────────────────────── */}
 		<Sequence from={180} layout="none">
-			<Impact hits={HITS_D}>
+			<SfxTrack cues={SFX_D} />
+			<Impact hits={HITS_D} punches={PUNCH_D}>
 				<AbsoluteFill style={{backgroundColor: SCAN_BG}}>
 					<AbsoluteFill
 						style={{

@@ -1,5 +1,6 @@
 import {AbsoluteFill, Sequence} from 'remotion';
 import {z} from 'zod';
+import {cue, SfxTrack} from '@/audio';
 import {BlinkStage} from '@/components/blink';
 import {
 	Cadence,
@@ -29,7 +30,7 @@ export const metaphorDefaults: MetaphorProps = {
 };
 
 /**
- * 00:04 — METAPHOR  ·  180 frames utiles
+ * 00:04.8 — METAPHOR  ·  180 frames utiles
  *
  * Le cœur métaphorique du film : une identité au centre, et des regards qui
  * arrivent de partout pour cliquer dessus.
@@ -66,6 +67,8 @@ const CLICKS = [
 	{at: 39, x: 62, y: 76},
 ] as const;
 
+const SFX_B = CLICKS.map((click) => cue(click.at, 'clickMechanic', 0.32));
+
 const HITS_B = CLICKS.map((click, index) => ({
 	at: click.at,
 	amplitude: 9 + (index % 3) * 4,
@@ -74,6 +77,24 @@ const HITS_B = CLICKS.map((click, index) => ({
 }));
 
 const HITS_C = [{at: 0, amplitude: 26, duration: 10, seed: 'm3', rotation: 1.6}];
+
+/**
+ * Un clic par curseur, à 0,32 de volume.
+ *
+ * Six clics à plein volume seraient une agression ; six clics discrets sur un
+ * fond silencieux se lisent comme une foule qui s'active. Le volume porte ici
+ * l'information « ils sont nombreux », pas « c'est important ».
+ */
+const SFX_A = [cue(0, 'impactThud', 0.42), cue(8, 'whooshFast', 0.3)];
+const SFX_C = [cue(7, 'impactThud'), cue(52, 'whooshFast', 0.3)];
+
+const PUNCH_C = [
+	{at: 7, to: 1.2, rise: 5},
+	// Recul tenu : le plan part vers le haut au raccord suivant, et une image
+	// légèrement reculée se laisse propulser hors cadre bien mieux qu'une image
+	// pleine.
+	{at: 50, to: 0.9, rise: 10, hold: true},
+];
 
 const ClickBurst: React.FC<{at: number; x: number; y: number; color: string}> = ({
 	at,
@@ -118,6 +139,7 @@ export const Metaphor: React.FC<MetaphorProps> = ({views, line, verdict}) => (
 	<AbsoluteFill style={{backgroundColor: blink.navy2}}>
 		{/* ── BATTEMENT 1 · l'arrivée ───────────────────────────────────── */}
 		<Sequence durationInFrames={60} layout="none">
+			<SfxTrack cues={SFX_A} />
 			<Impact hits={HITS_A}>
 				<BlinkStage background={blink.navy2} glow={blink.skyBright} glowStrength={0.46}>
 					<div style={{position: 'relative'}}>
@@ -145,6 +167,7 @@ export const Metaphor: React.FC<MetaphorProps> = ({views, line, verdict}) => (
 
 		{/* ── BATTEMENT 2 · la rafale ───────────────────────────────────── */}
 		<Sequence from={60} durationInFrames={60} layout="none">
+			<SfxTrack cues={SFX_B} />
 			<Impact hits={HITS_B}>
 				<BlinkStage background={blink.navy} glow={blink.sky} glowStrength={0.34} glowY={0.46}>
 					{/* Recadrage serré sur la sphère : on est passé « dedans ». */}
@@ -173,7 +196,8 @@ export const Metaphor: React.FC<MetaphorProps> = ({views, line, verdict}) => (
 
 		{/* ── BATTEMENT 3 · le verdict ──────────────────────────────────── */}
 		<Sequence from={120} layout="none">
-			<Impact hits={HITS_C}>
+			<SfxTrack cues={SFX_C} />
+			<Impact hits={HITS_C} punches={PUNCH_C}>
 				<BlinkStage background={blink.navy2} glow={pop.flareHot} glowStrength={0.28} glowY={0.55}>
 					<AbsoluteFill
 						style={{alignItems: 'center', justifyContent: 'center', opacity: 0.5}}

@@ -1,5 +1,6 @@
 import {AbsoluteFill, Sequence} from 'remotion';
 import {z} from 'zod';
+import {cue, SfxTrack} from '@/audio';
 import {BlinkStage} from '@/components/blink';
 import {Cadence, CursorSwarm, Shockwave, Sparks} from '@/components/kinetic';
 import {blink, lenses, pop} from '@/design/blink';
@@ -23,7 +24,7 @@ export const outroDefaults: OutroProps = {
 };
 
 /**
- * 00:33 — OUTRO  ·  240 frames utiles
+ * 00:33.8 — OUTRO  ·  240 frames utiles
  *
  * La marque, puis l'action. Dans cet ordre et jamais l'inverse : un appel à
  * l'action posé avant que la marque ait été nommée n'a rien à quoi se
@@ -60,6 +61,23 @@ const HITS_C = [
 	{at: 26, amplitude: 14, duration: 6, seed: 'o6'},
 	{at: 56, amplitude: 16, duration: 7, seed: 'o7'},
 ];
+
+/**
+ * Les clics du bouton reprennent exactement le son des bascules du plan
+ * d'action. Le geste attendu du spectateur porte donc le son de ce qui a déjà
+ * été validé sous ses yeux — c'est le seul rappel sonore du film qui vise
+ * quelque chose hors de l'écran.
+ */
+const SFX_A = [cue(0, 'impactThud')];
+const SFX_B = [cue(28, 'clickMechanic'), cue(48, 'clickMechanic', 0.36), cue(66, 'clickMechanic', 0.3)];
+const SFX_C = [
+	cue(0, 'impactThud', 0.42),
+	cue(26, 'clickMechanic'),
+	cue(56, 'clickMechanic', 0.36),
+	cue(74, 'clickMechanic', 0.3),
+];
+
+const PUNCH_A = [{at: 0, to: 1.2, rise: 5}];
 
 /** Le bouton, avec ses pulsations d'amplitude croissante. */
 const CtaButton: React.FC<{label: string; pulses: number[]; amplitudes: number[]}> = ({
@@ -109,7 +127,8 @@ export const Outro: React.FC<OutroProps> = ({brand, baseline, cta}) => (
 	<AbsoluteFill style={{backgroundColor: blink.navy}}>
 		{/* ── BATTEMENT 1 · la marque ───────────────────────────────────── */}
 		<Sequence durationInFrames={80} layout="none">
-			<Impact hits={HITS_A}>
+			<SfxTrack cues={SFX_A} />
+			<Impact hits={HITS_A} punches={PUNCH_A}>
 				<BlinkStage glow={blink.skyBright} glowStrength={0.52} glowY={0.46}>
 					<div style={{position: 'relative'}}>
 						<Pop at={0} spring="stamp" preset="slamIn" squash={1.3}>
@@ -155,6 +174,7 @@ export const Outro: React.FC<OutroProps> = ({brand, baseline, cta}) => (
 
 		{/* ── BATTEMENT 2 · la convergence ──────────────────────────────── */}
 		<Sequence from={80} durationInFrames={80} layout="none">
+			<SfxTrack cues={SFX_B} />
 			<Impact hits={HITS_B}>
 				<BlinkStage glow={blink.sky} glowStrength={0.36} glowY={0.5}>
 					<div style={{position: 'relative', display: 'grid', placeItems: 'center'}}>
@@ -177,6 +197,7 @@ export const Outro: React.FC<OutroProps> = ({brand, baseline, cta}) => (
 
 		{/* ── BATTEMENT 3 · le verrouillage ─────────────────────────────── */}
 		<Sequence from={160} layout="none">
+			<SfxTrack cues={SFX_C} />
 			<Impact hits={HITS_C}>
 				<BlinkStage glow={blink.skyBright} glowStrength={0.44} glowY={0.42}>
 					<div

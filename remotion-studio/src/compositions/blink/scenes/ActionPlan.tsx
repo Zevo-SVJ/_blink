@@ -1,5 +1,6 @@
 import {AbsoluteFill, Sequence} from 'remotion';
 import {z} from 'zod';
+import {cue, SfxTrack} from '@/audio';
 import {BlinkStage, Portal} from '@/components/blink';
 import {Cadence, NotifBanner, PhoneFrame, Sparks, ToggleRow} from '@/components/kinetic';
 import {blink, pop} from '@/design/blink';
@@ -30,7 +31,7 @@ export const actionPlanDefaults: ActionPlanProps = {
 };
 
 /**
- * 00:29 — ACTION PLAN  ·  240 frames utiles
+ * 00:29.8 — ACTION PLAN  ·  240 frames utiles
  *
  * Changement d'échelle de réalité. Après trente secondes d'objets flottant dans
  * un espace abstrait, l'image devient un **téléphone** — ce qui était une
@@ -66,6 +67,24 @@ const HITS_C = [
 	{at: 40, amplitude: 12, duration: 6, seed: 'a7'},
 ];
 
+/**
+ * Un clic mécanique par bascule — le même son que le tampon du premier plan.
+ *
+ * C'est délibéré : le spectateur a appris en deux secondes que ce clic veut
+ * dire « validé ». Trente secondes plus tard, trois clics suffisent à dire que
+ * trois choses viennent d'être réglées, sans qu'aucun texte n'ait à le dire.
+ */
+const SFX_A = [cue(0, 'whooshFast', 0.3), cue(10, 'beep', 0.35), cue(28, 'countUpTick', 0.28)];
+const SFX_B = [
+	cue(10, 'clickMechanic'),
+	cue(32, 'clickMechanic'),
+	cue(54, 'clickMechanic'),
+	cue(56, 'beep', 0.3),
+];
+const SFX_C = [cue(0, 'impactThud'), cue(14, 'clickMechanic', 0.32)];
+
+const PUNCH_C = [{at: 0, to: 1.22, rise: 5}];
+
 export const ActionPlan: React.FC<ActionPlanProps> = ({
 	notifTitle,
 	notifBody,
@@ -76,6 +95,7 @@ export const ActionPlan: React.FC<ActionPlanProps> = ({
 	<AbsoluteFill style={{backgroundColor: blink.navy}}>
 		{/* ── BATTEMENT 1 · la notification ─────────────────────────────── */}
 		<Sequence durationInFrames={80} layout="none">
+			<SfxTrack cues={SFX_A} />
 			<Impact hits={HITS_A}>
 				<BlinkStage glow={blink.skyBright} glowStrength={0.34} glowY={0.46}>
 					<Pop at={0} spring="whip" preset="hardUp">
@@ -162,6 +182,7 @@ export const ActionPlan: React.FC<ActionPlanProps> = ({
 
 		{/* ── BATTEMENT 2 · le plan qui s'exécute ───────────────────────── */}
 		<Sequence from={80} durationInFrames={80} layout="none">
+			<SfxTrack cues={SFX_B} />
 			<Impact hits={HITS_B}>
 				<BlinkStage glow={blink.sky} glowStrength={0.3} glowY={0.5}>
 					<PhoneFrame width={780} height={1140} idle={false}>
@@ -229,7 +250,8 @@ export const ActionPlan: React.FC<ActionPlanProps> = ({
 
 		{/* ── BATTEMENT 3 · le gain projeté ─────────────────────────────── */}
 		<Sequence from={160} layout="none">
-			<Impact hits={HITS_C}>
+			<SfxTrack cues={SFX_C} />
+			<Impact hits={HITS_C} punches={PUNCH_C}>
 				<BlinkStage glow={pop.flare} glowStrength={0.3} glowY={0.44}>
 					<div
 						style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22}}

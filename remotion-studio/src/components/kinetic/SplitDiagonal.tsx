@@ -33,10 +33,11 @@ export type SplitDiagonalProps = {
  *
  * La chorégraphie d'ouverture est ce qui fait sens :
  *
- *   1. le **trait** se trace d'abord, en six frames. Il arrive dans un cadre
- *      encore vide : c'est lui qui coupe, et on le voit couper ;
+ *   1. le **trait** se trace d'abord, en cinq frames — moins d'un dixième de
+ *      seconde. Il arrive dans un cadre encore vide : c'est lui qui coupe, et
+ *      on le voit couper ;
  *   2. les deux moitiés entrent ensuite en glissant **perpendiculairement** au
- *      trait, en sens opposés, décalées de trois frames. Elles ne s'affichent
+ *      trait, en sens opposés, décalées de deux frames. Elles ne s'affichent
  *      pas de part et d'autre — elles s'écartent, comme deux morceaux d'une même
  *      image qu'on aurait fendue.
  *
@@ -55,9 +56,14 @@ export const SplitDiagonal: React.FC<SplitDiagonalProps> = ({
 	lineWidth = 5,
 	style,
 }) => {
-	const draw = useProgress({delay: at, duration: 6, easing: 'quint'});
-	const topEnter = useProgress({delay: at + 3, spring: 'whip'});
-	const bottomEnter = useProgress({delay: at + 6, spring: 'whip'});
+	// Cinq frames pour la lame : elle doit trancher plus vite que l'œil ne suit,
+	// sinon la diagonale se lit comme un volet qui s'ouvre.
+	const draw = useProgress({delay: at, duration: 5, easing: 'quint'});
+	// `kick` et non `whip` : les deux moitiés doivent être en place vers la
+	// quinzième frame. Avec `whip` (ζ = 0,635) elles mettaient vingt-cinq frames
+	// à se poser, et la fente restait ouverte trop longtemps.
+	const topEnter = useProgress({delay: at + 2, spring: 'kick'});
+	const bottomEnter = useProgress({delay: at + 4, spring: 'kick'});
 
 	const edgeLeft = 50 + steepness / 2;
 	const edgeRight = 50 - steepness / 2;

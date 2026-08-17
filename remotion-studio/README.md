@@ -164,6 +164,7 @@ remotion-studio/
 │   │                          SplitDiagonal · PhoneFrame · Sparks · Cadence
 │   │                          Orb · CursorSwarm · NodeField · Radar · TypeBreath
 │   │
+│   ├── audio/              ⚑ Design sonore : catalogue de SFX + piste par scène
 │   └── compositions/       Les scènes
 │       ├── manifest.ts     Durées centralisées
 │       ├── HeroReveal.tsx  ┐
@@ -176,10 +177,14 @@ remotion-studio/
 │           ├── BlinkReel.tsx   Montage des onze séquences
 │           └── scenes/         11 séquences, un fichier par séquence
 │
+├── public/
+│   ├── fonts/              Inter variable, auto-hébergée
+│   └── sfx/                Huit SFX générés par `npm run sfx`
 ├── playground/             App React interactive (Framer Motion + <Player />)
 ├── reference/              Dépôt des vidéos de référence à analyser (non versionné)
 └── scripts/
     ├── render-all.mjs      Rendu par lot via l'API programmatique
+    ├── sfx/                ⚑ Synthèse déterministe des huit effets sonores
     └── analysis/           Chaîne d'analyse de vidéo de référence (§6)
         ├── index.mjs       Orchestrateur CLI
         └── lib/            ffmpeg · probe · motion · extract · sheet · png
@@ -361,7 +366,7 @@ conservé, ce sont les conclusions de motion design — pas la matière premièr
 
 ## 7. La piste Blink — régime « haute rétention »
 
-Film produit vertical (1080 × 1920, 60 fps, **37,0 s**) pour **Blink**, l'app qui
+Film produit vertical (1080 × 1920, 60 fps, **37,8 s**) pour **Blink**, l'app qui
 montre la première impression que fait un profil.
 
 Cette piste a été **refondue** après une version de 43 s qui, malgré des
@@ -374,9 +379,9 @@ qu'il faut changer.
 ### Les quatre décisions de la refonte
 
 **1 · La séquence n'est plus l'unité de montage.** Chacune des 11 séquences est
-subdivisée en *battements* de 45 à 80 frames séparés par des coupes internes
+subdivisée en *battements* de 42 à 90 frames séparés par des coupes internes
 franches (`<Sequence>` imbriquées, donc chaque battement redémarre à sa propre
-frame 0). Le spectateur voit une trentaine de compositions distinctes en 37
+frame 0). Le spectateur voit une trentaine de compositions distinctes en 38
 secondes, contre 13 en 43 secondes.
 
 **2 · L'univers visuel change à chaque séquence.** Cinq registres alternent, et
@@ -406,6 +411,7 @@ dit explicitement ce que l'objet pèse.
 | **`whip`** | 300 | 22 | 1 | 0,635 | caméra et plans entiers — ~4 % seulement |
 | **`heavyDrop`** | 200 | 12 | **1,5** | 0,346 | objets qui tombent — ~31 %, chute lente |
 | **`stamp`** | 500 | 15 | 1 | 0,335 | **le tampon du premier plan, et rien d'autre** — ~34 % |
+| **`read`** | 450 | 20 | **0,8** | 0,527 | les mots qui doivent être **lus** — ~14 %, posé en 12 frames |
 
 Deux principes derrière ces valeurs :
 
@@ -425,24 +431,24 @@ spectateur, qui doit paraître incontrôlé.
 
 Les durées ci-dessous sont les durées **utiles** (`BLINK_SPANS`). La durée réelle
 de chaque séquence dans la `TransitionSeries` y ajoute le raccord qui la suit,
-ce qui garantit que les timecodes de départ tombent juste — 0, 120, 240, 420,
-600, 840, 1020, 1260, 1500, 1740, 1980.
+ce qui garantit que les timecodes de départ tombent juste — 0, 168, 288, 468,
+648, 888, 1068, 1308, 1548, 1788, 2028.
 
 | Timecode | Séquence | Durée | Registre | Battements |
 | --- | --- | --- | --- | --- |
-| 00:00 | `Hook` | 120 f | objet gravé | médaillon → phrase → chute |
-| 00:02 | `Rhythm` | 120 f | viseur | verrouillage + frappe → compte à rebours |
-| 00:04 | `Metaphor` | 180 f | objet | arrivée → rafale de clics → verdict |
-| 00:07 | `Breathing` | 180 f | **typo fluo** | jaune → **noir inversé** → orange |
-| 00:10 | `ScanUi` | 240 f | viseur | grille+laser → signaux → radar → relevé |
-| 00:14 | `Contrast` | 180 f | **rupture** | profil terne → croix → « NON » + chute |
-| 00:17 | `Perception` | 240 f | objet | distribution → éventail → formule |
-| 00:21 | `Gap` | 240 f | **split diagonal** | fente → deux camps → l'écart |
-| 00:25 | `ScoreHero` | 240 f | objet lumineux | compteur → palier → échelle |
-| 00:29 | `ActionPlan` | 240 f | **téléphone** | notification → plan → gain |
-| 00:33 | `Outro` | 240 f | marque | mot-marque → convergence → verrouillage |
+| 00:00 | `Hook` | **168 f** | objet gravé | médaillon → phrase → chute |
+| 00:02.8 | `Rhythm` | 120 f | viseur | verrouillage + frappe → compte à rebours |
+| 00:04.8 | `Metaphor` | 180 f | objet | arrivée → rafale de clics → verdict |
+| 00:07.8 | `Breathing` | 180 f | **typo fluo** | jaune → **noir inversé** → orange |
+| 00:10.8 | `ScanUi` | 240 f | viseur | grille+laser → signaux → radar → relevé |
+| 00:14.8 | `Contrast` | 180 f | **rupture** | profil terne → croix → « NON » + chute |
+| 00:17.8 | `Perception` | 240 f | objet | distribution → éventail → formule |
+| 00:21.8 | `Gap` | 240 f | **split diagonal** | fente → deux camps → l'écart |
+| 00:25.8 | `ScoreHero` | 240 f | objet lumineux | compteur → palier → échelle |
+| 00:29.8 | `ActionPlan` | 240 f | **téléphone** | notification → plan → gain |
+| 00:33.8 | `Outro` | 240 f | marque | mot-marque → convergence → verrouillage |
 
-Montage : `Blink-Reel`, **2220 frames = 37,00 s**.
+Montage : `Blink-Reel`, **2268 frames = 37,80 s**, son compris.
 
 ### La cadence, tenue par construction
 
@@ -491,6 +497,137 @@ match cut marche ou ne marche pas.
 Le raccord `matchCut` est aussi le seul cadencé en `linearTiming` ; tous les
 autres ont pour horloge le ressort `whip`, avec `curve: 'linear'` passé à la
 présentation.
+
+### La règle de lisibilité, et ce qu'elle a coûté
+
+> **Un mot d'impact reste totalement immobile pendant au moins 18 frames.**
+
+Le premier hook était illisible, et pour une raison mesurable : les mots
+arrivaient au ressort `kick` depuis `slamIn` — échelle 1,75, rotation −12°, flou
+de vitesse — donc pendant leurs vingt premières frames ils étaient
+géométriquement déformés. On voyait qu'il y avait du texte ; on ne pouvait pas
+le lire.
+
+Trois corrections, par ordre d'effet :
+
+1. **`readPop` + ressort `read`** — l'entrée est une simple échelle
+   0,7 → 1,05 → 1. Aucune rotation, aucune translation, **aucun flou**. Partir
+   de 0,7 et non de 0 est ce qui garde le mot déchiffrable pendant toute son
+   entrée : à zéro, il faudrait traverser toutes les tailles intermédiaires ;
+2. **stabilisation en 12 frames** — ζ = 0,527 pose le mot deux fois plus vite
+   que `kick` (ζ = 0,42, ~20 frames). Ces huit frames gagnées sont du temps de
+   lecture pur ;
+3. **une seule caméra en mouvement à la fois** — recul, filé et punch ne se
+   recouvrent jamais. Pendant qu'un mot se lit, le cadre est fixe.
+
+Le hook est passé de 120 à **168 frames**. C'est le seul endroit du film où de
+la durée a été *ajoutée*, et c'est assumé : un hook illisible ne retient
+personne, quelle que soit son énergie. Tout le reste du montage garde son
+resserrement, et le film dure 37,8 s au lieu de 37,0 s.
+
+### Les punch zooms
+
+Un mot qui grossit *lui-même* grossit dans un cadre immobile : l'œil lit un
+changement de taille. Une **caméra** qui avance de 22 % en cinq frames déplace
+tout le cadre en même temps — fond, lueur, éléments voisins — et l'œil lit alors
+un rapprochement. C'est la différence entre un objet qui change et une caméra
+qui réagit.
+
+`<Impact punches={…}>` porte ces mouvements d'axe Z au niveau de la scène, à
+côté des secousses, parce que ce sont deux expressions du même appareil :
+
+```tsx
+<Impact
+  hits={HITS_B}
+  punches={[
+    {at: 24, to: 1.22, rise: 5},               // le coup, puis retour au ressort
+    {at: 60, to: 0.9, rise: 10, hold: true},   // le recul, tenu jusqu'au raccord
+  ]}
+>
+```
+
+Cinq frames à l'aller, retour au ressort `stamp` : la poussée est plus rapide
+que le retour, donc le coup se sent à l'aller et se pose au retour. L'inverse
+donnerait une respiration, pas un impact.
+
+Les punchs tombent sur **sept moments** seulement, tous des mots ou des chiffres
+porteurs : « PARLE », « AVANT TOI. », « 2 », « DÉCIDÉ. », « NON », « UN SEUL
+PROFIL », « L'ÉCART », « 742 », « +48 », « BLINK ».
+
+Le **recul de fin de plan** (`to: 0.9, hold: true`) n'est appliqué qu'aux six
+séquences suivies d'un balayage ou d'une lame. Devant un scale-to-mask il est
+proscrit : ce raccord fonctionne parce que le plan sortant *grandit* jusqu'à
+faire masque, et un pré-recul irait exactement à contresens.
+
+### Le design sonore
+
+Huit sons, et aucun de plus. La contrainte est délibérée : un film de
+trente-huit secondes qui emploierait quinze sons différents n'aurait pas de
+design sonore, il aurait une bande-son. Ce sont les **répétitions** qui rendent
+un son signifiant — le spectateur apprend en deux occurrences que le clic
+mécanique veut dire « validé », et trente secondes plus tard trois clics
+suffisent à dire que trois choses viennent d'être réglées sans qu'aucun texte
+n'ait à l'écrire.
+
+| Son | Volume | Déclencheurs |
+| --- | --- | --- |
+| `camera_shutter.mp3` | 0,40 | ouverture d'un cadre de capture (`Rhythm`, `ScanUi`) |
+| `beep.mp3` | 0,40 | verrouillage de viseur, confirmation d'interface |
+| `click_mechanic.mp3` | 0,50 | tampon, bascule d'interrupteur, clic sur le bouton |
+| `whoosh_fast.mp3` | 0,35 | raccords whip et slash, balayage laser, lame diagonale |
+| `impact_thud.mp3` | 0,50 | punchlines, chiffre qui se verrouille, mot plein cadre |
+| `marker_scratch.mp3` | 0,45 | **la croix au feutre — une seule occurrence** |
+| `card_pop.mp3` | 0,40 | atterrissage des quatre cartes de regard |
+| `count_up_tick.mp3` | 0,30 | montée du score de 0 à 742 |
+
+Trois décisions structurent la piste :
+
+- **les volumes sont hiérarchisés, pas égaux.** Un raccord doit s'entendre sans
+  couvrir ce qu'il relie : le whoosh est 3 dB sous l'impact, et non l'inverse.
+  Le seul endroit où un whoosh passe devant tout le reste est la lame de `Gap`,
+  parce que là le mouvement *est* l'évènement ;
+- **deux frames d'avance systématiques.** Le transitoire d'attaque d'un son met
+  quelques millisecondes à atteindre son pic alors que l'image est instantanée ;
+  `cue()` applique donc 33 ms d'anticipation partout. C'est le pendant sonore de
+  `leadInFrames` dans la partition de voix off ;
+- **le match cut n'a pas de son de raccord.** Son principe est de ne pas se
+  voir ; le souligner d'un whoosh reviendrait à l'annoncer.
+
+Les repères sont déclarés en tête de chaque scène, à côté de ses secousses :
+
+```tsx
+const SFX_B = [cue(0, 'countUpTick', 0.32), cue(24, 'impactThud')];
+…
+<SfxTrack cues={SFX_B} />
+```
+
+`<SfxTrack>` place un `<Audio>` par repère dans une `<Sequence from={at}>`. Les
+repères sont **relatifs à la séquence**, donc déplacer une séquence dans le
+montage emmène son son avec elle. Les whooshs de raccord, eux, n'appartiennent à
+aucune scène : ils sont calculés en absolu dans `BlinkReel` depuis
+`sceneStarts()`.
+
+#### Les fichiers sont synthétisés, pas sourcés
+
+`npm run sfx` régénère les huit fichiers dans `public/sfx/` — sans dépendance,
+sans téléchargement, en moins d'une seconde. Chaque son est construit à partir
+de sa description physique (transitoire, corps, décroissance) par
+`scripts/sfx/build-sfx.mjs` : bruit filtré par un passe-bande à variable d'état
+pour le whoosh, sinusoïde descendant de 120 à 38 Hz pour l'impact, vingt-quatre
+micro-clics à hauteur croissante pour le rouleau du compteur.
+
+Trois raisons de faire ça plutôt que de sourcer des fichiers :
+
+- **licence** — un son fabriqué ici n'a pas d'ayant droit, et une vidéo produit
+  ne peut pas s'appuyer sur un fichier dont la licence n'est pas vérifiée ;
+- **reproductibilité** — le générateur est déterministe (PRNG à graine fixe),
+  donc le même rendu est rejouable des mois plus tard sans dépendre d'un CDN ;
+- **taille** — les huit fichiers pèsent ensemble moins de 45 ko, donc ils sont
+  versionnés avec le code.
+
+Ce sont de vrais sons, pas des silences : ils jouent réellement au rendu. Et ils
+restent **remplaçables un pour un** — déposer un fichier du même nom dans
+`public/sfx/` suffit, aucun code ne change.
 
 ### L'univers visuel, hors interface
 
@@ -599,11 +736,11 @@ défaire le travail de rythme.
 ### Rendu
 
 ```bash
-npx remotion render Blink-Reel out/blink-37s.mp4
+npx remotion render Blink-Reel out/blink-38s.mp4
 npx remotion render Blink-Hook out/hook.mp4
 ```
 
-Compter environ 20 minutes pour les 2220 frames en 1080 × 1920. Chaque séquence
+Compter environ 20 minutes pour les 2268 frames en 1080 × 1920. Chaque séquence
 est aussi une composition autonome, ce qui permet de scruber un battement isolé
 sans rejouer les trente-sept secondes.
 

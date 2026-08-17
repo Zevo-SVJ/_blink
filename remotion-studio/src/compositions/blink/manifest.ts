@@ -1,5 +1,5 @@
 /**
- * PARTITION DE LA VIDÉO BLINK — 11 séquences, 37,0 s
+ * PARTITION DE LA VIDÉO BLINK — 11 séquences, 37,8 s
  *
  * Refonte complète du montage en régime **haute rétention**. La version
  * précédente (13 plans, 43 s) enchaînait des plans longs séparés par des
@@ -30,12 +30,14 @@
  * POURQUOI LES DURÉES SONT ÉCRITES EN DEUX COLONNES
  *
  * `BLINK_SPANS` porte la durée **utile** de chaque séquence : c'est la grille de
- * temps du récit, et elle reproduit à la frame les timecodes du brief.
+ * temps du récit. Elle reproduisait à la frame les timecodes du brief jusqu'à
+ * ce que la règle de lisibilité du hook impose 48 frames de plus ; tout est
+ * donc décalé de 0,8 s à partir de 00:02, et le film dure 37,8 s.
  * `BLINK_SCENES` en dérive en ajoutant la transition qui suit chaque séquence,
  * parce qu'une `TransitionSeries` consomme le raccord sur les deux plans qu'il
  * relie. Cette addition est ce qui garantit que `sceneStarts()` retombe
- * exactement sur 00:00, 00:02, 00:04, 00:07… au lieu de dériver de quelques
- * frames à chaque raccord.
+ * exactement sur le début voulu de chaque séquence au lieu de dériver de
+ * quelques frames à chaque raccord.
  *
  * Écrire une seule colonne à la main serait rejouer le calcul dans la tête à
  * chaque modification — et c'est précisément l'erreur qui a produit des
@@ -44,27 +46,35 @@
 
 /** Durée utile de chaque séquence, transition exclue. */
 export const BLINK_SPANS = {
-	/** 00:00 — Objet gravé. Le médaillon, le tampon fluo, la phrase. */
-	Hook: 120,
-	/** 00:02 — Viseur de capture. « Deux secondes pour convaincre », frappé. */
+	/**
+	 * 00:00 — Objet gravé. Le médaillon, le tampon fluo, la phrase.
+	 *
+	 * 168 et non 120 : la règle de lisibilité impose 18 frames d'immobilité
+	 * totale par mot d'impact, et trois mots plus un tampon ne tiennent pas dans
+	 * deux secondes à ce régime. Les 48 frames ajoutées sont le prix d'un hook
+	 * qui se lit — un hook illisible ne retient personne, quelle que soit son
+	 * énergie.
+	 */
+	Hook: 168,
+	/** 00:02.8 — Viseur de capture. « Deux secondes pour convaincre », frappé. */
 	Rhythm: 120,
-	/** 00:04 — Objet. La sphère et la nuée de curseurs qui cliquent. */
+	/** 00:04.8 — Objet. La sphère et la nuée de curseurs qui cliquent. */
 	Metaphor: 180,
-	/** 00:07 — Typographie fluo. Jaune, noir, deux mots, deux battements. */
+	/** 00:07.8 — Typographie fluo. Jaune, noir, deux mots, deux battements. */
 	Breathing: 180,
-	/** 00:10 — Viseur de capture. La grille scannée au laser. */
+	/** 00:10.8 — Viseur de capture. La grille scannée au laser. */
 	ScanUi: 240,
-	/** 00:14 — Rupture. Le profil terne, la croix au feutre. */
+	/** 00:14.8 — Rupture. Le profil terne, la croix au feutre. */
 	Contrast: 180,
-	/** 00:17 — Objet. Quatre cartes de regard qui tombent en deck. */
+	/** 00:17.8 — Objet. Quatre cartes de regard qui tombent en deck. */
 	Perception: 240,
-	/** 00:21 — Écran fendu en diagonale. Intention contre perception. */
+	/** 00:21.8 — Écran fendu en diagonale. Intention contre perception. */
 	Gap: 240,
-	/** 00:25 — Objet lumineux. Le score, la jauge, les particules. */
+	/** 00:25.8 — Objet lumineux. Le score, la jauge, les particules. */
 	ScoreHero: 240,
-	/** 00:29 — Interface de téléphone. Le plan d'action qui s'exécute seul. */
+	/** 00:29.8 — Interface de téléphone. Le plan d'action qui s'exécute seul. */
 	ActionPlan: 240,
-	/** 00:33 — La marque, la nuée, l'appel à l'action. */
+	/** 00:33.8 — La marque, la nuée, l'appel à l'action. */
 	Outro: 240,
 } as const;
 
@@ -116,7 +126,7 @@ export const BLINK_SCENES = Object.fromEntries(
 	SPAN_IDS.map((id, index) => [id, BLINK_SPANS[id] + (TRANSITION_FRAMES[index] ?? 0)]),
 ) as Record<BlinkSceneId, number>;
 
-/** 2 220 frames = 37,00 s. La somme des durées utiles, ni plus ni moins. */
+/** 2 268 frames = 37,80 s. La somme des durées utiles, ni plus ni moins. */
 export const BLINK_REEL_DURATION = SPAN_IDS.reduce(
 	(total, id) => total + BLINK_SPANS[id],
 	0,
@@ -125,9 +135,9 @@ export const BLINK_REEL_DURATION = SPAN_IDS.reduce(
 /**
  * Position absolue du début de chaque séquence.
  *
- * Par construction — `cursor += span` — ces valeurs sont exactement les
- * timecodes du brief : 0, 120, 240, 420, 600, 840, 1020, 1260, 1500, 1740,
- * 1980. Indispensable pour caler la voix off : une réplique se prononce à
+ * Par construction — `cursor += span` — ces valeurs valent 0, 168, 288, 468,
+ * 648, 888, 1068, 1308, 1548, 1788, 2028. Indispensable pour caler la voix off
+ * et les repères sonores du montage : une réplique se prononce à
  * `sceneStarts()[id] + cue.at`.
  */
 export const sceneStarts = (): Record<BlinkSceneId, number> => {
