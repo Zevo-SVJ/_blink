@@ -3,6 +3,7 @@ import { useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { FAQSection } from "@/components/blink/FAQSection";
+import { FilmSection } from "@/components/blink/FilmSection";
 import { FinalCTA } from "@/components/blink/FinalCTA";
 import { Footer } from "@/components/blink/Footer";
 import { EyeReveal } from "@/components/blink/EyeReveal";
@@ -78,6 +79,10 @@ const Index = () => {
               starts telling you what Blink does. */}
           <EyeReveal />
           <HowItWorks onCTA={handleCTA} />
+          {/* After the demonstration, before the leaderboard: the reader now
+              knows what Blink does, and this is the same thing at the speed a
+              feed would see it. */}
+          <FilmSection />
           <LeaderboardShowcase onCTA={handleCTA} />
           <Testimonials onCTA={handleCTA} />
           <FAQSection />
