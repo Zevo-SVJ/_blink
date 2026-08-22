@@ -71,6 +71,16 @@ for (const [label, w, h] of WIDTHS) {
   if (state.muted && state.loop && state.inline) ok(`${label}: muted, looping, inline`);
   else bad(`${label}: autoplay attributes wrong ${JSON.stringify(state)}`);
 
+  // The brief asks for a real video, not a GIF: the viewer's own play,
+  // pause, scrub and volume, and a file with an audio track behind that
+  // volume button.
+  const player = await video.evaluate((v) => ({
+    controls: v.controls,
+    tracks: v.mozHasAudio ?? v.webkitAudioDecodedByteCount ?? null,
+  }));
+  if (player.controls) ok(`${label}: native controls`);
+  else bad(`${label}: no controls — this is a GIF, not a video`);
+
   if (/blink-ad-(fr|en)-web\.(mp4|webm)$/.test(state.src)) ok(`${label}: chose ${state.src.split("/").pop()}`);
   else bad(`${label}: unexpected source "${state.src}"`);
 
@@ -138,6 +148,28 @@ for (const [label, w, h] of WIDTHS) {
   const src = await page.locator("#film video").evaluate((v) => v.currentSrc);
   if (/blink-ad-fr-web\./.test(src)) ok("a French visitor gets the French cut");
   else bad(`French visitor got "${src.split("/").pop()}"`);
+  await page.close();
+}
+
+/* The section sits directly after the eye. */
+{
+  console.log("\n=== position ===");
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.goto(APP + "/", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(700);
+  const order = await page.evaluate(() => {
+    const ids = [...document.querySelectorAll("main section, main > div")]
+      .map((el) => el.id)
+      .filter(Boolean);
+    return ids;
+  });
+  const film = order.indexOf("film");
+  const how = order.indexOf("how-it-works");
+  if (film >= 0 && how >= 0 && film < how) {
+    ok(`the film comes before How It Works (${order.join(" → ")})`);
+  } else {
+    bad(`unexpected order: ${order.join(" → ")}`);
+  }
   await page.close();
 }
 

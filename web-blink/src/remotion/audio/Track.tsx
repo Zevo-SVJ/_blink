@@ -17,6 +17,8 @@ import { Audio, Sequence } from "remotion";
 import { BED, CUES, type SfxName } from "./cues";
 
 import bassHit from "./bass-hit.mp3";
+import drop from "./drop.mp3";
+import glitch from "./glitch.mp3";
 import bed from "./bed.mp3";
 import blip from "./blip.mp3";
 import chime from "./chime.mp3";
@@ -35,6 +37,8 @@ import whooshShort from "./whoosh-short.mp3";
 const FILES: Record<SfxName, string> = {
   impact,
   "bass-hit": bassHit,
+  drop,
+  glitch,
   whoosh,
   "whoosh-short": whooshShort,
   pop,
@@ -71,7 +75,7 @@ export function Track({ muted = false }: { muted?: boolean }) {
           // stops it at the end of the composition regardless.
           durationInFrames={60}
         >
-          <Audio src={FILES[cue.sfx]} volume={cue.gain ?? 0.7} trimBefore={cue.trim} />
+          <Audio src={FILES[cue.sfx]} volume={cue.gain ?? 0.7} />
         </Sequence>
       ))}
     </>

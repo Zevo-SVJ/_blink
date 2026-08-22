@@ -69,24 +69,56 @@ console.log(
     `(${(composition.durationInFrames / composition.fps).toFixed(1)}s)`,
 );
 
-/* The beats worth looking at, named. Derived from the edit so a moment that
+/* The beats worth looking at, named. Derived from the edit, so a beat that
    moves is still photographed at the same point in its own life. */
-const { MOMENTS } = await import("../src/remotion/timeline.ts").catch(() => ({}));
+const T = await import("../src/remotion/timeline.ts");
 
 const frames = process.env.FRAMES
   ? process.env.FRAMES.split(",").map((f) => ({ frame: Number(f), name: `f${f}` }))
   : defaultBeats(composition.durationInFrames);
 
 function defaultBeats(total) {
-  // Head, a third in, and the tail of every moment, plus the true first and
-  // last frames — the two that a thumbnail and a loop are taken from.
   const beats = [];
-  for (const m of MOMENTS ?? []) {
-    beats.push({ frame: m.from, name: `${m.id}-in` });
-    beats.push({ frame: m.from + Math.floor(m.duration * 0.55), name: `${m.id}-mid` });
+
+  // Every named beat in the edit, plus a frame a few after it so both the
+  // arrival and the settle are on record — a spring looks completely
+  // different at its peak and at rest.
+  const named = [
+    ...T.HOOK_BEATS.map((f, i) => [f, `hook${i + 1}`]),
+    [T.WHIP, "whip"],
+    [T.PROFILE_IN, "profile"],
+    [T.EYE_IN, "eye"],
+    [T.SCAN_FROM, "laser-start"],
+    [Math.round((T.SCAN_FROM + T.SCAN_TO) / 2), "laser-mid"],
+    [T.SCAN_TO, "laser-end"],
+    ...T.TAG_BEATS.map((f, i) => [f, `tag${i + 1}`]),
+    [T.GLITCH, "glitch"],
+    [T.FLAG_WORD, "flag-word"],
+    [T.GAUGE_FROM, "gauge-start"],
+    [T.GAUGE_TO, "gauge-full"],
+    [T.TYPE_FROM, "typing"],
+    [T.PRESS, "press"],
+    [T.SLOGAN, "slogan"],
+  ];
+
+  for (const [f, name] of named) {
+    beats.push({ frame: f, name });
+    beats.push({ frame: f + 5, name: `${name}+5` });
+  }
+
+  // The head and tail of every scene, and the true last frame — the one a
+  // loop cuts back from.
+  for (const scene of T.SCENES) {
+    beats.push({ frame: scene.from + scene.duration - 2, name: `${scene.id}-out` });
   }
   beats.push({ frame: total - 1, name: "last" });
-  return beats.filter((b) => b.frame >= 0 && b.frame < total);
+
+  // Deduplicate by frame, keeping the first name, and sort.
+  const seen = new Map();
+  for (const b of beats) {
+    if (b.frame >= 0 && b.frame < total && !seen.has(b.frame)) seen.set(b.frame, b);
+  }
+  return [...seen.values()].sort((a, b) => a.frame - b.frame);
 }
 
 console.log(`Rendering ${frames.length} stills …`);
@@ -116,22 +148,23 @@ for (const beat of frames) {
 
 console.log(`\n${written.length} stills in qa/film/`);
 
-/* Contact sheets, one per act, so pacing can be read and not just frames. */
-const { ACTS } = await import("../src/remotion/timeline.ts");
-const sheets = ACTS.map((act) => ({
-  ...act,
-  shots: written.filter((w) => w.frame >= act.from && w.frame < act.to),
+/* Contact sheets, one per scene, so pacing can be read and not just frames. */
+const sheets = T.SCENES.map((scene) => ({
+  id: scene.id,
+  shots: written.filter(
+    (w) => w.frame >= scene.from && w.frame < scene.from + scene.duration,
+  ),
 }));
 
 for (const sheet of sheets) {
   if (!sheet.shots.length) continue;
   const html = `<!doctype html><meta charset="utf-8">
-<body style="margin:0;background:#0b0f1a;display:inline-flex;gap:12px;padding:16px;font:12px system-ui">
+<body style="margin:0;background:#0b0f1a;display:inline-flex;gap:10px;padding:14px;font:11px system-ui">
 ${sheet.shots
   .map(
     (s) => `<figure style="margin:0">
-<figcaption style="color:#7fa;padding-bottom:5px">f${s.frame} · ${s.name}</figcaption>
-<img src="data:image/png;base64,${fs.readFileSync(s.file).toString("base64")}" style="width:186px;display:block;border-radius:9px">
+<figcaption style="color:#7fa;padding-bottom:4px">f${s.frame} · ${s.name}</figcaption>
+<img src="data:image/png;base64,${fs.readFileSync(s.file).toString("base64")}" style="width:150px;display:block;border-radius:8px">
 </figure>`,
   )
   .join("")}

@@ -255,6 +255,34 @@ console.log("Writing the kit to public/sfx …");
   write("lock", s, 0.8);
 }
 
+/* The pattern interrupt. Not a "glitch" in the music-production sense — a
+   short burst of broadband noise with a hard gate, so it reads as the picture
+   tearing rather than as a sound effect being played. */
+{
+  const s = buf(0.26);
+  noise(s, { from: 900, to: 240, q: 0.5, gain: 0.9, decay: 0.1, attack: 0.001 });
+  noise(s, { from: 4200, to: 6000, q: 0.7, gain: 0.4, decay: 0.05, attack: 0.001 });
+  tri(s, { freq: 130, to: 44, gain: 0.5, decay: 0.16 });
+  // Gate it into three fragments — a continuous burst sounds like static.
+  for (let i = 0; i < s.length; i += 1) {
+    const t = i / RATE;
+    const on = t < 0.03 || (t > 0.055 && t < 0.085) || (t > 0.11 && t < 0.15);
+    if (!on) s[i] *= 0.06;
+  }
+  write("glitch", s);
+}
+
+/* The weight under the red flag. A slow drop with a second harmonic — felt in
+   the chest rather than heard, which is what makes an observation land as a
+   verdict. */
+{
+  const s = buf(1.2);
+  sine(s, { freq: 128, to: 27, gain: 1, decay: 0.85, curve: 0.6 });
+  sine(s, { freq: 64, to: 22, gain: 0.75, decay: 1.0, curve: 0.6 });
+  tri(s, { freq: 420, to: 96, gain: 0.16, decay: 0.2 });
+  write("drop", s);
+}
+
 console.log("done.");
 
 /* ── compress ──────────────────────────────────────────────────────────

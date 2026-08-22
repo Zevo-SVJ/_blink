@@ -1,81 +1,80 @@
 # The Blink ad
 
-A twenty-one second vertical film, 1080×1920, built with Remotion. It plays on
-the landing page and renders to MP4 for TikTok and Reels.
+A twelve-second vertical film, 1080×1920, built with Remotion. It plays on the
+landing page and renders to MP4 for TikTok and Reels.
 
 ```
 npm run video:studio     # the Remotion studio — scrub, edit, watch
 npm run video:render     # both languages: masters + web cuts + posters
-npm run video:stills     # every moment, as PNGs and contact sheets
+npm run video:stills     # every named beat, as PNGs and contact sheets
 npm run video:audio      # regenerate the SFX kit and the music bed
 ```
 
 ## The cut
 
-Twenty-five moments across five acts, averaging under a second each. That
-cadence is the retention mechanism, not a style: a vertical ad competes with a
-thumb, and the previous version's seven scenes across twenty-three seconds read
-as a slideshow.
+Six scenes, twelve seconds, thirty frames a second. Every timing is in
+`timeline.ts` — a scene component never contains a timing decision.
 
-| Act | What it has to do |
-| --- | --- |
-| **Hook** (0–3s) | A profile is on screen at frame zero. Three words, three impacts. A reticle locks onto the avatar. The camera drives into it. |
-| **Analysis** (3–7s) | The avatar *is* the iris — that is the match cut. The profile travels through the aperture, a scan passes down it, and four signals are thrown out of the eye. |
-| **Perceptions** (7–13s) | Four adjectives land huge and demote themselves into a stack. Then two frames of black and the interrupt. |
-| **Score** (13–15s) | The number is the composition. The tags return to orbit it as evidence. |
-| **CTA** (15–21s) | The product, used: a handle typed, a button pressed, a result. Then the line and the ask. |
-
-`timeline.ts` is the whole edit. Moments are names and durations; positions are
-derived, so lengthening one moves everything after it — including its sound.
+| | | |
+| --- | --- | --- |
+| **Hook** | 0.0–2.0s | Four blocks of type crash in on frames 0, 15, 30, 45. Nothing else on screen. |
+| **Illusion** | 2.0–3.5s | Whip pan onto the profile as its owner sees it. It springs up from below the frame. |
+| **Scan** | 3.5–6.0s | The eye slams over it, a laser passes down the grid, and where it passes the photos are gone and personality tags are there instead. |
+| **Flag** | 6.0–8.0s | A chromatic-aberration tear, the background goes warm, and the read nobody asks for lands. |
+| **Score** | 8.0–10.0s | The gauge fills in fifteen frames. Not slowly — a meter that fills slowly is a loading indicator. |
+| **CTA** | 10.0–12.0s | The product used: a handle typed, a button pressed. Then the line. |
 
 ## Rules the code enforces
 
-- **Nothing fades in.** Words arrive from a direction, past their mark, and
-  back; or a mask uncovers them. Opacity only takes the edge off the first two
-  frames of an arrival. A film built on opacity is a slideshow.
-- **Transitions are objects moving.** A bar crosses the frame and the next shot
-  is behind it. The frame whips sideways. A circle grows out of a point. Never
-  a cross-dissolve.
-- **Type is fitted, not sized.** `fitSize` measures the string against the
-  column it has, in caps-aware advance widths, with headroom for the spring's
-  overshoot. Every clipping bug in this film's history came from skipping one
-  of those three.
-- **The eye is the landing page's eye.** `elements/Eye.tsx` imports
-  `components/blink/eye-geometry`, so the film and the site cannot drift.
+- **Nothing fades in.** `Crash` throws a word at the camera from 3× and lets
+  the spring settle it. Opacity is used for two frames on a pop-in and nowhere
+  else.
+- **The frame is never static.** `Camera` has a `drift` that is on by default:
+  a continuous creep to about 1.05 across every scene, too slow to notice and
+  the difference between a video and a slide.
+- **Springs are the brief's:** stiffness 300, damping 20. `peakOf()` derives
+  how far each preset overshoots, and anything sizing type to a column divides
+  by it — the frame does not care that the extra width lasts three frames.
+- **Type is fitted, not sized.** `fitSize` measures the string in caps-aware
+  advance widths. Every clipping bug this film has had came from skipping that.
+- **Colours go through `a()`.** Appending hex alpha to an `hsl()` string makes
+  `hsl(208 95% 60%)44`, which is not a colour — browsers drop it silently. Nine
+  glows rendered as nothing before this existed, and a test now guards it.
+- **The glitch fires once.** A film that glitches on every cut has no cuts.
 
 ## Sound
 
-Fourteen effects and a music bed, synthesised by `scripts/make-audio.mjs` and
-committed as MP3. Generated rather than licensed so the kit is versioned as
-code and tunable by changing a number.
+Sixteen effects and a music bed, synthesised by `scripts/make-audio.mjs` and
+committed as MP3 — versioned as code, tunable by changing a number.
 
-Cues are frames, derived from `timeline.ts`, so moving a beat moves its sound.
-The bed is written *against the edit* — it drops out under the interrupt and
+Cues are frames imported from `timeline.ts`, so moving a beat moves its sound.
+The bed is written *against* the cut: it drops out under the interrupt and
 returns for the score. Mixed for voice over SFX over music, with the voice slot
-still empty: adding narration is one more `<Audio>` and a lower `BED_GAIN`.
+still empty — narration is one more `<Audio>` and a lower `BED_GAIN`.
 
-## A/B testing the hook
+## Changing it
 
-Three hooks are written, in both languages. `ACTIVE_HOOK` in `copy.ts` picks
-one. Every variant is three impacts on the same frames and nothing downstream
-refers to the words, so swapping it replaces the opening without touching the
-edit, the sound, or any other moment.
+- **A different hook** — `copy.hook` is four blocks and `HOOK_BEATS` is four
+  frames. Change the words; nothing downstream refers to them.
+- **A different beat** — `timeline.ts`. Picture and sound both read it.
+- **A different scene order** — reorder `SCENES`. Positions are derived.
 
 ## Rendering in this container
 
 Two things are not default:
 
-- Remotion downloads its own Chrome Headless Shell, and egress blocks that
-  host. The render scripts point at Playwright's `chrome-headless-shell`
-  instead. Override with `REMOTION_CHROME`.
+- Remotion downloads its own Chrome Headless Shell and egress blocks that host,
+  so the render scripts point at Playwright's `chrome-headless-shell`. Override
+  with `REMOTION_CHROME`.
 - The `ffmpeg` on `PATH` is Playwright's, built `--disable-everything`; it
   cannot read a WAV. The full build ships with Remotion's compositor, which is
-  what `make-sfx.mjs` uses to encode.
+  what `make-sfx.mjs` uses.
 
 ## Reviewing it
 
-**Render stills and look at them.** The unit tests in `src/test/video.test.ts`
-cover the arithmetic — no gaps in the edit, cues inside the film, both
-languages cut identically, the type fitter charging more for capitals. They
-cannot tell you a word is touching the edge of frame or that a tag is sitting
-on an arc. Both shipped past a green build here.
+**Render stills and look at them.** `src/test/video.test.ts` covers the
+arithmetic — the scenes tile the timeline, the beats land on the frames the
+brief names, the gauge fills in fifteen, cues sit inside the film, the type
+fitter charges more for capitals. None of that can tell you a word is touching
+the edge of frame, that a label is sitting inside the logo, or that every glow
+in the film is silently missing. All three shipped past a green build here.

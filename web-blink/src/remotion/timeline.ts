@@ -1,151 +1,109 @@
 /**
  * The edit.
  *
- * One flat list of moments, in order, each with a length in frames. Nothing
- * here knows what a moment looks like — a moment is a name and a duration, and
- * the film mounts a component for each. That is what makes the order
- * changeable: drop a moment, reorder two, lengthen the hook, and every cue
- * after it moves with it because positions are derived, never written down.
+ * Six scenes, twelve seconds, thirty frames a second. Every number here comes
+ * from the brief rather than from taste — the beats are specified to the frame
+ * and this file is where they live, so a scene component never contains a
+ * timing decision.
  *
- * ## Why so many
+ * ## Why twelve seconds
  *
- * The previous cut had seven scenes across twenty-three seconds — a visual
- * event roughly every three seconds, which is a slideshow. This has
- * twenty-five across twenty-one, averaging under a second each. A vertical ad
- * is competing with a thumb; the cadence *is* the retention mechanism.
+ * Half the length of the cut it replaces. A vertical ad is not a short film;
+ * it is a thing a thumb decides about. Compressing the same story into twelve
+ * seconds forces every beat to justify itself, and there is nowhere left for a
+ * scene to sit and breathe on its own — which is exactly the note the previous
+ * version failed.
  *
- * That is not the same as making everything fast. The list deliberately
- * alternates: bursts of three or four short moments, then one longer beat that
- * holds still. `breath: true` marks the ones that are allowed to be slow, and
- * they exist so the fast ones read as fast.
+ * ## Reading the table
+ *
+ * `from` and `duration` are absolute frames. Sub-beats inside a scene are
+ * exported as named constants rather than written inline, so the four hook
+ * impacts land on 0/15/30/45 in the timeline *and* in the cue sheet, and
+ * moving one moves both.
  */
 
-export type MomentId =
-  // Act 1 — hook
-  | "slam"
-  | "hookLine"
-  | "lock"
-  | "pushToEye"
-  // Act 2 — the analysis
-  | "eyeOpen"
-  | "scanPass"
-  | "signals"
-  | "readingLine"
-  | "wipeToTags"
-  // Act 3 — perceptions
-  | "tag1"
-  | "tag2"
-  | "tag3"
-  | "tag4"
-  | "stack"
-  | "redFlagHit"
-  | "redFlagWord"
-  // Act 4 — the score
-  | "scoreRise"
-  | "scoreLand"
-  | "scoreLine"
-  // Act 5 — the product, and the ask
-  | "appOpen"
-  | "typing"
-  | "submit"
-  | "resultFlash"
-  | "ctaLine"
-  | "logo";
+export const FPS = 30;
 
-export interface Moment {
-  id: MomentId;
-  /** Frames this moment owns. */
+export type SceneId = "hook" | "illusion" | "scan" | "flag" | "score" | "cta";
+
+export interface Scene {
+  id: SceneId;
+  from: number;
   duration: number;
-  /**
-   * A beat that is allowed to sit still. Marked rather than inferred so the
-   * rhythm can be read off this file: three of these in a row would be the
-   * bug the last cut had.
-   */
-  breath?: boolean;
-  /**
-   * Frames this moment is mounted *before* its slot, so it can animate on
-   * underneath the one still leaving. Cuts are hard; overlaps are for
-   * transitions that physically carry one picture into the next.
-   */
-  lead?: number;
 }
 
-const LIST: Moment[] = [
-  // ── Act 1 · hook ──────────────────────────────────────────────────
-  // A profile is on screen at frame zero. No logo, no fade up: the first
-  // thing the viewer sees is the thing the ad is about.
-  { id: "slam", duration: 20 },
-  { id: "hookLine", duration: 28 },
-  { id: "lock", duration: 22 },
-  { id: "pushToEye", duration: 20 },
+/** 0.0s – 2.0s — four text impacts, nothing else. */
+const HOOK = { from: 0, duration: 60 };
+/** 2.0s – 3.5s — whip pan onto the profile. */
+const ILLUSION = { from: 60, duration: 45 };
+/** 3.5s – 6.0s — the eye, the scan, the tags. */
+const SCAN = { from: 105, duration: 75 };
+/** 6.0s – 8.0s — the interrupt. */
+const FLAG = { from: 180, duration: 60 };
+/** 8.0s – 10.0s — the score. */
+const SCORE = { from: 240, duration: 60 };
+/** 10.0s – 12.0s — the product, and the ask. */
+const CTA = { from: 300, duration: 60 };
 
-  // ── Act 2 · the analysis ──────────────────────────────────────────
-  // The avatar became the iris on the cut, so the eye is already the same
-  // object the viewer was looking at a frame ago.
-  { id: "eyeOpen", duration: 22, lead: 6 },
-  { id: "scanPass", duration: 30 },
-  { id: "signals", duration: 34 },
-  { id: "readingLine", duration: 22, breath: true },
-  { id: "wipeToTags", duration: 16 },
-
-  // ── Act 3 · perceptions ───────────────────────────────────────────
-  { id: "tag1", duration: 22 },
-  { id: "tag2", duration: 22 },
-  { id: "tag3", duration: 22 },
-  { id: "tag4", duration: 22 },
-  { id: "stack", duration: 20, breath: true },
-  // The interrupt. Everything that has just been established gets taken away.
-  { id: "redFlagHit", duration: 26 },
-  { id: "redFlagWord", duration: 28 },
-
-  // ── Act 4 · the score ─────────────────────────────────────────────
-  { id: "scoreRise", duration: 30 },
-  { id: "scoreLand", duration: 26 },
-  { id: "scoreLine", duration: 22, breath: true },
-
-  // ── Act 5 · the product, and the ask ──────────────────────────────
-  // Somebody who has never heard of Blink has to leave knowing what it does,
-  // so the last third is the product being used rather than more claims.
-  { id: "appOpen", duration: 20 },
-  { id: "typing", duration: 36 },
-  { id: "submit", duration: 16 },
-  { id: "resultFlash", duration: 24 },
-  { id: "ctaLine", duration: 32 },
-  { id: "logo", duration: 48, breath: true },
+export const SCENES: Scene[] = [
+  { id: "hook", ...HOOK },
+  { id: "illusion", ...ILLUSION },
+  { id: "scan", ...SCAN },
+  { id: "flag", ...FLAG },
+  { id: "score", ...SCORE },
+  { id: "cta", ...CTA },
 ];
 
-export interface Slot extends Moment {
-  /** Absolute frame this moment begins on. */
-  from: number;
-}
+export const DURATION = SCENES.reduce((n, s) => Math.max(n, s.from + s.duration), 0);
 
-export const MOMENTS: Slot[] = (() => {
-  let cursor = 0;
-  return LIST.map((m) => {
-    const slot = { ...m, from: cursor };
-    cursor += m.duration;
-    return slot;
-  });
-})();
+const INDEX = new Map(SCENES.map((s) => [s.id, s]));
 
-export const DURATION = MOMENTS.reduce((n, m) => n + m.duration, 0);
+export const at = (id: SceneId): number => INDEX.get(id)?.from ?? 0;
+export const len = (id: SceneId): number => INDEX.get(id)?.duration ?? 0;
+export const end = (id: SceneId): number => at(id) + len(id);
 
-const INDEX = new Map(MOMENTS.map((m) => [m.id, m]));
+/* ── beats inside the scenes ─────────────────────────────────────────
+   Named because both the picture and the sound refer to them. A beat that
+   only existed as a literal inside a component would drift the moment the
+   scene moved. */
 
-/** Absolute frame a moment starts on. */
-export const at = (id: MomentId): number => INDEX.get(id)?.from ?? 0;
+/** The four hook impacts, absolute. */
+export const HOOK_BEATS = [0, 15, 30, 45];
 
-/** How long a moment holds. */
-export const len = (id: MomentId): number => INDEX.get(id)?.duration ?? 0;
+/** The whip that carries the hook into the profile. */
+export const WHIP = at("illusion") - 4;
+/** The profile springing up from below. */
+export const PROFILE_IN = at("illusion") + 4;
 
-/** Absolute frame a moment ends on. */
-export const end = (id: MomentId): number => at(id) + len(id);
+/** The eye slamming over the profile. */
+export const EYE_IN = at("scan");
+/** The laser starting and finishing its pass down the grid. */
+export const SCAN_FROM = at("scan") + 8;
+export const SCAN_TO = at("scan") + 32;
+/** The three tags, absolute — 120, 130, 140 in the brief. */
+export const TAG_BEATS = [120, 130, 140];
 
-/** Acts, for the studio's chapter markers and for reasoning about pace. */
-export const ACTS = [
-  { id: "hook", label: "Hook", from: at("slam"), to: end("pushToEye") },
-  { id: "analysis", label: "Analysis", from: at("eyeOpen"), to: end("wipeToTags") },
-  { id: "perceptions", label: "Perceptions", from: at("tag1"), to: end("redFlagWord") },
-  { id: "score", label: "Score", from: at("scoreRise"), to: end("scoreLine") },
-  { id: "cta", label: "CTA", from: at("appOpen"), to: end("logo") },
-] as const;
+/**
+ * The glitch that tears into the red flag.
+ *
+ * Three frames *before* the cut, not on it. On the cut itself there is
+ * nothing on screen to tear — the outgoing scene has ended and the incoming
+ * one has not drawn a thing yet — so the effect fired over flat navy and the
+ * frame came back empty. Starting early means it tears the end of the scan
+ * and carries through into the flag, which is what a torn signal across an
+ * edit actually looks like.
+ */
+export const GLITCH = at("flag") - 3;
+/** The word landing. */
+export const FLAG_WORD = at("flag") + 10;
+
+/** The gauge fills in fifteen frames, not slowly. */
+export const GAUGE_FROM = at("score") + 6;
+export const GAUGE_TO = GAUGE_FROM + 15;
+
+/** Typing, one character every two frames. */
+export const TYPE_FROM = at("cta") + 6;
+export const KEY_EVERY = 2;
+/** The button being pressed, and the slogan under it. */
+export const PRESS = at("cta") + 34;
+export const SLOGAN = at("cta") + 40;
