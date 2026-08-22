@@ -81,6 +81,24 @@ const en = {
     lensPrefix: "How",
   },
 
+  /**
+   * The film.
+   *
+   * Section chrome only — the words inside the picture live in
+   * `src/video/copy.ts`, because they are cut to frames rather than laid out
+   * in a document.
+   */
+  film: {
+    eyebrow: "In twenty seconds",
+    heading: "This is what Blink does.",
+    subtitle:
+      "The same read the app gives you, at speed. Sound is off — turn it on.",
+    soundOn: "Sound on",
+    soundOff: "Sound off",
+    play: "Play",
+    replay: "Replay",
+  },
+
   howItWorks: {
     eyebrow: "How it works",
     heading: "One screenshot becomes a perception.",
@@ -675,6 +693,17 @@ const fr: Messages = {
     lensFriends: "tes amis te voient",
     lensRecruiter: "un recruteur te voit",
     lensPrefix: "Comment",
+  },
+
+  film: {
+    eyebrow: "En vingt secondes",
+    heading: "Voilà ce que fait Blink.",
+    subtitle:
+      "La même lecture que dans l\u2019app, en accéléré. Le son est coupé — active-le.",
+    soundOn: "Son activé",
+    soundOff: "Son coupé",
+    play: "Lancer",
+    replay: "Revoir",
   },
 
   howItWorks: {
