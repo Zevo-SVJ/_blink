@@ -55,10 +55,27 @@ for (const [device, viewport] of [
 
   // Scroll the section into view so its observer starts the sequence, then
   // hold still and watch both the document height and our own scroll position.
+  /*
+    Instant, not the page's own smooth scroll.
+
+    `scrollIntoView` inherits `scroll-behavior: smooth` from `html`, so this
+    harness used to start sampling while its *own* glide was still finishing —
+    and then reported that glide as "the page scrolled by itself". The
+    give-away was the deltas decelerating (46, 39, 31 …), which is an easing
+    curve landing, not a page misbehaving. It only surfaced once the document
+    grew tall enough for the glide to outlast the wait, which means the check
+    was always this fragile and simply had not been caught out yet.
+  */
   await page.evaluate(() => {
-    document.querySelector("#how-it-works")?.scrollIntoView({ block: "center" });
+    const el = document.querySelector("#how-it-works");
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({
+      top: Math.round(top - (window.innerHeight - el.getBoundingClientRect().height) / 2),
+      behavior: "instant",
+    });
   });
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(900);
 
   const samples = await page.evaluate(
     () =>

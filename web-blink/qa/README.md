@@ -21,7 +21,18 @@ node qa/animations.mjs      # nothing shifts the page height or the scroll
 node qa/toast-position.mjs  # the activity notification stays centred
 node qa/language-leaks.mjs  # no English in the French app, or the reverse
 node qa/legal-assert.mjs    # the legal pages render, link and translate
+node qa/eye.mjs            # the scroll-driven eye: geometry, pinning, reversal
 ```
+
+`qa/eye.mjs` takes the widths to test and writes one screenshot per stage:
+
+```sh
+WIDTHS=320,375,390,430,768,1280,1920 node qa/eye.mjs
+node qa/eye-sheet.mjs 390   # the six stages side by side
+```
+
+Look at the strip, not just the stills. Uneven pacing is invisible frame by
+frame — each still looks fine on its own — and it is what the strip is for.
 
 `qa/animations.mjs` also checks the analysis reticle, which only exists behind
 `?mock=own` on the dev server:
@@ -67,6 +78,7 @@ the artefact that ships, and it is the one that can differ.
 | `home-buttons.mjs` | Is there exactly one way Home, and is it the navigation? |
 | `nav-scroll.mjs` | Does a profile open at its top, and does Back return you exactly where you were? |
 | `badge-and-consistency.mjs` | Who carries the claimed mark, and does every view of the board agree with every other? |
+| `eye.mjs` | Does the eye stay pinned and centred, open evenly, reverse exactly, and hold the document still while it plays? |
 
 ## Reproducing an unapplied migration
 
@@ -91,5 +103,11 @@ missing it, which is not a state a real database has ever been in.
 - **`innerText` is the transformed text.** A label styled `uppercase` reads back
   uppercase, so compare case-insensitively.
 - **`\b` is ASCII-only in JavaScript regex.** `/\bPRIVÉ\b/` never matches.
+- **`overflow-x: hidden` defeats `position: sticky`.** `hidden` on one axis
+  coerces the other to `auto`, making the element a scroll container. Use
+  `clip`, which does not.
+- **Scroll the page yourself, instantly.** `scrollIntoView` inherits
+  `scroll-behavior: smooth` from `html`, so a harness that samples too soon
+  measures its own glide and reports it as the page moving on its own.
 - Set `CHROME=/path/to/chrome` if Playwright's pinned build is not the one
   installed.

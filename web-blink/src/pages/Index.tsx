@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { FAQSection } from "@/components/blink/FAQSection";
 import { FinalCTA } from "@/components/blink/FinalCTA";
 import { Footer } from "@/components/blink/Footer";
+import { EyeReveal } from "@/components/blink/EyeReveal";
 import { Hero } from "@/components/blink/Hero";
 import { HowItWorks } from "@/components/blink/HowItWorks";
 import { LeaderboardShowcase } from "@/components/blink/LeaderboardShowcase";
@@ -45,7 +46,11 @@ const Index = () => {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="relative min-h-screen overflow-x-hidden">
+      {/* `overflow-x-clip` rather than `-hidden`: `hidden` on one axis coerces
+          the other to `auto`, turning this into a scroll container and
+          defeating the pinned stage in `EyeReveal`. `clip` hides the same
+          overflow without creating one. */}
+      <div className="relative min-h-screen overflow-x-clip">
         {/* One continuous visual environment; sections sit transparent on top. */}
         <PageBackground glows />
 
@@ -68,6 +73,10 @@ const Index = () => {
 
         <main>
           <Hero onCTA={handleCTA} />
+          {/* Between the promise and the explanation: the eye opens as you
+              scroll away from the hero, and is open by the time How It Works
+              starts telling you what Blink does. */}
+          <EyeReveal />
           <HowItWorks onCTA={handleCTA} />
           <LeaderboardShowcase onCTA={handleCTA} />
           <Testimonials onCTA={handleCTA} />

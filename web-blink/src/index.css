@@ -72,7 +72,10 @@
     background-color: hsl(220 84% 10%);
     font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
     font-feature-settings: "ss01" on, "tnum" on;
-    overflow-x: hidden;
+    /* `clip`, not `hidden`, for the same reason as `html` below: `hidden` on
+       one axis coerces the other to `auto`, which makes this a scroll
+       container and silently defeats `position: sticky` anywhere inside it. */
+    overflow-x: clip;
   }
 
   ::selection {
