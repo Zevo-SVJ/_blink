@@ -644,10 +644,26 @@ Deux règles de rédaction gouvernent le texte :
   en battements d'une seconde, une voix qui s'arrêterait à chaque coupe
   soulignerait le découpage au lieu de le porter.
 
-Deux modes de livraison : `single` (un `voiceover.mp3` posé à la frame 0, le
-défaut) ou `lines` (un fichier par réplique, chacun placé à sa frame — la voix
-reste collée aux marques quoi qu'il arrive au montage). `public/vo/README.md`
-donne le profil de voix, les réglages et la marche à suivre.
+**Trois modes de calage**, et c'est le troisième qui est en service :
+
+- `single` — le fichier entier à la frame 0. La synchronisation dépend alors
+  entièrement des silences enregistrés, et le moindre écart de débit dérive. La
+  dérive **s'accumule** : sur la prise livrée, la dernière phrase arrivait
+  21,6 s trop tôt et les 22 dernières secondes du film étaient muettes ;
+- `segments` — **le mode en service.** Le même fichier unique, lu par tranches :
+  `trimBefore` / `trimAfter` délimitent l'intervalle, `<Sequence from>` décide
+  où il tombe. Chaque tranche repart de sa propre marque, donc la dérive ne peut
+  plus s'accumuler — et il n'y a aucun fichier intermédiaire à produire ni à
+  ré-encoder. Les six bornes tombent dans les silences réels de la prise,
+  relevés sur son enveloppe d'énergie à 10 ms de résolution : couper ailleurs
+  amputerait un mot ;
+- `lines` — un fichier par réplique. Le plus robuste quand l'enregistrement est
+  commandé phrase par phrase.
+
+`npm run vo` imprime le calage en vigueur et **refuse un chevauchement** : une
+tranche qui déborde sur la suivante ne se voit pas au montage, elle ne s'entend
+qu'une fois le rendu terminé. `public/vo/README.md` donne le profil de voix, les
+réglages et la table des six tranches.
 
 Tant que `VOICE_ENABLED` est à `false`, le projet se rend sans voix : un
 `<Audio>` pointant sur un fichier absent ferait échouer le rendu entier. Le

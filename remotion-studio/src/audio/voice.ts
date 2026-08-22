@@ -40,8 +40,14 @@ import type {BlinkSceneId} from '@/compositions/blink/manifest';
  *     porter.
  */
 
-/** `single` : un fichier unique. `lines` : un fichier par réplique. */
-export const VOICE_MODE: 'single' | 'lines' = 'single';
+/**
+ * `single`   — un fichier unique posé à la frame 0.
+ * `lines`    — un fichier par réplique, chacun à sa frame.
+ * `segments` — **un seul fichier, lu par tranches**, chaque tranche posée à sa
+ *              propre frame. C'est le mode en service : il donne la précision
+ *              du mode `lines` sans exiger treize fichiers.
+ */
+export const VOICE_MODE: 'single' | 'lines' | 'segments' = 'segments';
 
 /**
  * Passe à `true` **une fois les fichiers déposés** dans `public/vo/`.
@@ -182,6 +188,141 @@ export const voice: VoiceLine[] = [
 		staging: 'La marque, puis la nuée de curseurs qui converge sur le bouton.',
 	},
 ];
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * LE CALAGE PAR TRANCHES
+ *
+ * La prise livrée est un bloc continu de 15,46 s : 14,84 s de parole pour
+ * 0,62 s de silence. Posée à la frame 0, elle se termine à 15,5 s alors qu'il
+ * reste 22 s d'image, et chaque groupe arrive de plus en plus tôt — la dérive
+ * atteignait 21,6 s sur la dernière phrase.
+ *
+ * La correction ne consiste pas à découper le fichier en morceaux sur le
+ * disque, mais à en **lire des tranches**. `<Audio trimBefore trimAfter>` dans
+ * une `<Sequence from>` joue l'intervalle voulu du fichier à la position
+ * voulue : un seul fichier, six placements, aucune génération intermédiaire et
+ * aucune perte de qualité par ré-encodage.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * OÙ SONT LES COUPES, ET POURQUOI LÀ
+ *
+ * Les bornes `from`/`to` ne sont pas des estimations : elles tombent dans les
+ * cinq silences réels de la prise, relevés sur son enveloppe d'énergie à 10 ms
+ * de résolution. Couper dans un silence est la seule façon de garantir qu'aucun
+ * mot n'est amputé ni au début ni à la fin d'une tranche.
+ *
+ *   silence    2,74 → 2,88 s   coupe à 2,81
+ *   silence    6,95 → 7,12 s   coupe à 7,03
+ *   silence    8,89 → 9,02 s   coupe à 8,95
+ *   silence   11,37 → 11,63 s  coupe à 11,50
+ *   silence   13,40 → 13,57 s  coupe à 13,48
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * CE QUE ÇA DONNE
+ *
+ * La narration couvre désormais 0 → 37,0 s au lieu de 0 → 15,5 s, et chaque
+ * groupe tombe sur le plan qu'il commente. Aucune tranche n'en recouvre une
+ * autre : la vérification est faite par `voiceSegmentPlan()`, qui refuse un
+ * chevauchement.
+ */
+export type VoiceSegment = {
+	/** Début de la tranche **dans le fichier source**, en secondes. */
+	from: number;
+	/** Fin de la tranche dans le fichier source, en secondes. */
+	to: number;
+	/** Position de la tranche **dans le film**, en secondes. */
+	at: number;
+	/** Ce qui est dit — relevé de la prise, pas du script d'origine. */
+	said: string;
+	/** Le plan que la tranche accompagne. */
+	over: string;
+};
+
+export const voiceSegments: VoiceSegment[] = [
+	{
+		from: 0,
+		to: 2.81,
+		at: 0,
+		said: 'Ton profil parle avant toi… Ils te jugent en deux secondes.',
+		over: 'Hook — le médaillon, le tampon fluo, la phrase qui s’installe.',
+	},
+	{
+		from: 2.81,
+		to: 7.03,
+		at: 8,
+		said: 'Voilà tout ce qu’ils ont de toi… Blink analyse ton profil exactement comme eux.',
+		over:
+			'Breathing puis ScanUi — les trois aplats fluo, puis la grille passée au laser. La tranche traverse le raccord, ce qui le rend inaudible.',
+	},
+	{
+		from: 7.03,
+		to: 8.95,
+		at: 16,
+		said: 'Et non… ce n’est pas une question de filtre.',
+		over: 'Contrast — la croix au feutre vient de barrer le profil terne.',
+	},
+	{
+		from: 8.95,
+		to: 11.5,
+		at: 19,
+		said: 'Tes amis, un recruteur, ton crush… chacun y voit autre chose.',
+		over:
+			'Perception — le paquet s’ouvre en éventail. Les quatre verdicts sont lisibles pendant que la voix les nomme : c’est le seul endroit du film où voix et image disent la même chose, et ici c’est voulu.',
+	},
+	{
+		from: 11.5,
+		to: 13.48,
+		at: 30,
+		said: 'Blink te dit exactement quoi modifier…',
+		over: 'ActionPlan — les trois interrupteurs s’activent seuls sur le téléphone.',
+	},
+	{
+		from: 13.48,
+		to: 15.46,
+		at: 35,
+		said: 'Blink. Vois-toi comme les autres te voient.',
+		over: 'Outro — la marque, la nuée de curseurs, le bouton.',
+	},
+];
+
+export type SegmentPlan = {
+	index: number;
+	at: number;
+	end: number;
+	length: number;
+	said: string;
+	/** Faux si la tranche empiète sur la suivante ou déborde du film. */
+	ok: boolean;
+};
+
+/**
+ * Vérifie le calage : aucune tranche ne doit recouvrir la suivante ni dépasser
+ * la fin du film. Une tranche qui déborde ne se voit pas au montage — elle
+ * s'entend, et seulement une fois le rendu terminé.
+ */
+export const voiceSegmentPlan = (fps = 60): SegmentPlan[] => {
+	const total =
+		(Object.keys(BLINK_SPANS) as BlinkSceneId[]).reduce(
+			(sum, id) => sum + BLINK_SPANS[id],
+			0,
+		) / fps;
+
+	return voiceSegments.map((segment, index) => {
+		const length = segment.to - segment.from;
+		const end = segment.at + length;
+		const next = voiceSegments[index + 1];
+		const limit = next ? next.at : total;
+		return {
+			index,
+			at: segment.at,
+			end,
+			length,
+			said: segment.said,
+			ok: end <= limit + 0.001,
+		};
+	});
+};
 
 /** ~2,5 mots par seconde en français, débit soutenu mais articulé. */
 export const WORDS_PER_SECOND = 2.5;

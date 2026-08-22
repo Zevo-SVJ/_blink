@@ -87,7 +87,40 @@ npx remotion render Blink-Reel out/blink.mp4
 
 ---
 
-## 5 · Si la prise est livrée en un seul fichier et dérive
+## 5 · Le calage en service : le mode `segments`
+
+C'est ce qui tourne actuellement. La prise livrée est un bloc continu de
+15,46 s — 14,84 s de parole pour 0,62 s de silence — qui, posé à la frame 0,
+s'arrêtait à 15,5 s alors qu'il restait 22 s d'image.
+
+La correction ne découpe pas le fichier sur le disque : elle en **lit des
+tranches**. `<Audio trimBefore trimAfter>` délimite l'intervalle à jouer,
+`<Sequence from>` décide où il tombe. Un seul fichier, six placements, aucun
+ré-encodage.
+
+Les six bornes tombent dans les **silences réels** de la prise, relevés sur son
+enveloppe d'énergie à 10 ms de résolution — c'est la seule façon de garantir
+qu'aucun mot n'est amputé.
+
+| # | dans le fichier | dans le film | contenu |
+| --- | --- | --- | --- |
+| 1 | 0,00 → 2,81 | **0,00** | Ton profil parle avant toi… Ils te jugent en deux secondes. |
+| 2 | 2,81 → 7,03 | **8,00** | Voilà tout ce qu'ils ont de toi… Blink analyse ton profil exactement comme eux. |
+| 3 | 7,03 → 8,95 | **16,00** | Et non… ce n'est pas une question de filtre. |
+| 4 | 8,95 → 11,50 | **19,00** | Tes amis, un recruteur, ton crush… chacun y voit autre chose. |
+| 5 | 11,50 → 13,48 | **30,00** | Blink te dit exactement quoi modifier… |
+| 6 | 13,48 → 15,46 | **35,00** | Blink. Vois-toi comme les autres te voient. |
+
+`npm run vo` imprime cette table et **refuse un chevauchement** : une tranche
+qui déborde sur la suivante ne se voit pas au montage, elle ne s'entend qu'une
+fois le rendu terminé.
+
+Pour déplacer une réplique, il n'y a qu'une valeur à changer — son `at` dans
+`voiceSegments`, exprimé en secondes.
+
+---
+
+## 6 · Si une prochaine prise dérive à son tour
 
 C'est le cas le plus courant, et il n'a rien d'anormal : le mode `single`
 suppose que les silences enregistrés reproduisent exactement les temps morts du

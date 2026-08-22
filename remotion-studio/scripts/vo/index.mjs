@@ -56,6 +56,25 @@ const parseVoice = () => {
 	return lines;
 };
 
+const parseSegments = () => {
+  const src = readSource('src/audio/voice.ts');
+  const start = src.indexOf('export const voiceSegments: VoiceSegment[] = [');
+  if (start === -1) return [];
+  const block = src.slice(start, src.indexOf('];', start));
+  const re =
+    /from:\s*([\d.]+),\s*\n\s*to:\s*([\d.]+),\s*\n\s*at:\s*([\d.]+),\s*\n\s*said:\s*'((?:[^'\\]|\\.)*)'/g;
+  const out = [];
+  for (const m of block.matchAll(re)) {
+    out.push({
+      from: Number(m[1]),
+      to: Number(m[2]),
+      at: Number(m[3]),
+      said: m[4].replace(/\\'/g, "'"),
+    });
+  }
+  return out;
+};
+
 const starts = () => {
 	const map = {};
 	let cursor = 0;
@@ -135,6 +154,44 @@ const main = () => {
 		const out = join(VO_DIR, 'script.srt');
 		writeFileSync(out, srt);
 		console.log(`  → ${out}\n`);
+	}
+
+	const segments = parseSegments();
+	if (segments.length > 0) {
+		console.log('  ┌ CALAGE EN SERVICE — mode « segments » ──────────────────────────');
+		console.log('  │ Le fichier unique est lu par tranches : trimBefore / trimAfter');
+		console.log('  │ délimitent l\'intervalle, <Sequence from> décide où il tombe.');
+		console.log('  └────────────────────────────────────────────────────────────────\n');
+		console.log('  #   dans le fichier   →   dans le film      durée');
+		let clash = 0;
+		segments.forEach((seg, i) => {
+			const length = seg.to - seg.from;
+			const end = seg.at + length;
+			const next = segments[i + 1];
+			const limit = next ? next.at : total / FPS;
+			const ok = end <= limit + 0.001;
+			if (!ok) clash += 1;
+			console.log(
+				`  ${String(i + 1).padStart(2, '0')}  ${seg.from.toFixed(2).padStart(6)} → ${seg.to
+					.toFixed(2)
+					.padStart(6)}   →   ${seg.at.toFixed(2).padStart(6)} → ${end
+					.toFixed(2)
+					.padStart(6)}   ${length.toFixed(2).padStart(5)} s  ${ok ? '✓' : '✗ CHEVAUCHE'}`,
+			);
+			console.log(`      « ${seg.said} »\n`);
+		});
+		const last = segments[segments.length - 1];
+		const covered = segments.reduce((sum, seg) => sum + (seg.to - seg.from), 0);
+		console.log(
+			`  narration de ${segments[0].at.toFixed(2)} s à ${(last.at + (last.to - last.from)).toFixed(2)} s` +
+				` · ${covered.toFixed(2)} s de parole sur ${(total / FPS).toFixed(2)} s de film`,
+		);
+		console.log(
+			clash === 0
+				? '  ✓ Aucune tranche n\'en recouvre une autre.\n'
+				: `  ✗ ${clash} chevauchement(s) — corriger la table dans src/audio/voice.ts.\n`,
+		);
+		if (clash > 0) process.exitCode = 1;
 	}
 
 	console.log(

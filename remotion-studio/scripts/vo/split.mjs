@@ -33,7 +33,7 @@
  */
 
 import {execFileSync} from 'node:child_process';
-import {existsSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
+import {existsSync, mkdirSync, readFileSync, rmSync} from 'node:fs';
 import {join} from 'node:path';
 
 const ROOT = process.cwd();
