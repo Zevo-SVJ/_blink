@@ -15,13 +15,9 @@
  * component. If a component changes, this page changes with it.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { PageBackground } from "@/components/blink/PageBackground";
-import { Film } from "@/video/Film";
-import { DURATION, SHOTS } from "@/video/timeline";
-import type { Lang } from "@/lib/i18n";
-import { FPS } from "@/video/frame";
 import { AddSomeoneSheet, Confirmation } from "@/components/app/AddSomeoneSheet";
 import { TabBar } from "@/components/app/TabBar";
 import { BadgeShelf } from "@/components/app/BadgeEmblem";
@@ -103,10 +99,6 @@ export default function DevGallery() {
       <PageBackground />
 
       <div className="mx-auto w-full max-w-2xl space-y-14 px-4 pt-10 sm:px-6">
-        <Block id="film" title="The film — every frame, on demand">
-          <FilmScrubber />
-        </Block>
-
         <Block id="add-someone" title="Add someone — suggestion sheet">
           <button
             type="button"
@@ -223,125 +215,5 @@ function Block({
       </p>
       {children}
     </section>
-  );
-}
-
-/**
- * The film, seekable.
- *
- * A twenty-three second ad has beats that exist for six frames. Watching it
- * back at speed is how those go unexamined — you see that something happened,
- * not what it looked like. Because every scene is a pure function of its
- * frame, any one of them can simply be asked for.
- *
- * `?frame=` makes that addressable from outside the page, which is what lets
- * the screenshot harness photograph an exact beat instead of guessing at a
- * wall-clock moment and hoping.
- */
-function FilmScrubber() {
-  const initial = (() => {
-    if (typeof window === "undefined") return 0;
-    const q = Number(new URLSearchParams(window.location.search).get("frame"));
-    return Number.isFinite(q) ? Math.min(DURATION - 1, Math.max(0, Math.round(q))) : 0;
-  })();
-
-  const initialLang: Lang =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("lang") === "fr"
-      ? "fr"
-      : "en";
-
-  const [frame, setFrame] = useState(initial);
-  const [lang, setLang] = useState<Lang>(initialLang);
-  const [playing, setPlaying] = useState(false);
-
-  useEffect(() => {
-    if (!playing) return;
-    let raf = 0;
-    const started = performance.now();
-    const from = frame;
-    const tick = (now: number) => {
-      const f = from + Math.round(((now - started) / 1000) * FPS);
-      if (f >= DURATION) {
-        setFrame(DURATION - 1);
-        setPlaying(false);
-        return;
-      }
-      setFrame(f);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-    // Restarting on every frame would reset the clock; this runs once per play.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing]);
-
-  const shot = SHOTS.find((s) => frame >= s.from && frame < s.from + s.duration);
-
-  return (
-    <div className="space-y-3">
-      <div className="mx-auto w-full max-w-[300px]" data-film-scrubber>
-        <Film frame={frame} lang={lang} />
-      </div>
-
-      <div className="flex items-center gap-3 text-xs font-semibold text-white/60">
-        <button
-          type="button"
-          onClick={() => setPlaying((p) => !p)}
-          className="min-h-[36px] rounded-full bg-blink-sky px-4 font-bold text-blink-navy"
-        >
-          {playing ? "Pause" : "Play"}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setPlaying(false);
-            setFrame(0);
-          }}
-          className="min-h-[36px] rounded-full bg-white/10 px-4"
-        >
-          Reset
-        </button>
-        <button
-          type="button"
-          onClick={() => setLang((l) => (l === "en" ? "fr" : "en"))}
-          className="min-h-[36px] rounded-full bg-white/10 px-4 uppercase"
-        >
-          {lang}
-        </button>
-        <span className="tabular-nums" data-film-readout>
-          {frame} / {DURATION - 1} · {(frame / FPS).toFixed(2)}s · {shot?.id ?? "—"}
-        </span>
-      </div>
-
-      <input
-        type="range"
-        min={0}
-        max={DURATION - 1}
-        value={frame}
-        onChange={(e) => {
-          setPlaying(false);
-          setFrame(Number(e.target.value));
-        }}
-        className="w-full"
-      />
-
-      {/* Jump straight to the head of any scene. */}
-      <div className="flex flex-wrap gap-1.5">
-        {SHOTS.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => {
-              setPlaying(false);
-              setFrame(s.from);
-            }}
-            className="rounded-full bg-white/[0.07] px-2.5 py-1 text-[0.65rem] font-bold text-white/70"
-          >
-            {s.id}
-          </button>
-        ))}
-      </div>
-    </div>
   );
 }
