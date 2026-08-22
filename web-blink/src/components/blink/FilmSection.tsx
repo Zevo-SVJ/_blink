@@ -1,71 +1,78 @@
 /**
  * Blink — the film, on the landing page.
  *
- * ## Why the section exists at all
+ * ## Why the section exists
  *
- * The page already explains Blink twice: the hero claims it and "How it
- * works" demonstrates it. Neither shows what using it *feels* like at speed,
- * which is the thing that travels — the same twenty seconds is what a feed
- * would see. So this sits between the demonstration and the leaderboard: after
- * the reader knows what the product does, before they are asked where they
- * would rank.
+ * The page already claims what Blink does and demonstrates it in "How it
+ * works". Neither shows what using it *feels* like at speed, which is the
+ * version that travels — the same twenty-one seconds is what a feed would
+ * see. So this sits between the demonstration and the leaderboard: after the
+ * reader knows what the product does, before they are asked where they would
+ * rank.
  *
- * ## Costing the page nothing
+ * ## Why a file rather than a live composition
  *
- * The film is around forty kilobytes of scenes, primitives and a synth, and
- * none of it is needed to read the hero. `lazy` keeps it out of the entry
- * chunk, and the chunk is only requested when the section is within a
- * viewport of the fold — so a visitor who bounces at the hero downloads none
- * of it, and one who scrolls has it before they arrive.
+ * The film is a Remotion composition, and Remotion ships a `<Player>` that
+ * could run it in the page. It is not used here. Running the composition live
+ * means shipping React components, springs and every frame's layout work to a
+ * visitor's phone so their CPU can recompute, sixty times a second, a picture
+ * that is identical for everybody. A rendered file is decoded in hardware,
+ * costs the main thread nothing, and looks the same on a five-year-old
+ * Android as it does in the studio.
+ *
+ * The composition remains the source of truth: `npm run video:render` rebuilds
+ * both this file and the full-resolution masters that go to TikTok and Reels.
+ *
+ * ## What the web cut is
+ *
+ * 720×1280 and silent. The section displays it about 390px wide, so the
+ * 1080×1920 master would be several megabytes of pixels no browser will
+ * address; and autoplay with sound is blocked everywhere, so an audio track
+ * here is bytes that can never be heard. The master keeps the mix.
  *
  * ## No layout shift, ever
  *
- * The frame's height is decided by `aspect-[9/16]` on a `max-w` column, so the
- * section occupies its final height in the prerendered HTML — before the
- * chunk loads, while it loads, and after. The placeholder is the same box.
- * This is the same trap the eye hit: anything that measures first and sizes
- * second moves the page under the reader.
- *
- * ## What this deliberately does not do
- *
- * Autoplay with sound, take over the viewport, pin itself, or interrupt the
- * scroll. The page has one scroll-driven set piece already and a second would
- * be a fight.
+ * The frame's height comes from `aspect-[9/16]` on a `max-w` column, so the
+ * section occupies its final height in the prerendered HTML — before the video
+ * is requested, while it buffers, and after. `poster` fills that box with the
+ * film's own first frame rather than black.
  */
 
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Reveal } from "@/components/blink/Reveal";
-import { useT } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n";
 
-const FilmPlayer = lazy(() => import("@/video/FilmPlayer"));
-
-/**
- * The column the film is framed in.
- *
- * 9:16 at a size a phone can actually read the type at, and a little larger on
- * a laptop where 360px in a 1280px field reads as an afterthought. It stops
- * growing well before it becomes the tall thing that pushes the rest of the
- * page below two folds — a portrait film is height-expensive, so every pixel
- * of width costs 1.78 of scroll.
- */
+/** The column the film is framed in. */
 const FRAME = "relative mx-auto w-full max-w-[330px] sm:max-w-[360px] lg:max-w-[392px]";
 
 export function FilmSection() {
-  const t = useT();
-  const anchor = useRef<HTMLDivElement>(null);
+  const { lang, t } = useI18n();
+  const host = useRef<HTMLDivElement>(null);
+  const video = useRef<HTMLVideoElement>(null);
   const [wanted, setWanted] = useState(false);
 
   /*
-    Request the chunk a viewport early.
+    VP9 first, H.264 second.
 
-    Waiting until the section is visible means the reader watches a placeholder
-    while a network round trip happens; `rootMargin` of a full viewport starts
-    the fetch while they are still reading the section above, and the player's
-    own observer still decides when to actually play.
+    Not a fallback ordering — a preference. VP9 is about a third smaller on
+    this material, and the browser takes the first source it can play, so most
+    visitors get the smaller file and Safari gets the one it decodes in
+    hardware.
+  */
+  const webm = `/video/blink-ad-${lang}-web.webm`;
+  const mp4 = `/video/blink-ad-${lang}-web.mp4`;
+  const poster = `/video/blink-ad-${lang}-poster.jpg`;
+
+  /*
+    Ask for the file a viewport early, and only then.
+
+    `preload="none"` until the section is close means a visitor who bounces at
+    the hero downloads none of it; a full viewport of `rootMargin` means one
+    who scrolls has it buffered before they arrive.
   */
   useEffect(() => {
-    const el = anchor.current;
+    const el = host.current;
     if (!el) return;
     if (typeof IntersectionObserver === "undefined") {
       setWanted(true);
@@ -85,6 +92,43 @@ export function FilmSection() {
     return () => io.disconnect();
   }, []);
 
+  /*
+    Start the fetch, once.
+
+    `preload="none"` is what keeps the file off the wire until now, and simply
+    changing that attribute does not make the element go and get it — a
+    `<video>` chooses its source when it is inserted and does not reconsider.
+    `load()` is the explicit "now, please". Without this the element sat at
+    `readyState 0` with a perfectly correct `currentSrc`, which is exactly as
+    confusing as it sounds.
+  */
+  useEffect(() => {
+    if (wanted) video.current?.load();
+  }, [wanted]);
+
+  /*
+    Play only while it is on screen.
+
+    `autoPlay` alone starts the film behind the fold, so by the time the reader
+    arrives the hook has already gone past — and a hook nobody sees is the one
+    thing this film cannot afford. A 40% threshold means it starts when the
+    frame is properly in view rather than when one pixel of it is.
+  */
+  useEffect(() => {
+    const el = video.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) void el.play().catch(() => {});
+        else el.pause();
+      },
+      { threshold: 0.4 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [wanted]);
+
   return (
     <section id="film" className="relative px-4 py-20 sm:px-6 sm:py-28">
       <div className="mx-auto max-w-3xl">
@@ -100,37 +144,37 @@ export function FilmSection() {
           </p>
         </Reveal>
 
-        <div ref={anchor} className={`${FRAME} mt-10 sm:mt-12`}>
-          {/* The frame sits in a lot of empty navy on a wide screen. A single
-              soft plate behind it is what stops it floating — the page's own
-              vocabulary, not a new one: `PageBackground` already lights the
-              landing this way. */}
+        <div ref={host} className={`${FRAME} mt-10 sm:mt-12`}>
+          {/* The frame sits in a lot of empty navy on a wide screen. One soft
+              plate behind it is what stops it floating — the page's own
+              vocabulary, not a new one. */}
           <div
             aria-hidden
             className="pointer-events-none absolute -inset-x-16 -inset-y-10 -z-10 rounded-[4rem] bg-[radial-gradient(60%_50%_at_50%_50%,hsl(var(--blink-sky)/0.10),transparent_72%)]"
           />
-          {/* Both branches reserve the identical box, so the swap is invisible
-              in layout terms — the placeholder is not a spinner, it is the
-              frame itself, already the right shape and colour. */}
-          {wanted ? (
-            <Suspense fallback={<FilmPlaceholder />}>
-              <FilmPlayer />
-            </Suspense>
-          ) : (
-            <FilmPlaceholder />
-          )}
+
+          <video
+            ref={video}
+            className="aspect-[9/16] w-full rounded-[2rem] bg-[hsl(220_84%_6%)] object-cover ring-1 ring-white/[0.09]"
+            // Every one of these is load-bearing for autoplay: iOS refuses to
+            // play inline without `playsInline`, and every browser refuses to
+            // autoplay at all unless the video is muted.
+            muted
+            playsInline
+            loop
+            autoPlay
+            preload={wanted ? "auto" : "none"}
+            poster={poster}
+            // A film with no audio track and no controls is decoration, and
+            // decoration should not be announced.
+            aria-hidden
+            tabIndex={-1}
+          >
+            <source src={webm} type="video/webm" />
+            <source src={mp4} type="video/mp4" />
+          </video>
         </div>
       </div>
     </section>
-  );
-}
-
-function FilmPlaceholder() {
-  return (
-    <div aria-hidden>
-      <div className="aspect-[9/16] w-full rounded-[2rem] bg-[hsl(220_84%_7%)] ring-1 ring-white/[0.09]" />
-      {/* Matches the control row's height exactly, so its arrival adds none. */}
-      <div className="mt-4 h-10" />
-    </div>
   );
 }
