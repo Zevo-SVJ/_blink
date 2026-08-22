@@ -27,12 +27,11 @@ qa/shots/
 qa/film/
 qa/mp4/
 
-# Rendered masters. These are deliverables — 1080x1920 with the mix, for
-# TikTok and Reels — but they are also seven megabytes of binary that
-# `npm run video:render` reproduces exactly from the composition. The web
-# cuts in `public/video/` are committed, because the landing page serves
-# them at runtime and Rork deploys this repository.
-video/
+# `video/` is deliberately NOT ignored. The 1080x1920 masters live there and
+# are committed, because they are the thing that gets uploaded to TikTok and
+# Reels — somebody should be able to download them from the repository
+# without installing Node and running a render. They are regenerable with
+# `npm run video:render` if they ever need to be rebuilt.
 
 # debug
 npm-debug.log*
