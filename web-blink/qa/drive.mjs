@@ -30,7 +30,7 @@ export const SHOTS = path.join(HERE, "shots");
 export const APP = process.env.APP_URL ?? "http://localhost:8080";
 export const MOCK = process.env.MOCK_URL ?? "http://127.0.0.1:54321";
 
-/** The device widths the goal names, plus a desktop. */
+/** The device widths the goals name, plus a desktop. */
 export const WIDTHS = {
   "320": { width: 320, height: 640 },
   "375": { width: 375, height: 667 },
@@ -38,6 +38,25 @@ export const WIDTHS = {
   "430": { width: 430, height: 932 },
   desktop: { width: 1440, height: 900 },
 };
+
+/**
+ * A viewport for any width, named or not.
+ *
+ * The map above used to be the only source, and anything not in it fell back
+ * to 390 — so a run at "1920" quietly measured a phone and reported a pass for
+ * a width it had never opened. Unknown widths now get a real viewport with a
+ * plausible height for their class.
+ */
+export function viewportFor(width) {
+  if (WIDTHS[width]) return WIDTHS[width];
+  const w = Number(width);
+  if (!Number.isFinite(w) || w <= 0) {
+    throw new Error(`drive: "${width}" is not a viewport width`);
+  }
+  // Roughly the aspect ratios these widths ship with in the real world.
+  const height = w >= 1600 ? 1080 : w >= 1024 ? 900 : w >= 700 ? 1024 : Math.round(w * 2.05);
+  return { width: w, height };
+}
 
 // ---------------------------------------------------------------------------
 // Reporting
@@ -123,6 +142,8 @@ export async function openApp({
   width = "390",
   lang = "en",
   signedIn = true,
+  /** "reduce" to emulate a reader who has asked for less motion. */
+  reducedMotion = "no-preference",
   browser,
 } = {}) {
   const owned = !browser;
@@ -133,10 +154,10 @@ export async function openApp({
     }));
 
   const context = await b.newContext({
-    viewport: WIDTHS[width] ?? WIDTHS["390"],
+    viewport: viewportFor(width),
     deviceScaleFactor: 2,
     locale: lang === "fr" ? "fr-FR" : "en-US",
-    reducedMotion: "no-preference",
+    reducedMotion,
   });
 
   const auth = signedIn ? await fetchSession() : null;
