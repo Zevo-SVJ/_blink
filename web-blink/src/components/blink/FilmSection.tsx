@@ -25,10 +25,15 @@
  *
  * ## What the web cut is
  *
- * 720×1280 and silent. The section displays it about 390px wide, so the
- * 1080×1920 master would be several megabytes of pixels no browser will
- * address; and autoplay with sound is blocked everywhere, so an audio track
- * here is bytes that can never be heard. The master keeps the mix.
+ * 720×1280, with the mix. The section displays it about 390px wide, so the
+ * 1080×1920 master would be several megabytes of pixels no browser will ever
+ * address.
+ *
+ * It carries sound even though it starts muted, because the player has real
+ * controls: a volume button on a file with no audio track is a lie. It
+ * autoplays muted — every browser requires that — and the viewer can unmute,
+ * pause and scrub with their own browser's controls rather than with
+ * something reimplemented here badly.
  *
  * ## No layout shift, ever
  *
@@ -65,11 +70,21 @@ export function FilmSection() {
   const poster = `/video/blink-ad-${lang}-poster.jpg`;
 
   /*
-    Ask for the file a viewport early, and only then.
+    Ask for the file late, and never before the page has finished painting.
 
-    `preload="none"` until the section is close means a visitor who bounces at
-    the hero downloads none of it; a full viewport of `rootMargin` means one
-    who scrolls has it buffered before they arrive.
+    Two gates, and both are load-bearing now that this section sits directly
+    under the hero rather than three screens down.
+
+    **The page loads first.** A megabyte of video starting at page load
+    competes with the CSS, the font and the entry bundle for the same
+    connection. Measured on a throttled 1.6 Mbps link, requesting it eagerly
+    pushed the hero's own reflow late enough to take cumulative layout shift
+    from 0.003 to 0.095 — a near-failing Core Web Vital caused entirely by
+    fetching something nobody had scrolled to yet.
+
+    **Then half a viewport of warning.** Enough that a scrolling reader has it
+    buffered on arrival, little enough that someone who reads the hero and
+    leaves never pays for it.
   */
   useEffect(() => {
     const el = host.current;
@@ -79,17 +94,30 @@ export function FilmSection() {
       return;
     }
 
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setWanted(true);
-          io.disconnect();
-        }
-      },
-      { rootMargin: "100% 0px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
+    let io: IntersectionObserver | undefined;
+    const watch = () => {
+      io = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setWanted(true);
+            io?.disconnect();
+          }
+        },
+        { rootMargin: "50% 0px" },
+      );
+      io.observe(el);
+    };
+
+    if (document.readyState === "complete") {
+      watch();
+      return () => io?.disconnect();
+    }
+
+    window.addEventListener("load", watch, { once: true });
+    return () => {
+      window.removeEventListener("load", watch);
+      io?.disconnect();
+    };
   }, []);
 
   /*
@@ -118,15 +146,38 @@ export function FilmSection() {
     const el = video.current;
     if (!el || typeof IntersectionObserver === "undefined") return;
 
+    /*
+      Once the viewer takes over, the observer stops driving.
+
+      Scrolling past a video someone deliberately paused and having it start
+      itself again is infuriating, and so is having it pause under you while
+      you are watching it with the sound on. The first interaction with the
+      controls hands ownership over for good.
+    */
+    let owned = false;
+    const claim = () => {
+      owned = true;
+    };
+    el.addEventListener("pause", claim);
+    el.addEventListener("volumechange", claim);
+    el.addEventListener("seeking", claim);
+
     const io = new IntersectionObserver(
       ([entry]) => {
+        if (owned) return;
         if (entry.isIntersecting) void el.play().catch(() => {});
         else el.pause();
       },
       { threshold: 0.4 },
     );
     io.observe(el);
-    return () => io.disconnect();
+
+    return () => {
+      io.disconnect();
+      el.removeEventListener("pause", claim);
+      el.removeEventListener("volumechange", claim);
+      el.removeEventListener("seeking", claim);
+    };
   }, [wanted]);
 
   return (
@@ -165,10 +216,13 @@ export function FilmSection() {
             autoPlay
             preload={wanted ? "auto" : "none"}
             poster={poster}
-            // A film with no audio track and no controls is decoration, and
-            // decoration should not be announced.
-            aria-hidden
-            tabIndex={-1}
+            // The viewer's own controls: play, pause, scrub, volume,
+            // fullscreen, picture-in-picture. Every one of those is better
+            // than a reimplementation, and they are the ones people already
+            // know how to use.
+            controls
+            controlsList="nodownload"
+            aria-label={t.film.heading}
           >
             <source src={webm} type="video/webm" />
             <source src={mp4} type="video/mp4" />

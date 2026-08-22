@@ -1,170 +1,71 @@
 /**
- * Act 1 — the hook.
+ * Scene 1 — the hook. 0.0s to 2.0s.
  *
- * Three seconds, four moments. The rules it is written against:
+ * Four blocks of type, crashing in on frames 0, 15, 30 and 45. Nothing else is
+ * on screen: no logo, no profile, no eye. The claim is about the viewer rather
+ * than about the product, and it is one they cannot verify — which is the
+ * whole reason they stay for the next ten seconds.
  *
- *  - **A profile is on screen at frame zero.** Not a logo, not a fade up, not
- *    an eye opening. The thing the ad is about is the first thing seen, and it
- *    is already moving.
- *  - **The claim is about the viewer, not the product.** "What other people
- *    see" is unverifiable by the person watching, which is exactly why they
- *    stay — the only way to find out is to keep watching.
- *  - **The last moment is a push, not a cut.** The camera drives into the
- *    avatar so the next act can open on an iris at the same size in the same
- *    place. The two shapes are the same object; that is the match cut.
+ * Each block arrives from 3× scale with a sub-bass hit and a camera shake on
+ * the same frame. Two seconds, four impacts: the cadence *is* the hook.
  */
 
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, useCurrentFrame } from "remotion";
 
-import { ProfileCard } from "../elements/Profile";
-import { Label, Stack } from "../motion/Kinetic";
-import { Camera, easeInExpo } from "../motion/Camera";
-import { springAt } from "../motion/springs";
+import { Camera } from "../motion/Camera";
+import { Crash } from "../motion/Kinetic";
 import type { FilmCopy } from "../copy";
-import { ACTIVE_HOOK } from "../copy";
-import { C, T } from "../theme";
-import { at, len } from "../timeline";
-
-/**
- * Where the avatar's centre sits in film pixels — the match-cut anchor.
- *
- * Derived from the layout above rather than measured off a screenshot: the
- * card is 760 wide and centred, so its left edge is at 160; its padding is 44
- * and the avatar is 148 across, putting its centre 78 in from that edge. The
- * card's top is at 470 and the identity row starts one padding down.
- */
-export const AVATAR = { x: 160 + 44 + 74, y: 470 + 44 + 74, r: 74 };
+import { a, C, T, WIDTH } from "../theme";
+import { HOOK_BEATS } from "../timeline";
 
 export function Hook({ copy }: { copy: FilmCopy }) {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const hook = copy.hooks[ACTIVE_HOOK];
-
-  const T_HOOK = at("hookLine");
-  const T_LOCK = at("lock");
-  const T_PUSH = at("pushToEye");
-  const PUSH_END = T_PUSH + len("pushToEye");
-
-  /* The grid fills as the card settles — a profile loading, compressed into
-     half a second. Starting at zero, not four: four frames of a card with an
-     empty body is the first thing anyone sees, and an empty box does not read
-     as a profile. */
-  const gridIn = interpolate(frame, [0, 24], [0.12, 1.4], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  /* The scan runs a tile at a time under the reticle, so the lock has
-     something to be looking *at*. */
-  const litTile =
-    frame >= T_LOCK + 6 && frame < T_PUSH
-      ? Math.floor((frame - T_LOCK - 6) / 3) % 12
-      : -1;
-
-  /* Colour drains out of the profile as Blink takes over the reading. */
-  const drain = interpolate(frame, [T_LOCK + 4, T_PUSH], [0, 0.7], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  /* The words push the card back into the frame — depth, so the type is not
-     simply lying on top of a picture. */
-  const recede = springAt({ frame, fps, start: T_HOOK, preset: "settle" });
 
   return (
     <AbsoluteFill style={{ background: C.bg }}>
+      {/* A wash that grows with the block, so the frame is not flat navy
+          behind flat white. */}
+      <AbsoluteFill
+        style={{
+          background: `radial-gradient(70% 46% at 50% 50%, ${a(C.bright, 0.18)}, transparent 74%)`,
+        }}
+      />
+
       <Camera
-        /* One continuous move: a slow settle for three seconds, then a hard
-           acceleration into the avatar over the last twenty frames. The next
-           act opens on an iris at the same size in the same place, so the two
-           shapes are the same object across the cut. */
-        zoom={[1, 5.2]}
-        over={[T_PUSH, PUSH_END]}
-        origin={[AVATAR.x, AVATAR.y]}
-        easing={easeInExpo}
+        drift={0.06}
+        driftOver={60}
+        shake={HOOK_BEATS.map((b) => ({ at: b, amount: 20, decay: 4 }))}
       >
         <AbsoluteFill
           style={{
             alignItems: "center",
-            /* The card lives in the lower two thirds and slides further down
-               as the type lands, so the two never share a band. The first cut
-               centred both and the third line sat on the handle. */
-            justifyContent: "flex-start",
-            paddingTop: 470 + recede * 150,
-            transform: `scale(${1 - recede * 0.14})`,
-            transformOrigin: "50% 30%",
+            justifyContent: "center",
+            padding: "0 48px",
           }}
         >
-          <ProfileCard
-            start={0}
-            gridIn={gridIn}
-            litTile={litTile}
-            drain={drain}
-            handle={copy.appHandle}
-            width={760}
-            lockAt={T_LOCK}
-          />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+            {copy.hook.map((line, i) => {
+              if (frame < HOOK_BEATS[i]) return null;
+              /* The first block is the smaller framing device; the three that
+                 follow are the claim, and they take the full width. */
+              const lead = i === 0;
+              return (
+                <Crash
+                  key={line}
+                  start={HOOK_BEATS[i]}
+                  from={3}
+                  size={lead ? T.lead : T.huge}
+                  column={WIDTH - 96}
+                  color={lead ? C.sky : C.white}
+                  style={lead ? { marginBottom: 14 } : undefined}
+                >
+                  {line}
+                </Crash>
+              );
+            })}
+          </div>
         </AbsoluteFill>
       </Camera>
-
-      {/* A scrim under the type. Deep enough to cover the whole type band,
-          because three white words over a lit grid are not readable and
-          dimming the profile itself would waste the thing being advertised. */}
-      {frame >= T_HOOK && frame < T_PUSH + 6 && (
-        <AbsoluteFill
-          style={{
-            background: `linear-gradient(to bottom, ${C.bg} 20%, ${C.bg}e6 40%, ${C.bg}00 62%)`,
-          }}
-        />
-      )}
-
-      {/* The hook. Three impacts, alternating direction so the block builds
-          rather than slides. */}
-      {frame >= T_HOOK && (
-        <AbsoluteFill style={{ padding: "116px 64px 0", justifyContent: "flex-start" }}>
-          {/* Above the words, not below them. Under the block it landed in the
-              same band as the card's handle row and the two overlapped; an
-              eyebrow is also the stronger convention for a line that frames
-              the claim rather than qualifying it. */}
-          {hook.kicker && (
-            <Label
-              start={T_HOOK + 4}
-              color={C.sky}
-              size={T.micro}
-              style={{ marginBottom: 26, opacity: 0.9 }}
-            >
-              {hook.kicker}
-            </Label>
-          )}
-          <Stack
-            words={hook.words}
-            start={T_HOOK}
-            stagger={8}
-            size={T.huge}
-            color={C.white}
-            from={["left", "right", "in"]}
-            highlight={2}
-            highlightColor={C.sky}
-            tilt={0.6}
-            gap={0}
-            exit={{ at: T_PUSH, to: "up" }}
-          />
-        </AbsoluteFill>
-      )}
-
-      {/* The push blows out to sky for the last two frames, which is what the
-          next act cuts out of. */}
-      {frame > PUSH_END - 3 && (
-        <AbsoluteFill
-          style={{
-            background: C.sky,
-            opacity: interpolate(frame, [PUSH_END - 3, PUSH_END], [0, 0.9], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            }),
-          }}
-        />
-      )}
     </AbsoluteFill>
   );
 }

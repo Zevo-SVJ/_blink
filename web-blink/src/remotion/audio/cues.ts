@@ -1,27 +1,39 @@
 /**
  * Sound, written against the picture.
  *
- * ## Every cue is a frame something visibly happens on
+ * Every cue sits on a frame where something visibly happens, and every frame
+ * number is imported from `timeline.ts` rather than typed here — so moving a
+ * beat moves its sound, and the mix cannot drift out of sync with the cut.
  *
- * The positions are derived from `timeline.ts` rather than typed as numbers,
- * so lengthening a moment moves its sounds with it and the mix can never drift
- * out of sync with the cut. If a cue is not on a frame where something moves,
- * it is noise and it does not belong here.
- *
- * ## Levels are a mix, not a list
- *
- * `gain` is set relative to the bed, which sits at roughly a third of full
- * scale. The brief's order — voice over SFX over music — is why the bed is
- * quiet and why the loudest thing in the film is the interrupt: it should be
- * about four times the level of a tag landing, because that is what makes it
- * an interrupt rather than a louder tag.
+ * Levels are a mix, not a list. The bed sits at about a third of full scale;
+ * the loudest thing in the film is the interrupt, at roughly four times a tag
+ * landing, because that ratio is what makes it an interrupt rather than a
+ * louder tag.
  */
 
-import { at, end } from "../timeline";
+import {
+  at,
+  DURATION,
+  FLAG_WORD,
+  GAUGE_FROM,
+  GAUGE_TO,
+  GLITCH,
+  HOOK_BEATS,
+  KEY_EVERY,
+  PRESS,
+  PROFILE_IN,
+  SCAN_FROM,
+  SLOGAN,
+  TAG_BEATS,
+  TYPE_FROM,
+  WHIP,
+} from "../timeline";
 
 export type SfxName =
   | "impact"
   | "bass-hit"
+  | "drop"
+  | "glitch"
   | "whoosh"
   | "whoosh-short"
   | "pop"
@@ -39,89 +51,77 @@ export interface Cue {
   frame: number;
   sfx: SfxName;
   gain?: number;
-  /** Seconds to trim off the front of the file, for tighter transients. */
-  trim?: number;
 }
 
-const CUES_UNSORTED: Cue[] = [
-  // ── Act 1 · hook ────────────────────────────────────────────────────
-  // The profile is already arriving on frame zero, so its sound is too.
-  { frame: at("slam"), sfx: "land", gain: 0.85 },
-  // Three words, three impacts, rising.
-  { frame: at("hookLine") + 1, sfx: "impact", gain: 0.6 },
-  { frame: at("hookLine") + 9, sfx: "impact", gain: 0.75 },
-  { frame: at("hookLine") + 17, sfx: "impact", gain: 0.95 },
-  // The reticle flies in, then grips.
-  { frame: at("lock"), sfx: "whoosh-short", gain: 0.5 },
-  { frame: at("lock") + 7, sfx: "lock", gain: 0.9 },
-  // The push into the avatar.
-  { frame: at("pushToEye"), sfx: "riser", gain: 0.55 },
+const LIST: Cue[] = [
+  /* ── 1 · hook ────────────────────────────────────────────────────
+     Four sub-bass hits, one per text impact, rising. The fourth is the
+     loudest because it is the one that has to be remembered. */
+  ...HOOK_BEATS.map((f, i) => ({
+    frame: f,
+    sfx: "bass-hit" as SfxName,
+    gain: 0.72 + i * 0.09,
+  })),
 
-  // ── Act 2 · analysis ────────────────────────────────────────────────
-  // The match cut. The heaviest sound so far, because it is the first real
-  // reveal — the thing they were looking at turns out to be an eye.
-  { frame: at("eyeOpen"), sfx: "whoosh", gain: 0.9 },
-  { frame: at("eyeOpen") + 2, sfx: "impact", gain: 0.7 },
-  { frame: at("scanPass"), sfx: "scan", gain: 0.5 },
-  // A blip per tile the scan passes. Deliberately tiny.
+  /* ── 2 · the illusion ────────────────────────────────────────────
+     The whip carries the cut; the profile arrives on a UI pop. */
+  { frame: WHIP, sfx: "whoosh", gain: 1 },
+  { frame: PROFILE_IN, sfx: "pop", gain: 0.75 },
+  { frame: PROFILE_IN + 2, sfx: "land", gain: 0.5 },
+
+  /* ── 3 · the scan ────────────────────────────────────────────────
+     The eye lands hard, the scanner runs under it, and a burst of small
+     metallic clicks fires as the tags arrive. */
+  { frame: at("scan"), sfx: "whoosh-short", gain: 0.8 },
+  { frame: at("scan") + 1, sfx: "impact", gain: 0.85 },
+  { frame: SCAN_FROM, sfx: "scan", gain: 0.55 },
   ...[0, 1, 2, 3, 4, 5].map((i) => ({
-    frame: at("scanPass") + 4 + i * 4,
+    frame: SCAN_FROM + 2 + i * 4,
     sfx: "blip" as SfxName,
     gain: 0.3,
   })),
-  // Signals flying out.
-  ...[0, 1, 2, 3].map((i) => ({
-    frame: at("signals") + 2 + i * 7,
-    sfx: "pop" as SfxName,
-    gain: 0.55,
-  })),
-  { frame: at("wipeToTags") + 2, sfx: "whoosh", gain: 0.75 },
+  ...TAG_BEATS.flatMap((f): Cue[] => [
+    { frame: f, sfx: "pop", gain: 0.8 },
+    { frame: f + 1, sfx: "click", gain: 0.55 },
+    { frame: f + 3, sfx: "click", gain: 0.35 },
+  ]),
 
-  // ── Act 3 · perceptions ─────────────────────────────────────────────
-  { frame: at("tag1") + 1, sfx: "impact", gain: 0.85 },
-  { frame: at("tag2") + 1, sfx: "impact", gain: 0.88 },
-  { frame: at("tag3") + 1, sfx: "impact", gain: 0.91 },
-  { frame: at("tag4") + 1, sfx: "impact", gain: 0.94 },
-  { frame: at("stack"), sfx: "confirm", gain: 0.45 },
+  /* ── 4 · the interrupt ───────────────────────────────────────────
+     A riser that stops dead on the tear, the tear itself, then the
+     heaviest sound in the film under the word. */
+  { frame: GLITCH - 12, sfx: "riser", gain: 0.75 },
+  { frame: GLITCH, sfx: "glitch", gain: 1 },
+  { frame: GLITCH + 1, sfx: "drop", gain: 1 },
+  { frame: FLAG_WORD, sfx: "impact", gain: 0.9 },
 
-  // The interrupt. A riser that stops dead, two frames of nothing, then the
-  // heaviest sound in the film.
-  { frame: at("redFlagHit") - 12, sfx: "riser", gain: 0.7 },
-  { frame: at("redFlagHit") + 2, sfx: "bass-hit", gain: 1 },
-  { frame: at("redFlagWord") + 2, sfx: "impact", gain: 0.8 },
+  /* ── 5 · the score ───────────────────────────────────────────────
+     A riser across the fifteen frames the gauge takes, and a chime on the
+     frame it completes. */
+  { frame: at("score"), sfx: "whoosh-short", gain: 0.6 },
+  { frame: GAUGE_FROM - 4, sfx: "riser", gain: 0.7 },
+  { frame: GAUGE_TO, sfx: "confirm", gain: 0.95 },
+  { frame: GAUGE_TO + 1, sfx: "impact", gain: 0.6 },
 
-  // ── Act 4 · score ───────────────────────────────────────────────────
-  { frame: at("scoreRise"), sfx: "whoosh", gain: 0.6 },
-  { frame: at("scoreRise") + 6, sfx: "riser", gain: 0.5 },
-  { frame: at("scoreLand") + 1, sfx: "impact", gain: 1 },
-  { frame: at("scoreLand") + 3, sfx: "confirm", gain: 0.7 },
-
-  // ── Act 5 · the product ─────────────────────────────────────────────
-  { frame: at("appOpen"), sfx: "whoosh-short", gain: 0.6 },
-  { frame: at("appOpen") + 6, sfx: "click", gain: 0.5 },
-  // Typing. One key per character, at the rate the field fills.
+  /* ── 6 · the product ─────────────────────────────────────────────
+     One key per typed character, then the press, then the last sound in
+     the film. */
+  { frame: at("cta"), sfx: "whoosh-short", gain: 0.6 },
   ...Array.from({ length: 11 }, (_, i) => ({
-    frame: at("typing") + 2 + i * 3,
+    frame: TYPE_FROM + i * KEY_EVERY,
     sfx: "key" as SfxName,
-    gain: 0.4,
+    gain: 0.42,
   })),
-  { frame: at("submit") + 1, sfx: "click", gain: 0.8 },
-  { frame: at("submit") + 3, sfx: "whoosh-short", gain: 0.6 },
-  // The result assembling: four quick pops.
-  ...[0, 1, 2, 3].map((i) => ({
-    frame: at("resultFlash") + 2 + i * 5,
-    sfx: "pop" as SfxName,
-    gain: 0.5 + i * 0.08,
-  })),
-  { frame: at("ctaLine") + 1, sfx: "impact", gain: 0.75 },
-  { frame: at("ctaLine") + 9, sfx: "impact", gain: 0.8 },
-  { frame: at("ctaLine") + 17, sfx: "impact", gain: 0.9 },
-  // The last thing heard.
-  { frame: at("logo") + 2, sfx: "chime", gain: 0.8 },
-  { frame: at("logo") + 22, sfx: "pop", gain: 0.6 },
+  { frame: PRESS, sfx: "click", gain: 0.9 },
+  { frame: PRESS + 2, sfx: "whoosh-short", gain: 0.55 },
+  { frame: SLOGAN, sfx: "impact", gain: 0.8 },
+  { frame: SLOGAN + 2, sfx: "chime", gain: 0.85 },
 ];
 
-export const CUES: Cue[] = [...CUES_UNSORTED].sort((a, b) => a.frame - b.frame);
+export const CUES: Cue[] = [...LIST]
+  // A cue outside the film would be muxed as silence at the head of the
+  // track, which is worse than not existing.
+  .filter((c) => c.frame >= 0 && c.frame < DURATION)
+  .sort((a, b) => a.frame - b.frame);
 
-/** Where the bed starts and stops, so it never outlives the picture. */
-export const BED = { from: 0, to: end("logo") };
+/** The bed runs under the whole picture. */
+export const BED = { from: 0, to: DURATION };

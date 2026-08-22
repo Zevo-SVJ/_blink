@@ -85,7 +85,10 @@ const CUTS = [
     codec: "h264",
     // 720×1280 from a 1080×1920 composition.
     scale: 2 / 3,
-    silent: true,
+    // Carries the mix. The page gives the viewer real controls, so the
+    // sound has to be there to un-mute — a silent file would make the
+    // volume button a lie.
+    silent: false,
     crf: 26,
   },
   {
@@ -104,7 +107,7 @@ const CUTS = [
     ext: "webm",
     codec: "vp9",
     scale: 2 / 3,
-    silent: true,
+    silent: false,
     crf: 46,
   },
 ];
@@ -140,7 +143,11 @@ for (const lang of LANGS) {
       // silent AAC track, which was eight hundred kilobytes of nothing on a
       // file the landing page autoplays muted anyway.
       muted: cut.silent,
-      ...(cut.silent ? {} : { audioCodec: "aac" }),
+      /* WebM cannot carry AAC — VP9 pairs with Opus. Getting this wrong is
+         not a quality difference, it is a hard failure at the mux. */
+      ...(cut.silent
+        ? {}
+        : { audioCodec: cut.codec === "vp9" ? "opus" : "aac" }),
       overwrite: true,
       ...BROWSER,
       onProgress: ({ progress }) => {

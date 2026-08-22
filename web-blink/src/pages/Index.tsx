@@ -78,11 +78,12 @@ const Index = () => {
               scroll away from the hero, and is open by the time How It Works
               starts telling you what Blink does. */}
           <EyeReveal />
-          <HowItWorks onCTA={handleCTA} />
-          {/* After the demonstration, before the leaderboard: the reader now
-              knows what Blink does, and this is the same thing at the speed a
-              feed would see it. */}
+          {/* Straight after the eye finishes opening. The eye is the promise —
+              something is looking at you — and the film is what it saw, so the
+              two read as one thought rather than as a set piece and, three
+              sections later, an advert for it. */}
           <FilmSection />
+          <HowItWorks onCTA={handleCTA} />
           <LeaderboardShowcase onCTA={handleCTA} />
           <Testimonials onCTA={handleCTA} />
           <FAQSection />

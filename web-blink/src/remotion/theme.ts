@@ -53,6 +53,21 @@ export const T = {
   micro: 30,
 } as const;
 
+/**
+ * The same colour at a given opacity.
+ *
+ * Every palette entry is an `hsl()` string, and appending hex alpha to one —
+ * `` `${C.bright}44` `` — produces `hsl(208 95% 60%)44`, which is not a colour.
+ * Browsers drop the whole declaration silently, so nine glows and washes in
+ * this film rendered as nothing at all and the frames came back flat navy
+ * while the code said otherwise.
+ *
+ * This inserts the alpha inside the function, where CSS actually looks for it.
+ */
+export function a(color: string, alpha: number): string {
+  return color.replace(/\)\s*$/, ` / ${alpha})`);
+}
+
 /** Tracking that keeps very large type from falling apart. */
 export const TRACK = {
   mega: "-0.055em",
