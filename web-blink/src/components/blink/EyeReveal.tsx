@@ -4,38 +4,45 @@
  * ## The idea
  *
  * The product's promise is "See yourself the way others see you." This is that
- * sentence as a gesture rather than a caption: the page begins with an eye
- * closed, and the act of scrolling — the reader's own movement down the page —
- * is what opens it. Nothing explains the metaphor, because being told a
- * metaphor is the opposite of noticing one.
+ * sentence as a gesture rather than a caption: the page holds a closed eye
+ * below the hero, and the reader's own scrolling is what opens it. Nothing
+ * explains the metaphor, because being told a metaphor is the opposite of
+ * noticing one.
  *
- * ## Why the geometry is one path
+ * ## One path does three jobs
  *
- * The lids, the aperture and the mask that reveals the iris are all the *same*
- * path, `lids(p)`. That is the whole trick, and it is what makes every
- * intermediate state coherent:
+ * The lids, the lens and the mask that reveals the iris are all `lids(p)`.
+ * Stroked it is the outline; filled it is the lens; as a clip it is what the
+ * iris can be seen through. So the iris cannot fade in, drift outside the
+ * lids, or be visible while the eye is shut — there is no second source of
+ * truth to disagree with. At rest the two curves coincide and enclose no area,
+ * so the clip is empty and the iris is genuinely absent rather than hidden.
  *
- *  - stroked, it is the eye's outline;
- *  - filled, it is the lens;
- *  - as a clip, it is what the iris can be seen through.
+ * ## The atmosphere is part of the drawing, not an effect over it
  *
- * So the iris cannot fade in, drift out of the lids, or be visible where the
- * eye is shut — it is revealed strictly by the aperture opening, because there
- * is no second source of truth to disagree with.
+ * The filaments leave from just inside the canthus and dissolve outward; the
+ * motes sit on those same paths; the haze is an ellipse matched to the
+ * aperture, not a circle placed behind it. Everything is drawn in the eye's
+ * own coordinate system and scales with it, which is what keeps it from
+ * reading as a PNG laid over the page.
  *
- * At `p = 0` the two curves are identical and traversed in opposite
- * directions: zero enclosed area, so the clip is empty and the iris is
- * genuinely absent rather than hidden behind something. What remains visible
- * is the stroke — a single, slightly relaxed arc, which is what a closed eye
- * looks like as a glyph. At `p = 1` the same path is an almond.
+ * Softness comes from gradients rather than `feGaussianBlur`. A blur over this
+ * area, re-rasterised on every scroll frame, is the one thing here that could
+ * genuinely cost frames; transparent gradient stops cost nothing and, at these
+ * opacities, are indistinguishable.
  *
- * The upper lid travels further than the lower one (`RISE` vs `DROP`), because
- * a symmetric aperture reads as a lens or a fish, not as an eye.
+ * ## Layers, all driven by the same scroll
+ *
+ * The lids part, the internal light rises, the iris is uncovered and grows,
+ * the filaments draw themselves outward in sequence, the motes arrive last.
+ * Each has its own slice of the timeline, so the sequence has an order to it
+ * rather than everything appearing at once — and running the scroll backwards
+ * runs all of it backwards.
  *
  * ## Why a pinned stage
  *
  * The section reserves a fixed height in `svh` and pins a viewport-tall stage
- * inside it. Fixed because the document's height must not change while
+ * inside it. Fixed, because the document's height must not change while
  * scrolling — that was a real bug in How It Works and it is not being
  * reintroduced. `svh` rather than `vh` because the small-viewport unit ignores
  * the mobile URL bar, so the reserved space cannot change when the browser
@@ -49,152 +56,48 @@ import {
   useScroll,
   useSpring,
   useTransform,
+  type MotionValue,
 } from "framer-motion";
 import { useRef } from "react";
 
-/* The drawing box. Everything below is in these units, so the whole eye scales
-   with one `width` on the <svg> and nothing needs measuring at runtime. */
-const W = 400;
-const H = 260;
-const CX = W / 2;
-const CY = H / 2;
-
-/**
- * Horizontal extent of the lid line.
- *
- * Close to the edges of the box on purpose. The eye used to sit inside a 17%
- * internal margin *and* the container's padding, so it was being inset twice
- * and rendered about 71% of a phone's width — contained, but not the
- * deliberately oversized thing it is meant to be. The only reserve kept here
- * is enough for the lid's round cap not to touch the edge.
- */
-const X0 = 14;
-const X1 = W - X0;
-
-/** Where the lids' control points sit. Governs how pointed the corners are. */
-const C0 = 96;
-const C1 = W - C0;
-
-/** How far each lid's control points travel at full open. */
-const RISE = 120;
-const DROP = 92;
-
-/**
- * How much of the opening passes before the lower lid begins to move.
- *
- * Eyes do not open symmetrically: the upper lid does nearly all of the early
- * work while the lower one barely stirs. Opening both at once read as a shape
- * splitting in half — two mirrored strokes drifting apart — rather than as a
- * lid lifting.
- */
-const LOWER_DELAY = 0.22;
-
-/** The iris at full open. */
-const IRIS = 58;
-/** The pupil, as a fraction of the iris. */
-const PUPIL_RATIO = 24 / 58;
-/** How much of the aperture's remaining half-height the iris may occupy. */
-const IRIS_FIT = 0.84;
-
-/**
- * Clearance the iris keeps from both lids.
- *
- * Also, usefully, what keeps it from existing at all until the eye is open
- * enough to hold one. Without it the iris was drawn at a two-unit radius
- * inside a sliver — which renders as a speck with a darker speck punched out
- * of it, and reads as dirt on the screen rather than as an eye beginning to
- * open. Sub-pixel detail is noise; the iris arrives when there is room for it.
- */
-const IRIS_CLEARANCE = 10;
-
-/**
- * The closed lid is not flat.
- *
- * A dead-straight line reads as a divider rule someone forgot to remove. A
- * shallow downward bow reads as a closed eye. It relaxes to zero as the eye
- * opens, so it costs nothing at the other end.
- */
-const REST_BOW = 16;
-
-/*
-  Squared, so the bow is gone almost as soon as the eye starts to move. Decayed
-  linearly it was still a third of its full depth at a third open, where the
-  aperture is only a few units tall — large enough to drag the whole opening
-  below the line it started on.
-*/
-const bowAt = (p: number) => REST_BOW * (1 - p) ** 2;
-const lowerAt = (p: number) => Math.max(0, (p - LOWER_DELAY) / (1 - LOWER_DELAY));
-
-/*
-  A cubic with both control points at the same height reaches three quarters of
-  their offset at its midpoint. That single fact is what lets the aperture's
-  true extents be known in closed form — and therefore what lets the iris be
-  fitted to them exactly, rather than sized by trial until it stopped colliding
-  with a lid.
-*/
-const MID = 0.75;
-
-/** The aperture's top and bottom edges at the centre of the eye. */
-function span(p: number): { top: number; bottom: number } {
-  const bow = MID * bowAt(p);
-  return {
-    top: CY - MID * RISE * p + bow,
-    bottom: CY + MID * DROP * lowerAt(p) + bow,
-  };
-}
-
-/**
- * The lids at openness `p` (0 shut, 1 wide).
- *
- * One closed path: the upper lid left-to-right, the lower lid back again.
- */
-function lids(p: number): string {
-  const bow = bowAt(p);
-  const upper = CY - RISE * p + bow;
-  const lower = CY + DROP * lowerAt(p) + bow;
-  return [
-    `M ${X0} ${CY}`,
-    `C ${C0} ${upper}, ${C1} ${upper}, ${X1} ${CY}`,
-    `C ${C1} ${lower}, ${C0} ${lower}, ${X0} ${CY}`,
-    "Z",
-  ].join(" ");
-}
-
-/** Dead centre of the aperture — not of the box, which is not the same thing. */
-function irisCentre(p: number): number {
-  const { top, bottom } = span(p);
-  return (top + bottom) / 2;
-}
-
-/**
- * The iris, always inside the aperture.
- *
- * Bounded by the opening's own half-height, so the lids can never slice the
- * ring into the two vertical slivers that made the half-open eye look like a
- * canoe with a box in it. It is still the aperture that reveals it: there is
- * no aperture at `p = 0`, so there is nothing to see, and the iris grows into
- * exactly the room the lids make for it.
- */
-function irisRadius(p: number): number {
-  const { top, bottom } = span(p);
-  const room = (bottom - top) / 2 - IRIS_CLEARANCE;
-  if (room <= 0) return 0;
-  return Math.min(IRIS * p, IRIS_FIT * room);
-}
+import {
+  CX,
+  CY,
+  EYE,
+  H,
+  irisCentre,
+  irisRadius,
+  lids,
+  PLUMES,
+  PUPIL_RATIO,
+  SPECKS,
+  W,
+  type Plume,
+  type Speck,
+} from "@/components/blink/eye-geometry";
 
 /*
   Unhurried at the start, even through the middle, settling at the end — the
   shape of a lid opening.
 
-  Chosen by measuring rather than by eye. Sampled at six points across the
-  travel this moves 9%, 30%, 32%, 22%, 7% — a distribution the reader
-  experiences as continuous. The two curves it replaced each failed in the
-  same way at opposite ends: a symmetric ease-in-out left the first quarter of
-  the scroll motionless, and its gentler successor put half the movement into
-  one fifth of the travel and then plateaued, so 60%, 80% and 100% were
-  indistinguishable and the last two viewports of scrolling did nothing.
+  Chosen by measuring rather than by eye. Sampled across the travel this moves
+  9%, 30%, 32%, 22%, 7%, a distribution the reader experiences as continuous.
+  Two earlier curves failed in opposite ways: a symmetric ease-in-out left the
+  first quarter of the scroll motionless, and its gentler successor put half
+  the movement into one fifth of the travel and then plateaued, so 60%, 80% and
+  100% were indistinguishable.
 */
 const EASE = cubicBezier(0.3, 0, 0.55, 1);
+
+/**
+ * Ramp from `a` to `b`, flat outside — one layer's slice of the timeline.
+ *
+ * Named as a hook because it is one: it wraps `useTransform`, so it must obey
+ * the same call-order rules, and calling it `slice` hid that from the linter
+ * and from the next reader.
+ */
+const useSlice = (p: MotionValue<number>, a: number, b: number) =>
+  useTransform(p, [a, b], [0, 1], { clamp: true });
 
 export function EyeReveal() {
   const stage = useRef<HTMLDivElement>(null);
@@ -214,77 +117,79 @@ export function EyeReveal() {
   /*
     A light spring, not a rewrite of the relationship.
 
-    Scroll wheels and trackpads deliver movement in coarse steps; driving
-    geometry straight off them stutters. This settles within a frame or two and
-    tracks the finger on a touchscreen, so the animation still belongs to the
-    scroll — it is smoothing, not autonomy.
+    Wheels and trackpads deliver movement in coarse steps, and driving geometry
+    straight off them stutters. Tuned to settle in about a tenth of a second:
+    an earlier, heavily overdamped set took the better part of a second, which
+    was long enough that scrolling to a position and reversing back to it
+    produced two visibly different frames. These sit just past critical
+    damping — no overshoot to make an eyelid look bouncy, no lag to break the
+    sense that the scroll *is* the timeline.
   */
   const tracked = useSpring(scrollYProgress, {
-    /*
-      Tuned to settle in about a tenth of a second.
-
-      The first attempt (140 / 28 / 0.35) was heavily overdamped — a damping
-      ratio near 2 — and took the better part of a second to arrive. That is
-      long enough to see: scrolling to a position and then reversing to the
-      same position produced two visibly different frames, because the eye was
-      still catching up with where the scroll had already been. These values
-      sit just past critical damping, so there is no overshoot to make an
-      eyelid look bouncy, and no lag to break the sense that the scroll *is*
-      the timeline.
-    */
     stiffness: 300,
     damping: 18,
     mass: 0.2,
     restDelta: 0.001,
   });
 
-  /*
-    The opening occupies almost all of the travel, with a short beat of
-    stillness at each end so the closed eye and the open eye are each *seen*
-    rather than merely passed through. A narrower range finished the movement
-    around 60% of the scroll and left the last stretch inert, which reads as
-    the animation having run out rather than having landed.
-  */
   const openness = useTransform(tracked, [0.04, 0.94], [0, 1], {
     clamp: true,
     ease: EASE,
   });
 
-  /* Reduced motion: no scroll-linked geometry at all, just the open eye.
-     Both transforms are always created — picking between two motion values is
-     a choice about which one to read, never a reason to call a hook
-     conditionally. */
+  /* Reduced motion: no scroll-linked geometry at all, just the open eye. Both
+     transforms are always created — choosing which value to read is never a
+     reason to call a hook conditionally. */
   const settled = useTransform(tracked, () => 1);
   const p = reduceMotion ? settled : openness;
 
   const d = useTransform(p, lids);
-
-  /*
-    The iris is sized, not scaled.
-
-    Driving `r` directly rather than transforming a group keeps the circle
-    exactly concentric with the aperture at every frame, with no
-    transform-origin to get wrong on an SVG group, and lets its radius track
-    the opening precisely enough that the lids never cut it into fragments.
-
-    It is still the aperture that reveals it: below `p = 0` there is no
-    aperture, so there is nothing to see — the iris is not faded in, it is
-    uncovered and grows into the space the lids make for it.
-  */
   const irisR = useTransform(p, irisRadius);
   const pupilR = useTransform(p, (v) => irisRadius(v) * PUPIL_RATIO);
   const irisY = useTransform(p, irisCentre);
-  /*
-    The ring keeps its proportion to the iris rather than its absolute weight.
 
-    No minimum: a floor of one unit turned a barely-open eye into a line with a
-    speck floating in the middle of it, because a 1-unit stroke on a 4-unit
-    circle is a filled dot. Sub-pixel geometry should be invisible, not
-    rounded up into a mark the reader has to explain to themselves.
-  */
-  const ringWidth = useTransform(p, (v) => 4 * v);
+  /* The ring keeps its proportion to the iris rather than its absolute weight.
+     No minimum: a one-unit floor on a four-unit circle is a filled dot, which
+     turned a barely-open eye into a line with a speck floating in it. */
+  const ringWidth = useTransform(p, (v) => 3.4 * v);
+  const ringHalo = useTransform(p, (v) => 9 * v);
+  const ringHaloWide = useTransform(p, (v) => 19 * v);
+  const innerRing = useTransform(p, (v) => irisRadius(v) * 0.68);
   /* The lid line thins as it stretches, the way a drawn stroke would. */
-  const lidWidth = useTransform(p, [0, 1], [7, 4.5]);
+  const lidWidth = useTransform(p, [0, 1], [6, 3.4]);
+  /*
+    Three nested haloes under the lid line, not one.
+
+    A single wide stroke at a flat opacity has a hard edge, so it reads as a
+    second line drawn beside the first rather than as light coming off it.
+    Stacking a few at falling opacity and rising width approximates the falloff
+    a Gaussian blur would give, for the cost of two extra paths and none of the
+    per-frame re-rasterising a real filter would demand.
+  */
+  const halo1 = useTransform(p, [0, 1], [9, 13]);
+  const halo2 = useTransform(p, [0, 1], [16, 24]);
+  const halo3 = useTransform(p, [0, 1], [26, 40]);
+
+  /* Each layer gets its own slice of the opening, so the sequence has an
+     order: light before iris, iris before material, motes last. */
+  const glow = useSlice(p, 0.12, 0.7);
+  const lensWash = useSlice(p, 0.05, 0.55);
+  const material = useSlice(p, 0.2, 1);
+  const motes = useSlice(p, 0.45, 1);
+
+  /*
+    Restrained on purpose.
+
+    The first pass had the internal light at nearly full strength across an
+    ellipse almost as wide as the eye, which flooded the lens and turned the
+    whole thing into the broad blue glow this design is explicitly not. The
+    light now sits close around the iris and stops well short of the canthi,
+    so the eye reads as lit from within rather than as a lamp.
+  */
+  const hazeOpacity = useTransform(glow, [0, 1], [0, 0.5]);
+  const hazeScale = useTransform(glow, [0, 1], [0.6, 1]);
+  const lensOpacity = useTransform(lensWash, [0, 1], [0, 1]);
+  const coreOpacity = useTransform(glow, [0, 1], [0, 0.5]);
 
   return (
     <section
@@ -293,12 +198,23 @@ export function EyeReveal() {
       className="relative h-[260svh]"
     >
       <div ref={stage} className="absolute inset-0">
-        <div className="sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden px-4 sm:px-6">
-          {/* `w-full` with a max width, so the eye is oversized on every screen
-              but can never be the cause of a horizontal scrollbar. */}
+        <div className="sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden">
+          {/*
+            Deliberately wider than the viewport, and clipped by the stage.
+
+            The eye is roughly a third of the drawing box; the rest is where
+            the material lives. Sizing by the box rather than by the eye means
+            the eye lands at about 64% of a phone's width and 35% of a large
+            desktop's, with the atmosphere in proportion around it either way —
+            and the material free to run off every edge, which is what stops
+            the composition looking like a sticker with a border. There is
+            deliberately no height cap: on a short, wide window the material is
+            cropped top and bottom, which reads as a picture continuing past
+            the frame rather than one that has been shrunk to fit inside it.
+          */}
           <motion.svg
             viewBox={`0 0 ${W} ${H}`}
-            className="h-auto w-full max-w-[min(86vw,62rem)]"
+            className="h-auto w-[min(179vw,150rem)] shrink-0"
             fill="none"
             focusable="false"
           >
@@ -306,34 +222,177 @@ export function EyeReveal() {
               <clipPath id="blink-eye-aperture">
                 <motion.path d={d} />
               </clipPath>
+
+              {/* Light gathered at the middle of the aperture and falling away
+                  — an ellipse matched to the opening, never a disc behind it. */}
+              <radialGradient id="blink-eye-haze">
+                <stop offset="0%" stopColor="hsl(var(--blink-sky-bright))" stopOpacity="0.5" />
+                <stop offset="42%" stopColor="hsl(var(--blink-sky-bright))" stopOpacity="0.16" />
+                <stop offset="100%" stopColor="hsl(var(--blink-sky-bright))" stopOpacity="0" />
+              </radialGradient>
+
+              {/* The iris has a body rather than a flat fill: brighter off
+                  centre, so it reads as a surface catching light. */}
+              <radialGradient id="blink-eye-iris" cx="46%" cy="38%" r="76%">
+                <stop offset="0%" stopColor="hsl(var(--blink-sky))" stopOpacity="0.34" />
+                <stop offset="52%" stopColor="hsl(var(--blink-sky-bright))" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="hsl(var(--blink-sky-bright))" stopOpacity="0.08" />
+              </radialGradient>
+
+              {/* Along the lid: brightest over the iris, easing to nothing at
+                  the corners, so the outline is drawn rather than uniform. */}
+              <linearGradient id="blink-eye-lid" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stopColor="hsl(var(--blink-sky))" stopOpacity="0.62" />
+                <stop offset="30%" stopColor="hsl(var(--blink-white))" stopOpacity="1" />
+                <stop offset="70%" stopColor="hsl(var(--blink-white))" stopOpacity="1" />
+                <stop offset="100%" stopColor="hsl(var(--blink-sky))" stopOpacity="0.62" />
+              </linearGradient>
+
+              {/* Filaments fade *away* from the eye, so one gradient per
+                  direction. Object bounding box, so every path fades along its
+                  own length without needing its own definition. */}
+              {/* Every form in the material shares this: solid at its heart,
+                  nothing at its edge. That is where the softness comes from,
+                  and why none of it needs a blur. */}
+              <radialGradient id="blink-eye-vapour">
+                <stop offset="0%" stopColor="hsl(var(--blink-sky-bright))" stopOpacity="0.62" />
+                <stop offset="46%" stopColor="hsl(var(--blink-sky-bright))" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="hsl(var(--blink-sky))" stopOpacity="0" />
+              </radialGradient>
+
+              {/* Strands run through the mass, so they read as structure
+                  inside the material rather than as lines beside it. */}
+              <linearGradient id="blink-eye-strand" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stopColor="hsl(var(--blink-sky))" stopOpacity="0.75" />
+                <stop offset="55%" stopColor="hsl(var(--blink-sky))" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="hsl(var(--blink-sky))" stopOpacity="0" />
+              </linearGradient>
             </defs>
 
-            {/* The lens. A wash rather than a shape, so the iris reads as
-                sitting behind the opening instead of on top of a plate. */}
-            <motion.path d={d} fill="hsl(var(--blink-sky) / 0.06)" />
+            {/* ---- behind the eye ------------------------------------- */}
 
-            {/* Everything the aperture lets through. */}
+            {/* Wide, flat, and centred on the opening: the light the eye is
+                letting out, not an object sitting behind it. */}
+            <motion.ellipse
+              cx={CX}
+              cy={CY}
+              rx={EYE * 1.9}
+              ry={210}
+              fill="url(#blink-eye-haze)"
+              style={{ opacity: hazeOpacity, scale: hazeScale, originX: "50%", originY: "50%" }}
+            />
+
+            <g data-eye="filaments">
+              {PLUMES.map((plume, i) => (
+                <Vapour key={i} plume={plume} progress={material} />
+              ))}
+            </g>
+
+            <motion.g data-eye="motes" style={{ opacity: motes }} fill="hsl(var(--blink-sky))">
+              {SPECKS.map((speck, i) => (
+                <Mote key={i} speck={speck} progress={motes} />
+              ))}
+            </motion.g>
+
+            {/* ---- the eye --------------------------------------------- */}
+
+            {/* The lens: a wash, so the iris reads as sitting behind the
+                opening rather than on top of a plate. */}
+            <motion.path d={d} fill="hsl(var(--blink-sky) / 0.07)" style={{ opacity: lensOpacity }} />
+
             <g clipPath="url(#blink-eye-aperture)">
-              <motion.circle cx={CX} cy={irisY} r={irisR} fill="hsl(var(--blink-sky) / 0.14)" />
-              {/* A stroked ring, deliberately the same vocabulary as the score
-                  ring the product shows you at the end. */}
+              {/* Internal light, cut by the aperture — it can only be seen
+                  through the part of the eye that is actually open. */}
+              <motion.ellipse
+                cx={CX}
+                cy={CY}
+                rx={EYE * 0.62}
+                ry={76}
+                fill="url(#blink-eye-haze)"
+                style={{ opacity: coreOpacity }}
+              />
+
+              <motion.circle cx={CX} cy={irisY} r={irisR} fill="url(#blink-eye-iris)" />
+              {/* A finer ring inside the outer one. Two concentric weights
+                  give the iris depth without a single line of detail that
+                  could be mistaken for anatomy. */}
+              <motion.circle
+                cx={CX}
+                cy={irisY}
+                r={innerRing}
+                fill="none"
+                /* Sky, not a desaturated grey. At 30% over a blue iris the
+                   old value read as a dirty ring rather than a second edge. */
+                stroke="hsl(var(--blink-sky) / 0.55)"
+                style={{ strokeWidth: useTransform(p, (v) => 1.4 * v) }}
+              />
               <motion.circle
                 cx={CX}
                 cy={irisY}
                 r={irisR}
                 fill="none"
-                stroke="hsl(var(--blink-sky) / 0.85)"
+                stroke="hsl(var(--blink-sky-bright) / 0.12)"
+                style={{ strokeWidth: ringHaloWide }}
+              />
+              <motion.circle
+                cx={CX}
+                cy={irisY}
+                r={irisR}
+                fill="none"
+                stroke="hsl(var(--blink-sky-bright) / 0.26)"
+                style={{ strokeWidth: ringHalo }}
+              />
+              <motion.circle
+                cx={CX}
+                cy={irisY}
+                r={irisR}
+                fill="none"
+                stroke="hsl(var(--blink-sky) / 0.95)"
                 style={{ strokeWidth: ringWidth }}
               />
               <motion.circle cx={CX} cy={irisY} r={pupilR} fill="hsl(var(--blink-navy))" />
             </g>
 
-            {/* The lids, drawn last so the outline is never cut by its own
-                contents. */}
+            {/*
+              The lids, drawn last so the outline is never cut by its own
+              contents — and drawn twice.
+
+              A wide, faint stroke under a narrow, bright one. That is what
+              gives a line luminosity: the halo reads as light coming off the
+              edge while the core stays crisp, and it costs two paths instead
+              of a Gaussian blur re-rasterised on every scroll frame. A single
+              flat stroke was legible but inert, which is the difference
+              between a diagram and a drawing.
+            */}
             <motion.path
               d={d}
               fill="none"
-              stroke="hsl(var(--blink-sky) / 0.9)"
+              stroke="hsl(var(--blink-sky-bright) / 0.05)"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ strokeWidth: halo3, opacity: lensOpacity }}
+            />
+            <motion.path
+              d={d}
+              fill="none"
+              stroke="hsl(var(--blink-sky-bright) / 0.11)"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ strokeWidth: halo2, opacity: lensOpacity }}
+            />
+            <motion.path
+              d={d}
+              fill="none"
+              stroke="hsl(var(--blink-sky-bright) / 0.22)"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ strokeWidth: halo1, opacity: lensOpacity }}
+            />
+            <motion.path
+              d={d}
+              data-eye="lid"
+              fill="none"
+              stroke="url(#blink-eye-lid)"
               strokeLinecap="round"
               strokeLinejoin="round"
               style={{ strokeWidth: lidWidth }}
@@ -343,4 +402,69 @@ export function EyeReveal() {
       </div>
     </section>
   );
+}
+
+/**
+ * One plume of material, growing out of the eye.
+ *
+ * The whole group scales from the point where it meets the eye, so the mass
+ * does not appear near the eye — it *comes out of* it, which is the difference
+ * between an atmosphere and a decoration. `transform-box: view-box` is set
+ * explicitly so the origin is read in the drawing's own units rather than the
+ * group's bounding box, which moves as the group scales.
+ *
+ * Opacity and extent are driven separately: the material thickens and reaches
+ * further at different rates, so it billows rather than simply appearing.
+ */
+function Vapour({ plume, progress }: { plume: Plume; progress: MotionValue<number> }) {
+  const local = useTransform(progress, [plume.delay, 1], [0, 1], { clamp: true });
+  const opacity = useTransform(local, [0, 1], [0, 1]);
+  const reach = useTransform(local, [0, 1], [0.32, 1]);
+
+  return (
+    <motion.g
+      style={{
+        opacity,
+        scale: reach,
+        transformBox: "view-box",
+        transformOrigin: `${plume.origin[0]}px ${plume.origin[1]}px`,
+      }}
+    >
+      {plume.vapour.map((v, i) => (
+        <ellipse
+          key={i}
+          cx={v.cx}
+          cy={v.cy}
+          rx={v.rx}
+          ry={v.ry}
+          fill="url(#blink-eye-vapour)"
+          opacity={v.opacity}
+          transform={`rotate(${v.rot} ${v.cx} ${v.cy})`}
+        />
+      ))}
+      {plume.strands.map((d, i) => (
+        <path
+          key={`s${i}`}
+          d={d}
+          fill="none"
+          stroke="url(#blink-eye-strand)"
+          strokeWidth={3.4}
+          strokeLinecap="round"
+          opacity={0.2}
+        />
+      ))}
+    </motion.g>
+  );
+}
+
+/** One mote, arriving late and drifting a little as it does. */
+function Mote({ speck, progress }: { speck: Speck; progress: MotionValue<number> }) {
+  const local = useTransform(progress, [speck.delay, 1], [0, 1], { clamp: true });
+  const opacity = useTransform(local, [0, 1], [0, speck.opacity]);
+  const r = useTransform(local, [0, 1], [0, speck.r]);
+  /* Drifts outward from the eye as it appears — the same direction the
+     filament under it is travelling. */
+  const dx = useTransform(local, [0, 1], [(speck.x - CX) * -0.06, 0]);
+
+  return <motion.circle cx={speck.x} cy={speck.y} r={r} style={{ opacity, x: dx }} />;
 }
