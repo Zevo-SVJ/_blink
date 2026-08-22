@@ -29,10 +29,17 @@ node qa/eye.mjs            # the scroll-driven eye: geometry, pinning, reversal
 ```sh
 WIDTHS=320,375,390,430,768,1280,1920 node qa/eye.mjs
 node qa/eye-sheet.mjs 390   # the six stages side by side
+node qa/eye-small.mjs 390   # the final frame at 100%, 50% and 25%
 ```
 
 Look at the strip, not just the stills. Uneven pacing is invisible frame by
 frame — each still looks fine on its own — and it is what the strip is for.
+
+`eye-small.mjs` is the atmosphere's test. Shrink the final frame to a
+thumbnail: if nothing is visibly happening around the eye at 25%, the material
+is too weak, however refined it looks at full size. That is how the first
+version failed — hairlines at a third opacity, which read as craft close up
+and as an empty frame from any distance.
 
 `qa/animations.mjs` also checks the analysis reticle, which only exists behind
 `?mock=own` on the dev server:

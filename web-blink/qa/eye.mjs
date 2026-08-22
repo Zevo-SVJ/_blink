@@ -16,30 +16,61 @@ const WIDTHS = (process.env.WIDTHS ?? "390").split(",");
 /* Where in the pinned travel to look. 0 = shut, 1 = wide. */
 const STOPS = [0, 0.2, 0.4, 0.6, 0.8, 1];
 
-/** The section is the only 260svh block on the page. */
+/**
+ * What the eye currently is, measured off the rendered page.
+ *
+ * The *eye* is the lid path, not the <svg>. The drawing box is deliberately
+ * wider than the viewport — the atmosphere lives in that margin and is clipped
+ * by the stage — so measuring the element's box would report an overflow that
+ * is the design, and would say nothing about where the eye actually sits.
+ */
 const geometry = (page) =>
   page.evaluate(() => {
-    const svg = document.querySelector("main section[aria-hidden] svg");
-    if (!svg) return null;
-    const s = svg.getBoundingClientRect();
-    const stage = svg.closest("section");
+    const lid = document.querySelector('[data-eye="lid"]');
+    if (!lid) return null;
+    const eye = lid.getBoundingClientRect();
+    const stage = lid.closest("section");
+    /* The pinned container. Its box does not change shape as the eye opens,
+       which the lid's does — measuring pinning against the lid reported the
+       apex rising as the stage sliding. */
+    const pinned = lid.closest(".sticky")?.getBoundingClientRect();
     const box = stage.getBoundingClientRect();
+    const d = lid.getAttribute("d") ?? "";
+
+    /* Endpoints of each segment, in order: left canthus, upper apex, right
+       canthus, lower apex. The apexes are on-path points, so the aperture's
+       height is read rather than inferred. */
+    const ends = d
+      .split(/(?=[MC])/)
+      .map((seg) => seg.trim().split(/[\s,]+/).slice(1).map(Number))
+      .filter((nums) => nums.length >= 2)
+      .map((nums) => nums.slice(-2));
+
+    const opacityOf = (sel) => {
+      const el = document.querySelector(sel);
+      return el ? Number(getComputedStyle(el).opacity) : null;
+    };
+
     return {
-      svg: {
-        left: Math.round(s.left),
-        right: Math.round(s.right),
-        top: Math.round(s.top),
-        bottom: Math.round(s.bottom),
-        w: Math.round(s.width),
-        h: Math.round(s.height),
+      eye: {
+        left: Math.round(eye.left),
+        right: Math.round(eye.right),
+        top: Math.round(eye.top),
+        bottom: Math.round(eye.bottom),
+        w: Math.round(eye.width),
+        h: Math.round(eye.height),
       },
+      pinnedTop: pinned ? Math.round(pinned.top) : null,
       sectionTop: Math.round(box.top + window.scrollY),
       sectionH: Math.round(box.height),
       viewport: { w: window.innerWidth, h: window.innerHeight },
       docW: document.documentElement.scrollWidth,
       docH: document.documentElement.scrollHeight,
-      // The lid path, so intermediate geometry can be checked numerically too.
-      d: document.querySelector("main section[aria-hidden] svg path")?.getAttribute("d") ?? null,
+      /* Aperture height: lower apex minus upper apex. Zero means shut. */
+      aperture: ends.length >= 4 ? Math.round((ends[3][1] - ends[1][1]) * 100) / 100 : null,
+      filaments: opacityOf('[data-eye="filaments"]'),
+      motes: opacityOf('[data-eye="motes"]'),
+      d,
     };
   });
 
@@ -78,19 +109,17 @@ for (const width of WIDTHS) {
     heights.push(g.docH);
     await shot(page, `eye-${width}-${String(Math.round(t * 100)).padStart(3, "0")}`);
 
-    const centred = Math.abs(
-      (g.svg.left + g.svg.right) / 2 - g.viewport.w / 2,
-    );
+    const centred = Math.abs((g.eye.left + g.eye.right) / 2 - g.viewport.w / 2);
     check(centred <= 2, `${Math.round(t * 100)}%: horizontally centred (${centred}px off)`);
     check(
-      g.svg.left >= -1 && g.svg.right <= g.viewport.w + 1,
-      `${Math.round(t * 100)}%: within the viewport (${g.svg.left}…${g.svg.right})`,
-      `${Math.round(t * 100)}%: the eye extends past the viewport (${g.svg.left}…${g.svg.right})`,
+      g.eye.left >= -1 && g.eye.right <= g.viewport.w + 1,
+      `${Math.round(t * 100)}%: the eye is inside the viewport (${g.eye.left}…${g.eye.right}, ${Math.round((g.eye.w / g.viewport.w) * 100)}% wide)`,
+      `${Math.round(t * 100)}%: the eye extends past the viewport (${g.eye.left}…${g.eye.right})`,
     );
     check(
-      g.svg.top >= -1 && g.svg.bottom <= g.viewport.h + 1,
-      `${Math.round(t * 100)}%: not clipped vertically (${g.svg.top}…${g.svg.bottom})`,
-      `${Math.round(t * 100)}%: clipped vertically (${g.svg.top}…${g.svg.bottom})`,
+      g.eye.top >= -1 && g.eye.bottom <= g.viewport.h + 1,
+      `${Math.round(t * 100)}%: not clipped vertically (${g.eye.top}…${g.eye.bottom})`,
+      `${Math.round(t * 100)}%: clipped vertically (${g.eye.top}…${g.eye.bottom})`,
     );
   }
 
@@ -105,15 +134,15 @@ for (const width of WIDTHS) {
      its top would march up the viewport instead of staying put. */
   await page.evaluate((to) => window.scrollTo(0, to), base.sectionTop + 40);
   await page.waitForTimeout(500);
-  const early = (await geometry(page)).svg.top;
+  const early = (await geometry(page)).pinnedTop;
   await page.evaluate(
     ({ top, h, vh }) => window.scrollTo(0, top + (h - vh) * 0.7),
     { top: base.sectionTop, h: base.sectionH, vh: base.viewport.h },
   );
   await page.waitForTimeout(700);
-  const late = (await geometry(page)).svg.top;
+  const late = (await geometry(page)).pinnedTop;
   check(
-    Math.abs(early - late) <= 24,
+    Math.abs(early - late) <= 4,
     `the stage stays pinned while it plays (top ${early} → ${late})`,
     `the stage is not pinned — it scrolled from ${early} to ${late}. Sticky is being defeated, most likely by an ancestor with overflow set.`,
   );
@@ -163,13 +192,78 @@ section("reversibility");
     upStart === (await at(0)),
     "the closed state is stable once returned to",
   );
-  /* Closed means closed: at rest the two curves coincide, so both control
-     rows sit at the same height. */
-  const rows = [...(upStart ?? "").matchAll(/C [\d.]+ ([\d.]+),/g)].map((m) => Number(m[1]));
+  /* Closed means closed: at rest the two lids coincide, so the aperture has
+     no height at all. */
+  const shut = (await geometry(page)).aperture;
   check(
-    rows.length === 2 && Math.abs(rows[0] - rows[1]) < 0.5,
-    `scrolled back to the top, the eye is shut again (lids at ${rows.join(" / ")})`,
-    `the eye did not close on the way back up (lids at ${rows.join(" / ")})`,
+    shut !== null && Math.abs(shut) < 0.5,
+    `scrolled back to the top, the eye is shut again (aperture ${shut})`,
+    `the eye did not close on the way back up (aperture ${shut})`,
+  );
+
+  await browser.close();
+}
+
+// ---------------------------------------------------------------------------
+// Does it hold a frame budget while it plays?
+// ---------------------------------------------------------------------------
+
+section("frame cost while scrolling through it");
+{
+  /*
+    The material is a hundred-odd gradient-filled forms whose groups are
+    transformed every frame. That is precisely the kind of thing that looks
+    finished in a screenshot and stutters on a real device, so it gets
+    measured rather than assumed.
+
+    The page is driven through the whole pinned travel while requestAnimationFrame
+    deltas are recorded. What matters is not the average — it is how many frames
+    blow the budget, because that is what a reader feels as jank.
+  */
+  const { browser, page } = await openApp({ width: "390", signedIn: false });
+  await page.goto(`${process.env.APP_URL ?? "http://localhost:8080"}/`, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForTimeout(2200);
+  const base = await geometry(page);
+
+  const frames = await page.evaluate(
+    ({ top, travel }) =>
+      new Promise((resolve) => {
+        const deltas = [];
+        const started = performance.now();
+        const DURATION = 2600;
+        let last = started;
+        const tick = (now) => {
+          deltas.push(now - last);
+          last = now;
+          const t = Math.min(1, (now - started) / DURATION);
+          window.scrollTo(0, Math.round(top + travel * t));
+          if (t < 1) requestAnimationFrame(tick);
+          else resolve(deltas.slice(2));
+        };
+        requestAnimationFrame(tick);
+      }),
+    { top: base.sectionTop, travel: base.sectionH - base.viewport.h },
+  );
+
+  const sorted = [...frames].sort((a, b) => a - b);
+  const median = Math.round(sorted[Math.floor(sorted.length / 2)] * 10) / 10;
+  const worst = Math.round(Math.max(...frames) * 10) / 10;
+  /* A 60Hz frame is 16.7ms. Two budgets is a dropped frame; anything past
+     that is visible. A handful across a couple of seconds is normal for a
+     headless browser sharing a CPU. */
+  const dropped = frames.filter((d) => d > 34).length;
+
+  check(
+    median < 20,
+    `median frame ${median}ms across ${frames.length} frames`,
+    `median frame ${median}ms — the animation is not holding 60fps`,
+  );
+  check(
+    dropped <= Math.max(3, frames.length * 0.04),
+    `${dropped} long frame(s), worst ${worst}ms`,
+    `${dropped} frames over 34ms (worst ${worst}ms) — this will read as jank`,
   );
 
   await browser.close();
@@ -197,26 +291,21 @@ section("prefers-reduced-motion");
   });
   await page.waitForTimeout(2400);
 
-  const lidRows = async () => {
-    const d = (await geometry(page))?.d ?? "";
-    return [...d.matchAll(/C [\d.]+ ([\d.-]+),/g)].map((m) => Number(m[1]));
-  };
-
-  const atTop = await lidRows();
+  const atTop = await geometry(page);
   await page.evaluate(() => window.scrollTo(0, 1200));
   await page.waitForTimeout(1100);
-  const scrolled = await lidRows();
+  const scrolled = await geometry(page);
   await shot(page, "eye-reduced-motion");
 
   check(
-    Math.abs(atTop[0] - atTop[1]) > 100,
-    `the eye is open without scrolling (lids at ${atTop.join(" / ")})`,
-    `reduced motion leaves the eye shut (lids at ${atTop.join(" / ")})`,
+    atTop.aperture > 100,
+    `the eye is open without scrolling (aperture ${atTop.aperture})`,
+    `reduced motion leaves the eye shut (aperture ${atTop.aperture})`,
   );
   check(
-    atTop.join() === scrolled.join(),
+    atTop.d === scrolled.d,
     "and it does not move with the scroll",
-    `reduced motion is still scroll-linked: ${atTop.join("/")} → ${scrolled.join("/")}`,
+    `reduced motion is still scroll-linked: ${atTop.aperture} → ${scrolled.aperture}`,
   );
 
   await browser.close();
