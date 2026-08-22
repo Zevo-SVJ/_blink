@@ -84,3 +84,34 @@ Puis :
 npm run vo                                    # doit afficher « fichier présent » partout
 npx remotion render Blink-Reel out/blink.mp4
 ```
+
+---
+
+## 5 · Si la prise est livrée en un seul fichier et dérive
+
+C'est le cas le plus courant, et il n'a rien d'anormal : le mode `single`
+suppose que les silences enregistrés reproduisent exactement les temps morts du
+montage. Dès que le débit réel diffère de l'estimation, la piste dérive — et la
+dérive **s'accumule**, donc la dernière réplique est toujours la plus fausse.
+
+Deux corrections, selon ce que contient le fichier.
+
+**Le fichier contient bien les treize répliques, dans l'ordre.**
+
+```bash
+npm run vo:split -- --dry   # vérifier la découpe proposée
+npm run vo:split            # écrire 01-hook.mp3 … 13-outro.mp3
+```
+
+Le script coupe la prise en treize morceaux : frontières estimées au prorata du
+nombre de mots, puis accrochées au creux d'énergie le plus profond dans une
+fenêtre de ±0,4 s. Passer ensuite `VOICE_MODE` à `'lines'`. Chaque réplique est
+alors posée à sa propre marque, donc la dérive ne peut plus s'accumuler.
+
+Contrôler la colonne `durée` face à `attendu` dans la sortie du script : un
+morceau très en dessous de son attendu signale une coupe tombée au mauvais
+endroit, et il vaut mieux réenregistrer que rafistoler.
+
+**Le fichier ne contient pas exactement ce script.** Réenregistrer, de
+préférence réplique par réplique (mode `lines`) : c'est le seul moyen d'avoir
+une synchronisation qui survive à une prochaine version du montage.

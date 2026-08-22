@@ -51,7 +51,7 @@ export const VOICE_MODE: 'single' | 'lines' = 'single';
  * avec voix, et il est à `false` tant que rien n'a été déposé. `npm run vo`
  * vérifie quels fichiers sont présents et rappelle lequel manque.
  */
-export const VOICE_ENABLED = false;
+export const VOICE_ENABLED = true;
 
 /** Volume de la voix. Elle est la couche du dessus, elle reste à plein. */
 export const VOICE_VOLUME = 1;
