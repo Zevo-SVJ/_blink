@@ -1,6 +1,7 @@
 import { chromium } from "playwright";
 import fs from "node:fs";
-const OUT="/private/tmp/claude-501/-Users-salomon-Blink/f573f8cd-dc24-4031-a2ea-d701f6566d98/scratchpad/cards";
+
+import { CARDS_DIR as OUT } from "./cards-dir.mjs";
 fs.rmSync(OUT,{recursive:true,force:true}); fs.mkdirSync(OUT,{recursive:true});
 const b=await chromium.launch();
 const p=await (await b.newContext({viewport:{width:500,height:900}})).newPage();

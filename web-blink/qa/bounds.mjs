@@ -1,11 +1,22 @@
 /** No drawn content may reach the card's edge. Scans every exported PNG. */
 import { chromium } from "playwright";
 import fs from "node:fs";
-const DIR="/private/tmp/claude-501/-Users-salomon-Blink/f573f8cd-dc24-4031-a2ea-d701f6566d98/scratchpad/cards";
+
+import { CARDS_DIR as DIR } from "./cards-dir.mjs";
+
+if(!fs.existsSync(DIR)){
+  console.error(`No cards to scan in ${DIR}.\nRun \`node qa/cards.mjs\` first — it is what writes them.`);
+  process.exit(1);
+}
+const files=fs.readdirSync(DIR).filter(f=>f.endsWith(".png"));
+if(!files.length){
+  console.error(`${DIR} has no PNGs in it. Run \`node qa/cards.mjs\` first.`);
+  process.exit(1);
+}
 const b=await chromium.launch();
 const p=await (await b.newContext()).newPage();
 const bad=[];
-for(const f of fs.readdirSync(DIR).filter(f=>f.endsWith(".png"))){
+for(const f of files){
   const b64=fs.readFileSync(`${DIR}/${f}`).toString("base64");
   const r=await p.evaluate(async b64=>{
     const img=new Image();
@@ -24,5 +35,7 @@ for(const f of fs.readdirSync(DIR).filter(f=>f.endsWith(".png"))){
   },b64);
   if(r.hits>0) bad.push(`${f}: ${r.hits} content pixels within 6px of the edge`);
 }
-console.log(bad.length?bad.join("\n"):`all ${fs.readdirSync(DIR).filter(f=>f.endsWith(".png")).length} cards clear of the edges`);
+console.log(bad.length?bad.join("\n"):`all ${files.length} cards clear of the edges`);
 await b.close();
+// A check that prints its failures and exits 0 is not a check.
+process.exit(bad.length?1:0);
