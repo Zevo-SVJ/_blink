@@ -166,11 +166,71 @@ for (const [label, w, h] of WIDTHS) {
   const film = order.indexOf("film");
   const how = order.indexOf("how-it-works");
   const board = order.indexOf("leaderboard");
-  if (film >= 0 && how >= 0 && board >= 0 && how < film && film < board) {
-    ok(`the film sits between How It Works and the leaderboard (${order.join(" → ")})`);
+  if (film >= 0 && how >= 0 && board >= 0 && film < how && how < board) {
+    ok(`the film comes straight after the eye, before How It Works (${order.join(" → ")})`);
   } else {
     bad(`unexpected order: ${order.join(" → ")}`);
   }
+
+  /* The hero carries the headline and the button, and nothing else. */
+  const hero = await page.evaluate(() => {
+    const h1 = document.querySelector("h1");
+    const sec = h1?.closest("section");
+    return {
+      chips: sec ? sec.querySelectorAll("ul li").length : -1,
+      text: sec?.textContent ?? "",
+      bottom: Math.round(sec?.getBoundingClientRect().bottom ?? -1),
+      vh: window.innerHeight,
+    };
+  });
+  if (hero.chips === 0) ok("no trust chips under the headline");
+  else bad(`${hero.chips} chips are still under the headline`);
+  if (!/Reads as|Perçu comme/i.test(hero.text)) ok("no \u201creads as\u201d preview either");
+  else bad("the \u201creads as\u201d preview is still in the hero");
+  if (hero.bottom < hero.vh * 0.75) {
+    ok(`hero ends at ${hero.bottom}px of ${hero.vh} — the eye starts inside the first screen`);
+  } else {
+    bad(`hero still reserves ${hero.bottom}px of ${hero.vh}`);
+  }
+  await page.close();
+}
+
+/* The film follows the site's language, on arrival and on a switch. */
+{
+  console.log("\n=== language switching ===");
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.goto(APP + "/", { waitUntil: "load" });
+  await page.waitForTimeout(700);
+  await page.evaluate(() =>
+    document.querySelector("#film").scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.waitForTimeout(2200);
+
+  const v = page.locator("#film video");
+  const before = await v.evaluate((el) => el.currentSrc);
+
+  // The switch in the navbar, whichever language is not current.
+  const other = await page.evaluate(() => {
+    const btns = [...document.querySelectorAll("button, a")];
+    const el = btns.find((b) => /^(EN|FR)$/i.test(b.textContent?.trim() ?? "") &&
+      !b.className.includes("text-white "));
+    return el ? el.textContent.trim() : null;
+  });
+  const target = /fr/.test(before) ? "EN" : "FR";
+  await page.getByRole("button", { name: new RegExp(`^${target}$`, "i") }).first().click()
+    .catch(async () => {
+      await page.getByText(new RegExp(`^${target}$`), { exact: true }).first().click();
+    });
+  await page.waitForTimeout(2000);
+
+  const after = await v.evaluate((el) => ({ src: el.currentSrc, t: el.currentTime, paused: el.paused }));
+  const want = target.toLowerCase();
+  if (after.src.includes(`blink-ad-${want}-`)) {
+    ok(`switching to ${target} switched the film (${before.split("/").pop()} \u2192 ${after.src.split("/").pop()})`);
+  } else {
+    bad(`still playing ${after.src.split("/").pop()} after switching to ${target} (offered: ${other})`);
+  }
+  if (!after.paused) ok("and it kept playing");
+  else bad("the film stopped when the language changed");
   await page.close();
 }
 

@@ -119,14 +119,32 @@ export interface Cue {
   frame: number;
   sfx: Sfx;
   gain?: number;
+  /**
+   * Playback speed, and with it pitch.
+   *
+   * Five sounds used a hundred and twenty times will drone unless the repeats
+   * differ from each other. Speed is the cheapest way to make one sample
+   * sound like several: `preservePitch` is off in `Track.tsx`, so 0.9 is a
+   * slower, heavier pass of the same object and 1.15 a quicker, tighter one.
+   * Nothing here is far enough from 1 to sound like an effect.
+   */
+  rate?: number;
 }
 
-/** A pop, at a level. The most-used sound in the film by a distance. */
-/*
-  And the pops up, for the mirror-image reason.
+/**
+ * A deterministic spread around 1, derived from the frame number.
+ *
+ * The same frame always gets the same rate, so a re-render is the same film —
+ * but no two neighbouring cues get the same one, which is the point.
+ */
+const vary = (frame: number, spread: number): number =>
+  1 + ((((frame * 2654435761) >>> 0) % 1000) / 1000 - 0.5) * 2 * spread;
 
-  They are the most frequent sound in the film by a distance and they live
-  between 150 and 800 Hz — the band the mix was thinnest in. Lifting them is
+/*
+  A pop, at a level — the most-used sound in the film by a distance, and
+  lifted, for the mirror-image reason to the sub's trim, for the mirror-image reason.
+
+  They live between 150 and 800 Hz — the band the mix was thinnest in. Lifting them is
   what fills it, and a bubble with a twenty-millisecond attack does not become
   aggressive when it gets louder, it becomes present.
 */
@@ -135,6 +153,8 @@ const pop = (frame: number, gain = 0.34): Cue => ({
   frame,
   sfx: "ui_soft_pop_bubble",
   gain: Math.min(1, gain * POP_LIFT),
+  // Bubbles are never the same size twice.
+  rate: vary(frame, 0.14),
 });
 /*
   Sub-bass, scaled down at source.
@@ -154,14 +174,42 @@ const pop = (frame: number, gain = 0.34): Cue => ({
   is a boomy mix.
 */
 const SUB_TRIM = 0.4;
+/**
+ * Whole tones, not a continuous spread.
+ *
+ * The sub is the one sound with a pitch you can hear as a note, and the bed
+ * underneath it is in A. Detuning it by an arbitrary few percent would put
+ * every heavy impact slightly out of key with the music; unison and a whole
+ * tone either side keep it consonant while still making three hits in one
+ * scene read as three events rather than as the same sample three times.
+ */
+const SUB_STEPS = [1, 2 ** (-2 / 12), 2 ** (2 / 12)];
+
 const sub = (frame: number, gain = 0.85): Cue => ({
   frame,
   sfx: "deep_sub_bass_pulse",
   gain: gain * SUB_TRIM,
+  rate: SUB_STEPS[((frame * 2654435761) >>> 0) % SUB_STEPS.length],
 });
-const air = (frame: number, gain = 0.5): Cue => ({ frame, sfx: "soft_air_swoosh", gain });
-const tap = (frame: number, gain = 0.3): Cue => ({ frame, sfx: "asmr_muffled_clicks", gain });
-const glass = (frame: number, gain = 0.34): Cue => ({ frame, sfx: "glass_slide_friction", gain });
+const air = (frame: number, gain = 0.5): Cue => ({
+  frame,
+  sfx: "soft_air_swoosh",
+  gain,
+  rate: vary(frame, 0.12),
+});
+const tap = (frame: number, gain = 0.3): Cue => ({
+  frame,
+  sfx: "asmr_muffled_clicks",
+  gain,
+  // Thirty identical keystrokes in a row is the sound of a sample, not typing.
+  rate: vary(frame, 0.1),
+});
+const glass = (frame: number, gain = 0.34, rate = 1): Cue => ({
+  frame,
+  sfx: "glass_slide_friction",
+  gain,
+  rate,
+});
 
 const LIST: Cue[] = [
   /* ── every seam ────────────────────────────────────────────────────
@@ -187,14 +235,22 @@ const LIST: Cue[] = [
   /* ── 2 · the loupe ─────────────────────────────────────────────────
      One friction bed laid under the whole pass and re-struck at each detail,
      so the glass never stops moving between the things it finds. */
-  glass(LOUPE_ENTER, 0.3),
+  /* One bed under the whole pass, and one stroke per detail.
+
+     This was seven starts of the same 37-frame file inside 56 frames, two of
+     them landing on the very same frame — which is not a texture, it is the
+     identical sample played twice at once. Overlapped that heavily and never
+     varying, friction stops being friction and becomes a drone. Each stroke
+     now runs at its own speed, so the glass is moving at a different rate
+     every time instead of repeating. */
+  glass(LOUPE_ENTER, 0.32, 0.82),
   // The lens touching down on the print. The camera shakes here and nothing
   // was heard on it — a knock with no sound reads as a glitch, not a bump.
   sub(LOUPE_IN, 0.3),
-  glass(LOUPE_IN, 0.22),
-  glass(LOUPE_FROM + 6, 0.34),
-  ...DETAIL_BEATS.flatMap((f) => [glass(f - 6, 0.26), pop(f, 0.4)]),
-  glass(LOUPE_TO - 20, 0.24),
+  ...DETAIL_BEATS.flatMap((f, i) => [
+    glass(f - 6, 0.24, [1.18, 0.94, 1.34][i]),
+    pop(f, 0.4),
+  ]),
   pop(LOUPE_TO, 0.2),
 
   /* ── 3 · the print comes apart ─────────────────────────────────────
@@ -213,7 +269,7 @@ const LIST: Cue[] = [
   pop(MIRROR_LABEL, 0.24),
   // The glass settling under its own sheen. The mirror holds its intact
   // reflection here and it was the longest silence left in the mix.
-  glass(MIRROR_IN + 18, 0.26),
+  glass(MIRROR_IN + 18, 0.26, 0.7),
   pop(MIRROR_IN + 18, 0.18),
   air(CRACK - 5, 0.44),
   sub(CRACK, 1),
@@ -224,7 +280,7 @@ const LIST: Cue[] = [
   /* The glass leaving. The fracture is the shock and this is the reveal, and
      it was the one physical event in the film with nothing on its own frame:
      a mirror emptying itself in silence. */
-  glass(SHED_FROM, 0.42),
+  glass(SHED_FROM, 0.42, 1.45),
   pop(SHED_FROM, 0.24),
   sub(TRUTH, 0.62),
   pop(TRUTH, 0.42),

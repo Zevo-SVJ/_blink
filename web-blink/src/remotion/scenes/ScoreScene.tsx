@@ -15,7 +15,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 
 import { Beam, Projector, Slide } from "../objects/Projector";
 import { Imprint } from "../objects/Stamp";
-import { PUSH_TO, TIP_TO } from "./Verdict";
+import { pushAt, tipAt } from "../motion/push";
 import { Camera } from "../motion/Camera";
 import { springAt } from "../motion/springs";
 import type { FilmCopy } from "../copy";
@@ -131,7 +131,13 @@ export function ScoreScene({ copy }: { copy: FilmCopy }) {
             alignItems: "center",
             justifyContent: "flex-start",
             paddingTop: 950,
-            filter: dive > 0.5 ? `blur(${(dive - 0.5) * 26}px)` : undefined,
+            /* Motion blur off the magnification itself, not off a second
+               curve. Anything with its own easing inside this move is another
+               thing that can start and stop inside it. */
+            filter: (() => {
+              const b = Math.min(30, Math.max(0, (pushAt(frame) - 3) * 1.5));
+              return b > 0.5 ? `blur(${b}px)` : undefined;
+            })(),
           }}
         >
           <div
@@ -144,10 +150,10 @@ export function ScoreScene({ copy }: { copy: FilmCopy }) {
               alignItems: "center",
               justifyContent: "center",
               boxShadow: `0 40px 90px ${a("hsl(0 0% 0%)", 0.5)}`,
-              /* Picked up at exactly the scale *and* the tilt the verdict's
-                 camera left off at, so the cut lands in the middle of one
-                 continuous push rather than at the start of a new one. */
-              transform: `perspective(1600px) rotateX(${TIP_TO}deg) scale(${PUSH_TO + dive * 26})`,
+              /* The same function the verdict's camera was driven by, sampled
+                 one frame later. There is no second easing here and nothing
+                 restarts: the cut lands in the middle of one move. */
+              transform: `perspective(1600px) rotateX(${tipAt(frame)}deg) scale(${pushAt(frame)})`,
               transformOrigin: "50% 50%",
             }}
           >

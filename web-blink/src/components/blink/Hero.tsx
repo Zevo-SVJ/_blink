@@ -1,6 +1,4 @@
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 
 import { CTAButton } from "@/components/blink/CTAButton";
 import { useT } from "@/lib/i18n";
@@ -14,34 +12,27 @@ import { useT } from "@/lib/i18n";
  * had no idea what "8.7 / Deliberate and low-key" referred to, so it read as
  * random data rather than a demonstration.
  *
- * The preview below the CTA is now the mechanism, not a result: a profile
- * screenshot, an arrow, and a perception that keeps changing. Input, transform,
- * output. It reads in about a second and needs no caption, and it contains no
- * numbers a stranger can't place.
+ * What is here now is the headline, the sentence under it, and the button.
+ * Three trust chips and a looping "reads as" preview used to follow, and both
+ * were doing the same job as the section directly below: the eye opens on
+ * scroll and the film shows the whole mechanism at speed. Saying it three
+ * times before the reader has scrolled once is not reassurance, it is noise,
+ * and it pushed the eye most of a screen below the fold.
  *
- * Nothing waits on scroll and nothing waits on a chain: one container, a 40ms
- * stagger, 300ms tweens. Text is in the DOM from first paint, so motion never
- * gates content.
+ * (The chips were "Free / No Instagram login / Screenshot not kept". Anything
+ * of that kind that comes back is a claim about the implementation and has to
+ * be held to it — "screenshot never stored" was once here and was not true as
+ * written, because a SHA-256 of the image is kept in `score_history` so the
+ * same capture cannot be re-submitted for points. The FAQ and the privacy
+ * policy carry the full version.)
+ *
+ * Nothing waits on scroll and nothing waits on a chain: text is in the DOM
+ * from first paint, so motion never gates content.
  */
 
-/**
- * The three chips under the CTA are claims, so each one is held to the code.
- *
- * "Screenshot never stored" used to sit here. It was not true as written: the
- * image is transmitted to an external AI provider to be read, and a SHA-256 of
- * it is kept in `score_history` so the same capture cannot be re-submitted for
- * points. Blink does not *store the screenshot*, which is worth saying — but
- * "never stored" claims more than that, and a privacy promise the
- * implementation does not keep is the one kind of copy that cannot stay.
- *
- * "Screenshot not kept" is the accurate version, and the FAQ and the privacy
- * policy carry the full explanation one tap away.
- */
 export function Hero({ onCTA }: { onCTA: () => void }) {
   const reduceMotion = useReducedMotion();
   const t = useT();
-
-  const TRUST = [t.hero.trustFree, t.hero.trustNoLogin, t.hero.trustNotKept];
 
   // The entrance is CSS, not JS — see `.blink-rise` in index.css. The landing
   // is prerendered, and Framer's `initial` state is what renderToString emits,
@@ -50,8 +41,19 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
 
   return (
     <section
-      className="relative flex flex-col items-center justify-center px-4 pb-14 pt-24 sm:px-6 sm:pb-20 sm:pt-28"
-      style={{ minHeight: "90svh" }}
+      className="relative flex flex-col items-center justify-center px-4 pb-10 pt-24 sm:px-6 sm:pb-12 sm:pt-28"
+      /*
+        Shorter than it was.
+
+        The hero used to carry three trust chips and a looping "reads as"
+        preview under the button, and 90svh was the height those needed. With
+        them gone that reserved most of a screen for nothing, and the eye — the
+        next thing down — began so far below the fold that the page opened on
+        emptiness. At 58svh the headline is still centred in its own space and
+        the closed eyelid reaches the bottom of the first screen, which is the
+        whole invitation to scroll.
+      */
+      style={{ minHeight: "58svh" }}
     >
       <div className="relative z-10 mx-auto w-full max-w-xl text-center">
         <h1
@@ -72,22 +74,6 @@ export function Hero({ onCTA }: { onCTA: () => void }) {
           <CTAButton label={t.brand.cta} onClick={onCTA} href="/analyze" size="lg" />
         </div>
 
-        <ul
-          className="blink-rise blink-rise-4 mx-auto mt-4 flex max-w-md flex-wrap items-center justify-center gap-1.5 text-[0.68rem] font-medium text-white/35 min-[400px]:text-xs"
-        >
-          {TRUST.map((label) => (
-            <li
-              key={label}
-              className="rounded-full bg-white/[0.045] px-2.5 py-1 ring-1 ring-white/[0.06]"
-            >
-              {label}
-            </li>
-          ))}
-        </ul>
-
-        <div className="blink-rise blink-rise-5 mt-9 flex justify-center sm:mt-11">
-          <MechanismPreview />
-        </div>
       </div>
 
     </section>
@@ -140,103 +126,3 @@ function AccentPhrase() {
   );
 }
 
-/**
- * Input → transform → output, at a glance.
- *
- * A miniature profile screenshot, an arrow, and a perception that keeps
- * changing. Deliberately no score: the point here is what Blink *does*, and a
- * number without context was the thing that confused people.
- */
-function MechanismPreview() {
-  const reduceMotion = useReducedMotion();
-  const t = useT();
-  const [lens, setLens] = useState(0);
-
-  /**
-   * The same profile, read differently.
-   *
-   * Each entry carries its whole phrase rather than just a subject, because
-   * the verb has to agree — "your friends see you", not "your friends sees
-   * you" — and French adds its own agreement on top of that.
-   */
-  const LENSES = [
-    { emoji: "❤️", phrase: t.hero.lensCrush },
-    { emoji: "👀", phrase: t.hero.lensStranger },
-    { emoji: "🤝", phrase: t.hero.lensFriends },
-    { emoji: "💼", phrase: t.hero.lensRecruiter },
-  ];
-
-  useEffect(() => {
-    if (reduceMotion) return;
-    const timer = window.setInterval(() => setLens((i) => (i + 1) % LENSES.length), 2400);
-    return () => window.clearInterval(timer);
-  }, [reduceMotion, LENSES.length]);
-
-  const current = LENSES[lens];
-
-  return (
-    <div className="flex w-full max-w-[21rem] items-center gap-3 sm:max-w-[23rem] sm:gap-4">
-      <ScreenshotMock />
-
-      <ArrowRight className="h-4 w-4 shrink-0 text-white/25" aria-hidden />
-
-      <div className="min-w-0 flex-1 text-left">
-        <p className="text-[0.6rem] font-bold uppercase tracking-[0.14em] text-white/30">
-          {t.hero.readsAs}
-        </p>
-        <div className="mt-1 h-[2.75rem]">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.p
-              key={current.phrase}
-              initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduceMotion ? undefined : { opacity: 0, y: -10 }}
-              transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-              className="text-[0.92rem] font-bold leading-snug text-white sm:text-base"
-            >
-              <span className="mr-1.5">{current.emoji}</span>
-              {t.hero.lensPrefix} {current.phrase}
-            </motion.p>
-          </AnimatePresence>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** A recognisably-Instagram profile, abstracted to shapes. */
-function ScreenshotMock() {
-  const reduceMotion = useReducedMotion();
-
-  return (
-    <div className="relative h-[92px] w-[70px] shrink-0 overflow-hidden rounded-xl bg-white/[0.06] shadow-[0_12px_34px_-14px_rgba(0,0,0,0.9)] ring-1 ring-white/[0.09]">
-      <div className="flex items-center gap-1.5 p-2">
-        <span className="h-4 w-4 shrink-0 rounded-full bg-[linear-gradient(140deg,hsl(var(--blink-sky)),hsl(var(--blink-sky-bright)))]" />
-        <span className="flex flex-1 flex-col gap-1">
-          <span className="block h-1 w-full rounded-full bg-white/25" />
-          <span className="block h-1 w-2/3 rounded-full bg-white/12" />
-        </span>
-      </div>
-      <div className="grid grid-cols-3 gap-[2px] px-[2px]">
-        {Array.from({ length: 9 }).map((_, i) => (
-          <span key={i} className="aspect-square bg-white/[0.09]" />
-        ))}
-      </div>
-
-      {/* A scan pass, so the still reads as "being looked at". */}
-      {!reduceMotion && (
-        <motion.span
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 h-6"
-          initial={{ top: "-25%" }}
-          animate={{ top: "110%" }}
-          transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.1, ease: "easeInOut" }}
-          style={{
-            background:
-              "linear-gradient(to bottom, transparent, rgba(175,224,249,0.28), transparent)",
-          }}
-        />
-      )}
-    </div>
-  );
-}
