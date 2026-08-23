@@ -80,6 +80,23 @@ export function fitSize(
 }
 
 /**
+ * One size for a block of lines.
+ *
+ * Sizing each line to the column independently is what makes a two-line
+ * statement look accidental: the short line comes back 30% larger than the
+ * long one and the block reads as two unrelated captions. A block of type is
+ * one object, so it gets one size — the largest at which every line fits.
+ */
+export function fitBlock(
+  lines: string[],
+  max: number,
+  column = WIDTH - 130,
+  track = -0.045,
+): number {
+  return Math.min(...lines.map((l) => fitSize(l, max, column, track)));
+}
+
+/**
  * A block of text that crashes onto the screen.
  *
  * `from` is where the scale starts. 3 throws it at the camera; 0.5 pops it up
@@ -98,6 +115,8 @@ export function Crash({
   preset = "crash" as SpringName,
   /** Degrees of tilt while it is still travelling. Settles to zero. */
   tilt = 0,
+  /** Off when `size` was already solved for the block — see `fitBlock`. */
+  fit = true,
   style,
 }: {
   children: string;
@@ -110,6 +129,7 @@ export function Crash({
   track?: string;
   preset?: SpringName;
   tilt?: number;
+  fit?: boolean;
   style?: CSSProperties;
 }) {
   const frame = useCurrentFrame();
@@ -126,7 +146,9 @@ export function Crash({
     <div
       style={{
         fontFamily: FONT,
-        fontSize: fitSize(children, size, (column ?? WIDTH - 130) / head, parseFloat(track)),
+        fontSize: fit
+          ? fitSize(children, size, (column ?? WIDTH - 130) / head, parseFloat(track))
+          : size / head,
         fontWeight: weight,
         letterSpacing: track,
         // Roomy enough for É and È, which a tighter leading crops.

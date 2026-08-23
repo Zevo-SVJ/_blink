@@ -80,40 +80,48 @@ const frames = process.env.FRAMES
 function defaultBeats(total) {
   const beats = [];
 
-  // Every named beat in the edit, plus a frame a few after it so both the
-  // arrival and the settle are on record — a spring looks completely
-  // different at its peak and at rest.
+  /* Every named beat, plus a frame a few after it — a spring looks completely
+     different at its peak and at rest, and both are worth seeing. */
   const named = [
-    ...T.HOOK_BEATS.map((f, i) => [f, `hook${i + 1}`]),
-    [T.WHIP, "whip"],
-    [T.PROFILE_IN, "profile"],
-    [T.EYE_IN, "eye"],
-    [T.SCAN_FROM, "laser-start"],
-    [Math.round((T.SCAN_FROM + T.SCAN_TO) / 2), "laser-mid"],
-    [T.SCAN_TO, "laser-end"],
-    ...T.TAG_BEATS.map((f, i) => [f, `tag${i + 1}`]),
-    [T.GLITCH, "glitch"],
-    [T.FLAG_WORD, "flag-word"],
-    [T.GAUGE_FROM, "gauge-start"],
-    [T.GAUGE_TO, "gauge-full"],
-    [T.TYPE_FROM, "typing"],
-    [T.PRESS, "press"],
-    [T.SLOGAN, "slogan"],
+    [T.PHOTO_DROP, "drop"],
+    [T.PHOTO_DROP + 8, "land"],
+    [T.PHOTO_REST, "rest"],
+    [T.HOOK_A, "hookA"],
+    [T.HOOK_A + 14, "hookA-full"],
+    [T.HOOK_B, "hookB"],
+    [T.HOOK_B + 16, "hookB-full"],
+    [T.LOUPE_IN, "loupe-in"],
+    ...T.DETAIL_BEATS.map((f, i) => [f + 4, `detail${i + 1}`]),
+    [T.LOUPE_TO, "loupe-end"],
+    [T.FRAGMENT + 4, "fragment"],
+    ...T.CARD_BEATS.map((f, i) => [f + 8, `card${i + 1}`]),
+    [T.CARD_BEATS[3] + 22, "cards-all"],
+    [T.WHIP + 4, "whip"],
+    [T.MIRROR_IN + 10, "mirror"],
+    [T.CRACK, "crack"],
+    [T.CRACK + 6, "crack-open"],
+    [T.TRUTH + 8, "truth"],
+    [T.STAMP_LIFT + 8, "stamp-up"],
+    [T.STAMP_HIT, "stamp-hit"],
+    [T.STAMP_HIT + 4, "stamp-press"],
+    [T.STAMP_UP + 14, "imprint"],
+    [T.DIVE + 10, "dive"],
+    [T.INK, "ink"],
+    [T.PROJECT + 10, "projector"],
+    [T.SCORE_FROM + 8, "counting"],
+    [T.SCORE_TO + 4, "score"],
+    [T.PULL_FROM + 14, "pulling"],
+    [T.PULL_TO + 4, "desk"],
+    [T.LABEL_BEATS[3] + 10, "steps"],
+    [T.APP_IN + 10, "app"],
+    [T.TYPE_FROM + 14, "typing"],
+    [T.PRESS + 3, "press"],
+    [T.SLOGAN + 12, "slogan"],
   ];
 
-  for (const [f, name] of named) {
-    beats.push({ frame: f, name });
-    beats.push({ frame: f + 5, name: `${name}+5` });
-  }
-
-  // The head and tail of every scene, and the true last frame — the one a
-  // loop cuts back from.
-  for (const scene of T.SCENES) {
-    beats.push({ frame: scene.from + scene.duration - 2, name: `${scene.id}-out` });
-  }
+  for (const [f, name] of named) beats.push({ frame: f, name });
   beats.push({ frame: total - 1, name: "last" });
 
-  // Deduplicate by frame, keeping the first name, and sort.
   const seen = new Map();
   for (const b of beats) {
     if (b.frame >= 0 && b.frame < total && !seen.has(b.frame)) seen.set(b.frame, b);

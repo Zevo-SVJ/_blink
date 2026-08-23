@@ -18,6 +18,14 @@ export const SPRING = {
   tight: { stiffness: 380, damping: 26, mass: 0.8 },
   /** None at all. For anything that must not draw attention to itself. */
   flat: { stiffness: 200, damping: 30, mass: 1 },
+  /**
+   * A thing falling and landing.
+   *
+   * Heavier mass and low damping: it overshoots hard, rebounds once and
+   * settles. That single bounce is what separates an object hitting a desk
+   * from an image sliding into position.
+   */
+  drop: { stiffness: 190, damping: 11, mass: 1.4 },
 } as const;
 
 export type SpringName = keyof typeof SPRING;

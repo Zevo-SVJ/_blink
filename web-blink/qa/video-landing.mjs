@@ -165,11 +165,69 @@ for (const [label, w, h] of WIDTHS) {
   });
   const film = order.indexOf("film");
   const how = order.indexOf("how-it-works");
-  if (film >= 0 && how >= 0 && film < how) {
-    ok(`the film comes before How It Works (${order.join(" → ")})`);
+  const board = order.indexOf("leaderboard");
+  if (film >= 0 && how >= 0 && board >= 0 && how < film && film < board) {
+    ok(`the film sits between How It Works and the leaderboard (${order.join(" → ")})`);
   } else {
     bad(`unexpected order: ${order.join(" → ")}`);
   }
+  await page.close();
+}
+
+/* The viewer's pause outranks the observer. */
+{
+  console.log("\n=== the viewer takes over ===");
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.goto(APP + "/", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(700);
+  await page.evaluate(() =>
+    document.querySelector("#film").scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.waitForTimeout(2600);
+
+  const v = page.locator("#film video");
+  const started = await v.evaluate((el) => el.currentTime);
+
+  // Pause it the way a person does, then scroll away and back.
+  await v.evaluate((el) => el.pause());
+  await page.waitForTimeout(300);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await page.waitForTimeout(700);
+  await page.evaluate(() =>
+    document.querySelector("#film").scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.waitForTimeout(1600);
+
+  const after = await v.evaluate((el) => ({ paused: el.paused, t: el.currentTime }));
+  if (started > 0) ok(`it was playing before the pause (${started.toFixed(2)}s)`);
+  else bad("never started, so the pause proves nothing");
+  if (after.paused) ok("stayed paused after scrolling away and back");
+  else bad(`restarted itself under the viewer (t ${after.t.toFixed(2)})`);
+  await page.close();
+}
+
+/* Reduced motion: the film is present and playable, but does not start. */
+{
+  console.log("\n=== reduced motion ===");
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: "reduce",
+  });
+  await page.goto(APP + "/", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(900);
+  await page.evaluate(() =>
+    document.querySelector("#film").scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.waitForTimeout(2600);
+
+  const v = page.locator("#film video");
+  const state = await v.evaluate((el) => ({
+    paused: el.paused,
+    t: el.currentTime,
+    controls: el.controls,
+    poster: !!el.poster,
+  }));
+  if (state.paused && state.t === 0) ok("held still, not autoplaying");
+  else bad(`played anyway (paused ${state.paused}, t ${state.t})`);
+  if (state.controls && state.poster) ok("still playable, and the poster is showing");
+  else bad("the film is not reachable under reduced motion");
   await page.close();
 }
 

@@ -1,91 +1,97 @@
 /**
  * Every word in the film, in both languages.
  *
- * ## One or two words at a time
- *
- * Nothing here is a sentence. The hook is four separate impacts, not a line
- * that happens to wrap, because the typography animates each block
- * independently and a viewer has about a third of a second per block to read
- * it. Copy written as prose and then broken up reads as prose broken up; copy
- * written as impacts reads as impacts.
- *
- * ## Same frames in both languages
+ * There is no voice-over, so the copy is doing less work than usual and has
+ * to be sharper for it: the objects carry the explanation and the type only
+ * names things. Nearly all of it is one to three words, because each block
+ * gets about a third of a second.
  *
  * The timeline is built from durations, so French and English are cut
- * identically. Only the *setting* differs — components size type to fit, so a
- * longer word gets a smaller face rather than running off the frame.
+ * identically — only the *setting* differs, and the components size type to
+ * fit rather than clipping the longer language.
  */
 
 export type Lang = "fr" | "en";
 
 export interface FilmCopy {
-  /** Scene 1 — four impacts. */
-  hook: string[];
-  /** Scene 2 — what the profile is to its owner. */
-  illusionLabel: string;
+  /** Scene 1 — the claim, then the interrupt. */
+  hookA: string[];
+  hookB: string[];
+  /** The profile on the photo print. */
   handle: string;
-  /** Scene 3 — what Blink read off it. */
-  scanLabel: string;
-  tags: string[];
-  /** Scene 4 — the interrupt. */
-  flagLabel: string;
-  flagWord: string;
-  /** Scene 5. */
+  /** Scene 2 — what the loupe finds, in the order it finds it. */
+  details: string[];
+  /** Scene 3 — what is pulled out of the photo. */
+  cards: string[];
+  /** Scene 4 — the two sides of the mirror. */
+  mirrorYou: string;
+  mirrorThem: string;
+  /** Scene 5 — the verdict. */
+  verdictLabel: string;
+  verdict: string;
+  /** Scene 6. */
   scoreLabel: string;
   score: string;
   scoreOutOf: string;
-  /** Scene 6 — the product, then the ask. */
+  /** Scene 7 — the process, named as the camera pulls back. */
+  steps: string[];
+  /** Scene 8. */
+  appTitle: string;
   typed: string;
   button: string;
-  /**
-   * The closing line, already broken into the blocks it animates as.
-   *
-   * Set as one sentence it fitted to about a fifth of the frame height and
-   * read as a caption — the quietest thing in the film in the position that
-   * should be the loudest. Three impacts at display size is the same words
-   * doing the job they were written for.
-   */
   slogan: string[];
+  /** The ask on the last frame. The action the product actually offers. */
+  cta: string;
   brand: string;
 }
 
 const FR: FilmCopy = {
   /*
-    The claim is about the viewer, not the product, and they cannot check it —
-    which is the entire reason they keep watching. "Vraiment" is the load-
-    bearing word: it concedes that they already have a theory and says it is
-    wrong.
+    A claim about the viewer that they cannot check, and then the twist that
+    makes it uncomfortable. "Sans que tu le saches" is the whole hook: the
+    first line is a question anyone could shrug off, the second says it has
+    already happened.
   */
-  hook: ["POV :", "CE QUE LES GENS", "PENSENT VRAIMENT", "DE TON PROFIL"],
-  illusionLabel: "Ce que tu crois montrer",
+  hookA: ["CE QUE TON", "PROFIL DIT", "DE TOI."],
+  hookB: ["SANS QUE", "TU LE", "SACHES."],
   handle: "@ton.profil",
-  scanLabel: "Ce que Blink lit",
-  tags: ["ARROGANT", "CRÉATIF", "MYSTÉRIEUX"],
-  flagLabel: "TON PLUS GROS RED FLAG :",
-  flagWord: "DISTANT",
+  details: ["LA BIO", "LES 3 PREMIERS", "LES COULEURS"],
+  cards: ["CRÉATIF", "CRÉDIBLE", "SOIGNÉ", "MYSTÉRIEUX"],
+  mirrorYou: "CE QUE TU VOIS",
+  mirrorThem: "CE QU’ILS VOIENT",
+  verdictLabel: "VERDICT",
+  verdict: "DISTANT",
   scoreLabel: "BLINK SCORE",
   score: "8.6",
   scoreOutOf: "/10",
+  steps: ["OBSERVE", "ANALYSE", "DÉDUIT", "TE LE DIT"],
+  appTitle: "Analyser un profil",
   typed: "@ton.pseudo",
   button: "Analyser",
   slogan: ["VOIS-TOI", "COMME LES AUTRES", "TE VOIENT"],
+  cta: "ANALYSE TON PROFIL",
   brand: "Blink",
 };
 
 const EN: FilmCopy = {
-  hook: ["POV:", "WHAT PEOPLE", "ACTUALLY THINK", "OF YOUR PROFILE"],
-  illusionLabel: "What you think you're showing",
+  hookA: ["WHAT YOUR", "PROFILE SAYS", "ABOUT YOU."],
+  hookB: ["AND YOU", "NEVER", "NOTICED."],
   handle: "@your.profile",
-  scanLabel: "What Blink reads",
-  tags: ["ARROGANT", "CREATIVE", "MYSTERIOUS"],
-  flagLabel: "YOUR BIGGEST RED FLAG:",
-  flagWord: "DISTANT",
+  details: ["THE BIO", "THE FIRST 3", "THE COLOURS"],
+  cards: ["CREATIVE", "CREDIBLE", "POLISHED", "MYSTERIOUS"],
+  mirrorYou: "WHAT YOU SEE",
+  mirrorThem: "WHAT THEY SEE",
+  verdictLabel: "VERDICT",
+  verdict: "DISTANT",
   scoreLabel: "BLINK SCORE",
   score: "8.6",
   scoreOutOf: "/10",
+  steps: ["LOOKS", "READS", "DEDUCES", "TELLS YOU"],
+  appTitle: "Analyse a profile",
   typed: "@your.handle",
   button: "Analyse",
   slogan: ["SEE YOURSELF", "THE WAY OTHERS", "SEE YOU"],
+  cta: "ANALYSE YOUR PROFILE",
   brand: "Blink",
 };
 

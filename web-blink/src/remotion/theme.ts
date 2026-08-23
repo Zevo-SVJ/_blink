@@ -30,6 +30,32 @@ export const C = {
   flag: "hsl(32 96% 62%)",
   flagDeep: "hsl(18 88% 46%)",
   good: "hsl(152 62% 52%)",
+
+  /*
+    The physical world.
+
+    The film is objects on a desk now, and objects need materials. These are
+    deliberately desaturated and slightly warm against the navy: a photo print
+    that is pure white reads as a rectangle of light rather than as paper, and
+    brass that is yellow reads as gold.
+  */
+  /** Photo print and index card stock. */
+  paper: "hsl(38 24% 93%)",
+  paperEdge: "hsl(34 18% 82%)",
+  paperShade: "hsl(30 14% 68%)",
+  /** The desk itself. */
+  desk: "hsl(220 42% 12%)",
+  deskLight: "hsl(216 34% 18%)",
+  /** The loupe's barrel and the mirror's frame. */
+  brass: "hsl(38 42% 62%)",
+  brassDark: "hsl(34 38% 38%)",
+  /** Glass, seen edge-on. */
+  glass: "hsl(196 60% 88%)",
+  /** Stamp ink. Deep and slightly blue-shifted, like real stamp pad ink. */
+  ink: "hsl(354 74% 42%)",
+  inkDeep: "hsl(352 82% 26%)",
+  /** The projector's lamp. */
+  lamp: "hsl(44 92% 78%)",
 } as const;
 
 /**
