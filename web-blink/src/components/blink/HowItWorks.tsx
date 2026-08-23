@@ -1,379 +1,194 @@
 /**
  * Blink — "How it works".
  *
- * A four-act sequence that has to be legible with the sound off, so to speak:
- * someone who reads none of the surrounding copy should still come away with
- * *I give it a screenshot → it reads the screenshot → it pulls signals out →
- * different people see different things.*
+ * ## What this is, and what it deliberately is not
+ *
+ * Four steps, one subject. The capture that arrives in step one is the same
+ * DOM element in step four: it moves, resizes and re-corners, but it is never
+ * unmounted and never replaced. That is the whole argument of the section —
+ * *your screenshot is what becomes the score* — and it is made by the layout
+ * animation rather than by the copy.
+ *
+ * It is not four cards in a row. Four cards side by side describe a process;
+ * they do not perform one, and a reader can tell the difference immediately.
+ *
+ * ## What it replaced
+ *
+ * An auto-playing loop that cycled six perception cards. That was a fine idea
+ * before the interactive demo existed — and redundant the moment it did. The
+ * demo above already shows *what you get* (the gaze, the niche, the score out
+ * of ten) with the reader's hand on it. Showing it again, on a timer, in a
+ * smaller box, was the same content twice with the second telling worse.
+ *
+ * So this section answers the other question, the practical one: *what do I
+ * actually do?* Screenshot, upload, read, score. Nothing about the output.
  *
  * ## The staging
  *
- *   1. `upload`   the screenshot arrives and settles.
- *   2. `read`     a reflection passes down it; three markers light on the
- *                 parts being read — picture, bio, grid.
- *   3. `extract`  the screenshot shrinks to a thumbnail and the markers
- *                 detach as signal chips beneath it.
- *   4. `perceive` the chips clear and the readings begin, one perception card
- *                 at a time, cycling through all six.
- *
- * Then it loops back to act one.
- *
- * ## What this replaced, and why
- *
- * A core node with six labels around it and a line to whichever was lit. It
- * looked deliberate and explained nothing: a hub-and-spoke diagram says
- * "these things are related to that thing", not "your screenshot becomes
- * these readings". There is no radial layout here at all — the composition
- * moves top-to-bottom because that is the direction the story runs.
+ *   1. `capture`  the shot sits alone and slightly turned, the way a picture
+ *                 you have just taken sits — plus a capture bracket.
+ *   2. `upload`   it squares up and a frame closes around it. It has arrived.
+ *   3. `read`     it moves aside and shrinks; the three regions light on it in
+ *                 turn and detach as signal chips.
+ *   4. `score`    the chips give way to the verdict: a number out of ten and
+ *                 the niche it was measured against.
  *
  * ## Rules
  *
- *  - **Starts on arrival.** The observer reaches nearly half a viewport below
- *    the fold and act one is 800ms, so the read is already under way by the
- *    time the section is on screen. No entrance chain.
- *  - **One subject.** The screenshot is never replaced or cross-faded — it
- *    shrinks and stays, so the perceptions are visibly *of it*.
- *  - **Nothing decorative.** No glow, no blurred plate, no floating square.
- *    Every element is the screenshot, a marker, a signal, or a reading.
+ *  - **The stage never changes height.** A section that resizes mid-scroll
+ *    drags the whole document under the reader's thumb; that was a real bug
+ *    here once and it is not coming back. The stage is a fixed height at each
+ *    breakpoint and everything inside is positioned within it.
+ *  - **The reader can take over.** Tapping a step pins it. The sequence is a
+ *    demonstration, not a video, so it has to answer to a finger.
+ *  - **Nothing decorative.** Every element on the stage is the capture, a
+ *    region, a signal, or the verdict.
  */
 
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+  type Transition,
+} from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 
 import { CTAButton } from "@/components/blink/CTAButton";
-import { PerceptionCard } from "@/components/blink/PerceptionCard";
 import { Reveal } from "@/components/blink/Reveal";
-import { PERCEPTIONS } from "@/lib/blink-data";
+import { SharedScope } from "@/design/Motion";
+import { SPRING, still } from "@/design/motion";
 import { useT } from "@/lib/i18n";
 import { useSectionMotion } from "@/lib/use-section-motion";
 import { cn } from "@/lib/utils";
 
-type Act = "upload" | "read" | "extract" | "perceive";
+type Step = "capture" | "upload" | "read" | "score";
 
-const ACTS: Array<{ id: Act; ms: number }> = [
-  // Tuned so the first *perception* — the interesting part — is on screen at
-  // ~3.2s rather than 4.2s. The rail moves from the first beat, so the reader
-  // can see the sequence is running long before the payoff arrives.
-  { id: "upload", ms: 600 },
-  { id: "read", ms: 1500 },
-  { id: "extract", ms: 1100 },
-  // `perceive` runs until every perception has been shown, then wraps.
-  { id: "perceive", ms: 0 },
-];
+const STEPS: Step[] = ["capture", "upload", "read", "score"];
 
-/** How long each reading holds before the next. */
-const LENS_MS = 2100;
+/** How long each step holds before the next, when nobody has taken over. */
+const HOLD: Record<Step, number> = {
+  capture: 1900,
+  upload: 1700,
+  read: 3200,
+  score: 3600,
+};
 
-const ease = [0.22, 1, 0.36, 1] as const;
-const spring = { type: "spring" as const, stiffness: 300, damping: 30 };
+/**
+ * The regions the read marks, as fractions of the capture.
+ *
+ * Same three the product actually reads, in the order it reads them, so the
+ * demonstration and the thing being demonstrated cannot drift apart.
+ */
+const REGIONS = [
+  { id: "photo", key: "photo", signal: "visualIdentity", left: 0.06, top: 0.05, w: 0.3, h: 0.22 },
+  { id: "bio", key: "bio", signal: "aesthetic", left: 0.4, top: 0.07, w: 0.54, h: 0.15 },
+  { id: "grid", key: "grid", signal: "confidence", left: 0.04, top: 0.33, w: 0.92, h: 0.61 },
+] as const;
 
-/** What the read marks, as fractions of the screenshot. */
-const MARKERS = [
-  { id: "photo", label: "Photo", left: 0.06, top: 0.04, w: 0.32, h: 0.24 },
-  { id: "bio", label: "Bio", left: 0.42, top: 0.06, w: 0.52, h: 0.16 },
-  { id: "grid", label: "Grid", left: 0.03, top: 0.32, w: 0.94, h: 0.62 },
-];
-
-/** The three signals the markers become. Labels come from the dictionary. */
-const SIGNAL_KEYS = ["visualIdentity", "aesthetic", "confidence"] as const;
-
-/** Which acts each rail segment covers. The words are translated at render. */
-const RAIL_ACTS: Act[][] = [["upload", "read"], ["extract"], ["perceive"]];
-
-const SHOT_W = 148;
-const SHOT_H = 196;
-const THUMB_SCALE = 0.42;
+/** The example verdict. Labelled as an example wherever it appears. */
+const EXAMPLE_SCORE = 8.7;
 
 export function HowItWorks({ onCTA }: { onCTA: () => void }) {
-  // The ref goes on the stage below, not on the section — see `useSectionMotion`.
   const { ref, inView } = useSectionMotion();
   const reduceMotion = useReducedMotion();
   const t = useT();
 
-  const [act, setAct] = useState<Act>("upload");
-  const [lens, setLens] = useState(0);
-  /** Set once the reader takes over by tapping a perception. */
+  const [step, setStep] = useState<Step>("capture");
+  /** Set once the reader picks a step themselves. The timer stops for good. */
   const [held, setHeld] = useState(false);
 
+  const index = STEPS.indexOf(step);
+  const spring = reduceMotion ? still : SPRING.morph;
+
   const advance = useCallback(() => {
-    setAct((current) => {
-      const i = ACTS.findIndex((a) => a.id === current);
-      return ACTS[(i + 1) % ACTS.length].id;
-    });
+    setStep((s) => STEPS[(STEPS.indexOf(s) + 1) % STEPS.length]);
   }, []);
 
-  // Leaving the viewport rewinds to act one, so a reader who comes back sees
-  // the story from the start rather than joining it mid-sentence.
+  /* Leaving rewinds, so a reader coming back sees the sequence from step one
+     rather than joining it in the middle. */
   useEffect(() => {
     if (inView || held) return;
-    setAct("upload");
-    setLens(0);
+    setStep("capture");
   }, [inView, held]);
 
-  // Acts one to three are timed. `perceive` ends when the readings run out.
   useEffect(() => {
-    if (!inView || reduceMotion || held) return;
-    if (act === "perceive") return;
-    const timer = window.setTimeout(advance, ACTS.find((a) => a.id === act)!.ms);
+    if (!inView || held || reduceMotion) return;
+    const timer = window.setTimeout(advance, HOLD[step]);
     return () => window.clearTimeout(timer);
-  }, [inView, reduceMotion, held, act, advance]);
+  }, [inView, held, reduceMotion, step, advance]);
 
-  // The readings. After the last one the sequence restarts from the top, so
-  // a reader who arrives late still sees the whole story.
+  /* Reduced motion gets the end of the story rather than a slideshow of it. */
   useEffect(() => {
-    if (!inView || reduceMotion || held || act !== "perceive") return;
-    const timer = window.setTimeout(() => {
-      setLens((i) => {
-        if (i + 1 >= PERCEPTIONS.length) {
-          setAct("upload");
-          return 0;
-        }
-        return i + 1;
-      });
-    }, LENS_MS);
-    return () => window.clearTimeout(timer);
-  }, [inView, reduceMotion, held, act, lens]);
-
-  // Reduced motion gets the end state: the point, without the journey.
-  useEffect(() => {
-    if (reduceMotion) setAct("perceive");
+    if (reduceMotion) setStep("score");
   }, [reduceMotion]);
 
-  const reading = act === "perceive";
-  const shrunk = act === "extract" || reading;
-  const current = PERCEPTIONS[lens];
-  // Layout, tone and score stay in `blink-data`; the words come from the
-  // dictionary, keyed by the same id. Adding a language cannot change how the
-  // sequence is laid out.
-  const copy = t.perceptions[current.id as keyof typeof t.perceptions];
+  const copy = t.howItWorks.steps[step];
 
   return (
     <section id="how-it-works" className="relative px-4 py-20 sm:px-6 sm:py-28">
       <div className="mx-auto max-w-3xl">
         <Reveal className="text-center">
-          <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-blink-sky/70">
-            {t.howItWorks.eyebrow}
-          </p>
-          <h2 className="mt-3 text-[1.75rem] font-extrabold tracking-tight text-white sm:text-4xl">
-            {t.howItWorks.heading}
-          </h2>
-          <p className="mx-auto mt-3 max-w-md text-[0.95rem] leading-relaxed text-white/50 sm:mt-4 sm:text-base">
+          <p className="t-label text-blink-sky/70">{t.howItWorks.eyebrow}</p>
+          <h2 className="t-title mt-3 text-balance text-white">{t.howItWorks.heading}</h2>
+          <p className="t-body mx-auto mt-3 max-w-md text-balance text-white/50 sm:mt-4">
             {t.howItWorks.subtitle}
           </p>
         </Reveal>
 
-        <div ref={ref} className="mx-auto mt-9 w-full max-w-[24rem] sm:mt-12">
-          <Rail act={act} />
+        <div ref={ref} className="mx-auto mt-9 w-full max-w-xl sm:mt-12">
+          <StepPicker
+            step={step}
+            onPick={(s) => {
+              setHeld(true);
+              setStep(s);
+            }}
+          />
 
-          {/* The subject. Shrinks but is never replaced, so the readings are
-              visibly *of it*.
+          {/*
+            The stage.
 
-              The row reserves the subject's *full* height for the whole
-              sequence. The box below animates its own width and height, and it
-              sits in normal flow, so when it shrank to THUMB_SCALE the section
-              lost 196 × (1 − 0.42) ≈ 114px and the document with it — measured
-              5390 → 5276. A reader parked below this point was clamped upward
-              by the browser as the page got shorter, which is the "landing
-              jumps up by itself" report.
+            Fixed height, deliberately. Everything inside is absolutely
+            positioned or laid out against it, so no step can make the section
+            taller than another and shove the page around as it plays.
+          */}
+          <SharedScope id="hiw">
+            <div className="relative mt-6 h-[15rem] sm:h-[15.5rem]">
+              <Capture step={step} spring={spring} reduceMotion={!!reduceMotion} />
+              <Signals step={step} spring={spring} />
+              <Verdict step={step} spring={spring} reduceMotion={!!reduceMotion} />
+            </div>
+          </SharedScope>
 
-              Fixing the height here leaves the animation untouched: the box
-              still grows and shrinks exactly as before, it just no longer
-              drags the page around while it does. The box is centred in the
-              reserved space so the freed room reads as breathing room above
-              and below rather than a hole underneath. */}
-          <div
-            className="mt-6 flex items-center justify-center"
-            style={{ height: SHOT_H }}
-          >
-            <motion.div
-              className="relative"
-              initial={false}
-              animate={{
-                width: shrunk ? SHOT_W * THUMB_SCALE : SHOT_W,
-                height: shrunk ? SHOT_H * THUMB_SCALE : SHOT_H,
-              }}
-              transition={{ duration: 0.55, ease }}
-            >
+          {/*
+            What the step means, in words.
+
+            Below the stage rather than beside it: at 360px there is no beside,
+            and a caption that moves to a different place on desktop is two
+            layouts to keep honest instead of one. Fixed height for the same
+            reason the stage is.
+          */}
+          <div className="relative mt-5 h-[6.5rem] sm:h-[5.5rem]">
+            <AnimatePresence mode="popLayout" initial={false}>
               <motion.div
-                className="absolute left-1/2 top-0 origin-top overflow-hidden rounded-2xl bg-white/[0.05] ring-1 ring-white/10"
-                style={{ width: SHOT_W, height: SHOT_H, x: "-50%" }}
-                initial={false}
-                animate={{
-                  scale: shrunk ? THUMB_SCALE : 1,
-                  opacity: act === "upload" ? 0.85 : 1,
-                }}
-                transition={{ duration: 0.55, ease }}
+                key={step}
+                className="absolute inset-x-0 top-0 text-center"
+                initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -12 }}
+                transition={reduceMotion ? still : SPRING.base}
               >
-                <ProfileShot />
-
-                {/* The read: one pass, then the markers hold. */}
-                {act === "read" && !reduceMotion && (
-                  <motion.span
-                    aria-hidden
-                    className="pointer-events-none absolute inset-x-0 h-12"
-                    initial={{ top: "-25%" }}
-                    animate={{ top: "110%" }}
-                    transition={{ duration: 0.9, ease: "easeInOut", repeat: 1 }}
-                    style={{
-                      background:
-                        "linear-gradient(to bottom, transparent, rgba(175,224,249,0.3), transparent)",
-                    }}
-                  />
-                )}
-
-                {MARKERS.map((m, i) => (
-                  <motion.span
-                    key={m.id}
-                    aria-hidden
-                    className="absolute rounded-[7px] ring-[1.5px] ring-blink-sky/70"
-                    style={{
-                      left: `${m.left * 100}%`,
-                      top: `${m.top * 100}%`,
-                      width: `${m.w * 100}%`,
-                      height: `${m.h * 100}%`,
-                    }}
-                    initial={false}
-                    animate={{ opacity: act === "read" ? 1 : 0, scale: act === "read" ? 1 : 1.15 }}
-                    transition={{ ...spring, delay: act === "read" ? 0.35 + i * 0.18 : 0 }}
-                  />
-                ))}
+                <p className="t-heading text-balance text-white">{copy.title}</p>
+                <p className="t-body mx-auto mt-2 max-w-sm text-balance text-white/50">
+                  {copy.body}
+                </p>
               </motion.div>
-            </motion.div>
-          </div>
-
-          {/* Act three: what the read pulled out. */}
-          <div className="mt-4 h-8">
-            <AnimatePresence>
-              {act === "extract" && (
-                <motion.div
-                  className="flex flex-wrap justify-center gap-1.5"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  {SIGNAL_KEYS.map((key, i) => (
-                    <motion.span
-                      key={key}
-                      initial={{ opacity: 0, y: -8, scale: 0.85 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ ...spring, delay: i * 0.09 }}
-                      className="rounded-full bg-white/[0.07] px-3 py-1.5 text-[0.7rem] font-semibold text-white/75 ring-1 ring-white/10"
-                    >
-                      {t.howItWorks.signals[key]}
-                    </motion.span>
-                  ))}
-                </motion.div>
-              )}
             </AnimatePresence>
           </div>
 
-          {/*
-            Act four: the readings.
-
-            The box reserves the height of the *tallest* perception at the
-            current width, so cycling lenses never resizes it.
-
-            This used to be `min-h-[11.5rem]` — 184px — which is shorter than
-            every real card (196px at 390px wide) and far shorter than the
-            longest one when the text wraps (283px at 320px). So the container
-            grew when a longer perception arrived, the section grew with it,
-            the document grew, and a reader parked below was nudged. Measured
-            across both languages at 320/375/390/430/768, the requirement moves
-            between 196px and 283px, so no single fixed height is correct.
-
-            Instead, all six cards occupy one grid cell: an invisible sizing
-            layer establishes the height (the cell is as tall as its tallest
-            child), and the animated card is laid over it in the same cell.
-            The box is therefore always exactly as tall as the tallest card can
-            be at this width, in this language, and never changes as the
-            sequence runs. The animation itself is untouched — same component,
-            same spring, same properties.
-          */}
-          <div className="mt-2 grid">
-            <div aria-hidden className="invisible grid [grid-area:1/1]">
-              {PERCEPTIONS.map((p) => {
-                const sizing = t.perceptions[p.id as keyof typeof t.perceptions];
-                return (
-                  <PerceptionCard
-                    key={p.id}
-                    lensId={p.id}
-                    emoji={p.emoji}
-                    kicker={t.howItWorks.sample}
-                    title={sizing.title}
-                    traits={[...sizing.tags]}
-                    summary={`“${sizing.quote}”`}
-                    compact
-                    // Stacked on top of each other rather than in a column, so
-                    // the layer is as tall as the tallest card, not their sum.
-                    className="[grid-area:1/1]"
-                  />
-                );
-              })}
-            </div>
-
-            <div className="grid [grid-area:1/1]">
-              <AnimatePresence mode="popLayout">
-                {reading && (
-                  <motion.div
-                    key={current.id}
-                    initial={{ opacity: 0, y: 14 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -14 }}
-                    transition={spring}
-                    className="[grid-area:1/1]"
-                  >
-                    <PerceptionCard
-                      lensId={current.id}
-                      emoji={current.emoji}
-                      kicker={t.howItWorks.sample}
-                      title={copy.title}
-                      traits={[...copy.tags]}
-                      summary={`“${copy.quote}”`}
-                      compact
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          {/* Jump straight to a lens. Also the progress indicator. */}
-          {/* 10px gap, not 8: the pills are 36px with a 44px hit area, so the
-              pitch has to clear 44 or neighbouring targets overlap. */}
-          <div className="mt-4 flex flex-wrap justify-center gap-2.5">
-            {PERCEPTIONS.map((p, i) => {
-              const isActive = reading && i === lens;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  aria-pressed={isActive}
-                  aria-label={t.perceptions[p.id as keyof typeof t.perceptions].title}
-                  onClick={() => {
-                    setHeld(true);
-                    setAct("perceive");
-                    setLens(i);
-                  }}
-                  className={cn(
-                    // 36px pill, 44px hit area. The dot is deliberately small —
-                    // it is a progress indicator as much as a control — but a
-                    // 36px target is under the thumb-size minimum, so the tap
-                    // area is grown with a pseudo-element instead of the box.
-                    "relative flex h-9 w-9 items-center justify-center rounded-full text-sm transition-colors",
-                    "before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']",
-                    isActive
-                      ? "bg-blink-sky/20 ring-1 ring-blink-sky/50"
-                      : "bg-white/[0.04] ring-1 ring-white/[0.07] hover:bg-white/[0.08]",
-                  )}
-                >
-                  <span aria-hidden className={cn(!isActive && "opacity-55")}>
-                    {p.emoji}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          {/* Live progress for anyone not watching the picker move. */}
+          <p className="sr-only" aria-live="polite">
+            {t.howItWorks.progress} {index + 1} / {STEPS.length} — {copy.title}
+          </p>
         </div>
 
         <Reveal delay={0.05} className="mt-9 flex justify-center">
@@ -384,60 +199,327 @@ export function HowItWorks({ onCTA }: { onCTA: () => void }) {
   );
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   The picker
+   ───────────────────────────────────────────────────────────────────── */
+
 /**
- * The sequence's spine.
+ * The four steps, as a segmented control.
  *
- * Three segments plus the name of the step you are on — not three names in a
- * row. Spelled out, "Your screenshot — Blink reads it — Six perceptions" is
- * 43 characters of letter-spaced caps, which overflowed a 320px screen and got
- * clipped at both ends. Segments carry the progress, one label carries the
- * meaning, and it fits.
+ * A real control, not a progress bar with buttons drawn on it: it is a
+ * `tablist`, the selection travels rather than cross-fading, and every segment
+ * is reachable by keyboard. The selected pill is one shared element sliding
+ * between four positions, which is what makes it read as *the same selection
+ * moving* instead of four independent highlights.
  */
-function Rail({ act }: { act: Act }) {
+function StepPicker({ step, onPick }: { step: Step; onPick: (s: Step) => void }) {
   const t = useT();
-  const labels = [
-    t.howItWorks.stepScreenshot,
-    t.howItWorks.stepReads,
-    t.howItWorks.stepPerceptions,
-  ];
-  const activeIndex = RAIL_ACTS.findIndex((acts) => acts.includes(act));
+  const reduceMotion = useReducedMotion();
 
   return (
-    <div className="flex flex-col items-center gap-2.5">
-      <div className="flex items-center gap-1.5">
-        {RAIL_ACTS.map((_, i) => (
+    <div
+      role="tablist"
+      aria-label={t.howItWorks.eyebrow}
+      className="glass-inset mx-auto flex w-full max-w-md gap-1 rounded-[var(--r-pill)] p-1"
+    >
+      {STEPS.map((s) => {
+        const selected = s === step;
+        return (
+          <button
+            key={s}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onPick(s)}
+            className="focus-ring relative min-h-[44px] flex-1 rounded-[var(--r-pill)] px-1"
+          >
+            {selected && (
+              <motion.span
+                aria-hidden
+                layoutId="hiw-step"
+                transition={reduceMotion ? still : SPRING.snap}
+                className="absolute inset-0 rounded-[var(--r-pill)] bg-blink-sky/[0.16] ring-1 ring-blink-sky/40"
+              />
+            )}
+            <span
+              className={cn(
+                "t-label relative block truncate transition-colors",
+                selected ? "text-blink-sky" : "text-white/45",
+              )}
+            >
+              {t.howItWorks.steps[s].label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   The subject
+   ───────────────────────────────────────────────────────────────────── */
+
+/**
+ * The capture, in whichever state the step puts it in.
+ *
+ * One element across all four steps. It changes size, position, rotation and
+ * corner radius; it is never remounted, so React and the browser both animate
+ * it rather than swapping one picture for another. Everything else on the
+ * stage is arranged around wherever it currently is.
+ */
+function Capture({
+  step,
+  spring,
+  reduceMotion,
+}: {
+  step: Step;
+  spring: Transition;
+  reduceMotion: boolean;
+}) {
+  const t = useT();
+  const shrunk = step === "read" || step === "score";
+
+  return (
+    <motion.div
+      className="absolute top-0"
+      initial={false}
+      animate={{
+        /* Centred while it is the whole subject; over to the left once the
+           readings need the room. Percentages, so it lands in the same place
+           on a phone and a desktop. */
+        left: shrunk ? "6%" : "50%",
+        x: shrunk ? "0%" : "-50%",
+        y: shrunk ? 34 : 0,
+        rotate: step === "capture" && !reduceMotion ? -3.2 : 0,
+        scale: shrunk ? 0.62 : 1,
+      }}
+      style={{ originX: 0, originY: 0 }}
+      transition={spring}
+    >
+      <motion.div
+        className="relative overflow-hidden"
+        initial={false}
+        animate={{
+          borderRadius: step === "capture" ? 12 : 20,
+          boxShadow:
+            step === "capture"
+              ? "0 18px 40px -18px hsl(220 84% 3% / 0.9)"
+              : "0 26px 60px -22px hsl(220 84% 3% / 0.95)",
+        }}
+        transition={spring}
+        style={{
+          width: 168,
+          height: 224,
+          background: "hsl(var(--surface-2))",
+          border: "1px solid hsl(0 0% 100% / var(--line-2))",
+        }}
+      >
+        <ProfileShot />
+
+        {/*
+          The read passing down the capture.
+
+          One pass, not a loop: a scanner bar that never stops is a decoration,
+          and this is meant to be an event that happens once and finishes.
+        */}
+        {step === "read" && !reduceMotion && (
           <motion.span
-            key={i}
-            className="h-[3px] rounded-full"
-            animate={{
-              width: i === activeIndex ? 26 : 14,
-              backgroundColor:
-                i === activeIndex
-                  ? "hsl(var(--blink-sky))"
-                  : i < activeIndex
-                    ? "hsl(var(--blink-sky) / 0.35)"
-                    : "rgba(255,255,255,0.12)",
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 h-16"
+            initial={{ top: "-30%" }}
+            animate={{ top: "115%" }}
+            transition={{ duration: 1.1, ease: "easeInOut" }}
+            style={{
+              background:
+                "linear-gradient(to bottom, transparent, hsl(var(--blink-sky) / 0.28), transparent)",
             }}
-            transition={{ type: "spring", stiffness: 380, damping: 32 }}
+          />
+        )}
+
+        {/* The regions, lighting in the order they are read. */}
+        {REGIONS.map((r, i) => (
+          <motion.span
+            key={r.id}
+            aria-hidden
+            className="absolute rounded-[6px] ring-[1.5px] ring-blink-sky/70"
+            style={{
+              left: `${r.left * 100}%`,
+              top: `${r.top * 100}%`,
+              width: `${r.w * 100}%`,
+              height: `${r.h * 100}%`,
+            }}
+            initial={false}
+            animate={{
+              opacity: step === "read" ? 1 : 0,
+              scale: step === "read" ? 1 : 1.12,
+            }}
+            transition={{ ...SPRING.snap, delay: step === "read" ? 0.3 + i * 0.24 : 0 }}
           />
         ))}
-      </div>
+      </motion.div>
 
-      <div className="h-4">
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={activeIndex}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.2 }}
-            className="whitespace-nowrap text-[0.62rem] font-bold uppercase tracking-[0.16em] text-blink-sky"
+      {/*
+        The capture bracket.
+
+        Only in step one, and only as corners: a full frame would read as part
+        of the picture rather than as the act of taking it.
+      */}
+      <AnimatePresence>
+        {step === "capture" && (
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute -inset-3"
+            initial={{ opacity: 0, scale: 1.06 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.97 }}
+            transition={reduceMotion ? still : SPRING.snap}
           >
-            {labels[activeIndex]}
-          </motion.p>
-        </AnimatePresence>
-      </div>
+            {[
+              "left-0 top-0 border-l-2 border-t-2 rounded-tl-md",
+              "right-0 top-0 border-r-2 border-t-2 rounded-tr-md",
+              "left-0 bottom-0 border-b-2 border-l-2 rounded-bl-md",
+              "right-0 bottom-0 border-b-2 border-r-2 rounded-br-md",
+            ].map((corner) => (
+              <span
+                key={corner}
+                className={cn("absolute h-5 w-5 border-blink-sky/70", corner)}
+              />
+            ))}
+          </motion.span>
+        )}
+      </AnimatePresence>
+
+      {/* Step two: it has arrived somewhere. */}
+      <AnimatePresence>
+        {step === "upload" && (
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute -inset-2 rounded-[26px] ring-1 ring-blink-sky/35"
+            initial={{ opacity: 0, scale: 1.12 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={reduceMotion ? still : SPRING.drop}
+          />
+        )}
+      </AnimatePresence>
+
+      <span className="sr-only">{t.howItWorks.sample}</span>
+    </motion.div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   What came off it
+   ───────────────────────────────────────────────────────────────────── */
+
+/**
+ * The three signals, arriving beside the shrunken capture.
+ *
+ * Each carries the name of the region it came from as well as the signal it
+ * became, because "Visual identity" on its own is a claim and "Photo → Visual
+ * identity" is a derivation.
+ */
+function Signals({ step, spring }: { step: Step; spring: Transition }) {
+  const t = useT();
+  const shown = step === "read";
+
+  return (
+    <div className="pointer-events-none absolute right-[4%] top-[3.5rem] w-[52%] max-w-[15rem] space-y-2 sm:top-16">
+      {REGIONS.map((r, i) => (
+        <motion.div
+          key={r.id}
+          /* Stacked rather than "Photo → Visual identity" on one line: at
+             360px that row put the signal — the half that matters — behind
+             an ellipsis, and shortening the signal to fit would have made
+             the demonstration disagree with the product. */
+          className="surface px-3 py-2"
+          initial={false}
+          animate={{
+            opacity: shown ? 1 : 0,
+            x: shown ? 0 : 18,
+          }}
+          transition={{ ...spring, delay: shown ? 0.34 + i * 0.24 : 0 }}
+        >
+          <span className="t-micro block text-white/35">
+            {t.howItWorks.regions[r.key]}
+          </span>
+          <span className="t-caption block font-semibold leading-tight text-white/85">
+            {t.howItWorks.signals[r.signal]}
+          </span>
+        </motion.div>
+      ))}
     </div>
+  );
+}
+
+/**
+ * The verdict.
+ *
+ * Sits where the signals were, so the chips visibly give way to it rather than
+ * the score appearing in a fifth place nobody was looking at. The number
+ * counts up on arrival — a score is a conclusion, and a conclusion that is
+ * simply *there* has not been reached.
+ */
+function Verdict({
+  step,
+  spring,
+  reduceMotion,
+}: {
+  step: Step;
+  spring: Transition;
+  reduceMotion: boolean;
+}) {
+  const t = useT();
+  const shown = step === "score";
+  const [value, setValue] = useState(0);
+
+  /*
+    Counted in JS rather than with a motion value: the display needs one
+    decimal and the last tenth has to land exactly on the target, and a spring
+    that settles asymptotically renders 8.6999 for a frame. Steps, at the
+    resolution the number is actually shown in.
+  */
+  useEffect(() => {
+    if (!shown) {
+      setValue(0);
+      return;
+    }
+    if (reduceMotion) {
+      setValue(EXAMPLE_SCORE);
+      return;
+    }
+    const marks = [7.4, 8, 8.2, 8.5, 8.6, EXAMPLE_SCORE];
+    let i = 0;
+    setValue(marks[0]);
+    const timer = window.setInterval(() => {
+      i += 1;
+      setValue(marks[i]);
+      if (i >= marks.length - 1) window.clearInterval(timer);
+    }, 190);
+    return () => window.clearInterval(timer);
+  }, [shown, reduceMotion]);
+
+  return (
+    <motion.div
+      className="pointer-events-none absolute right-[4%] top-[3.5rem] w-[52%] max-w-[15rem] sm:top-16"
+      initial={false}
+      animate={{ opacity: shown ? 1 : 0, y: shown ? 0 : 14 }}
+      transition={spring}
+      aria-hidden={!shown}
+    >
+      <div className="surface-raised px-4 py-4">
+        <p className="t-micro text-white/35">{t.howItWorks.sample}</p>
+        <p className="mt-2 flex items-baseline gap-1">
+          <span className="t-numeric text-[2.6rem] font-extrabold leading-none text-white">
+            {value.toFixed(1)}
+          </span>
+          <span className="t-caption font-bold text-white/40">{t.howItWorks.outOfTen}</span>
+        </p>
+        <p className="t-micro mt-3 text-white/35">{t.howItWorks.measuredAgainst}</p>
+        <p className="t-caption font-semibold text-blink-sky">{t.howItWorks.exampleNiche}</p>
+      </div>
+    </motion.div>
   );
 }
 
@@ -451,8 +533,8 @@ function Rail({ act }: { act: Act }) {
 function ProfileShot() {
   return (
     <>
-      <div className="flex items-center gap-2 p-2.5">
-        <span className="h-8 w-8 shrink-0 rounded-full bg-[linear-gradient(140deg,hsl(var(--blink-sky)),hsl(var(--blink-sky-bright)))]" />
+      <div className="flex items-center gap-2 p-3">
+        <span className="h-9 w-9 shrink-0 rounded-full bg-[linear-gradient(140deg,hsl(var(--blink-sky)),hsl(var(--blink-sky-bright)))]" />
         <span className="flex flex-1 flex-col gap-1.5">
           <span className="block h-1.5 w-full rounded-full bg-white/25" />
           <span className="block h-1.5 w-2/3 rounded-full bg-white/[0.12]" />
@@ -460,7 +542,13 @@ function ProfileShot() {
       </div>
       <div className="grid grid-cols-3 gap-[3px] px-[3px]">
         {Array.from({ length: 9 }).map((_, i) => (
-          <span key={i} className="aspect-square bg-white/[0.07]" />
+          <span
+            key={i}
+            className="aspect-square"
+            /* Not all one shade: nine identical squares read as a placeholder,
+               and the grid is the thing the read spends longest on. */
+            style={{ background: `hsl(212 ${16 + (i % 4) * 6}% ${13 + ((i * 5) % 7)}%)` }}
+          />
         ))}
       </div>
     </>

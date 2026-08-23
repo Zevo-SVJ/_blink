@@ -270,6 +270,15 @@
     letter-spacing: var(--track-body);
   }
 
+  /* The smallest voice: a provenance mark, a unit, an aside. Sentence
+     case — it is `t-label` that shouts, and having both means neither has
+     to compromise. */
+  .t-micro {
+    font-size: var(--t-micro);
+    line-height: 1.45;
+    letter-spacing: var(--track-body);
+  }
+
   /* Small, spaced, upper — the label voice. Tracking *opens* here, which
      is the opposite of the display sizes and the reason both exist. */
   .t-label {

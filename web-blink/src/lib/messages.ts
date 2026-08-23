@@ -111,20 +111,54 @@ const en = {
 
   howItWorks: {
     eyebrow: "How it works",
-    heading: "One screenshot becomes a perception.",
+    heading: "Four steps. One screenshot.",
     subtitle:
-    "Blink reads your profile the way a person would, then shows you what each kind of person walks away with.",
+    "The same capture carries all the way through — it is never swapped for something else.",
     cta: "See mine",
-    stepScreenshot: "Your screenshot",
-    stepReads: "Blink reads it",
-    stepPerceptions: "Six perceptions",
-    /** The demo cards. Sample output, so it is labelled as such. */
+    /** The demo output. Sample output, so it is labelled as such. */
     sample: "Example result",
     signals: {
       visualIdentity: "Visual identity",
       aesthetic: "Aesthetic",
       confidence: "Confidence",
     },
+    /** What the read marks on the capture. */
+    regions: {
+      photo: "Photo",
+      bio: "Bio",
+      grid: "Grid",
+    },
+    /**
+     * The four steps. `label` names the step in the selector, `title` and
+     * `body` say what happens in it.
+     */
+    steps: {
+      capture: {
+        label: "Capture",
+        title: "Screenshot the profile.",
+        body: "Yours, or anyone's. One image is the whole input — no login, no Instagram connection.",
+      },
+      upload: {
+        label: "Upload",
+        title: "Drop it into Blink.",
+        body: "It goes straight to the analysis. Nothing is posted anywhere.",
+      },
+      read: {
+        label: "Read",
+        title: "Blink reads what a person would.",
+        body: "Photo, bio, grid — the three things anyone judges in the first three seconds.",
+      },
+      score: {
+        label: "Score",
+        title: "You get a score out of ten.",
+        body: "How well the profile fits the niche it is read against — not how likeable you are.",
+      },
+    },
+    /** Step four's card. */
+    outOfTen: "/ 10",
+    measuredAgainst: "Measured against",
+    exampleNiche: "Photography",
+    progress: "Step",
   },
 
   /**
@@ -726,19 +760,47 @@ const fr: Messages = {
 
   howItWorks: {
     eyebrow: "Comment ça marche",
-    heading: "Une capture devient une perception.",
+    heading: "Quatre étapes. Une capture.",
     subtitle:
-    "Blink lit ton profil comme le ferait quelqu'un, puis te montre ce que chaque type de personne en retient.",
+    "La même capture va jusqu'au bout — elle n'est jamais remplacée par autre chose.",
     cta: "Voir la mienne",
-    stepScreenshot: "Ta capture",
-    stepReads: "Blink la lit",
-    stepPerceptions: "Six perceptions",
     sample: "Exemple de résultat",
     signals: {
       visualIdentity: "Identité visuelle",
       aesthetic: "Esthétique",
       confidence: "Assurance",
     },
+    regions: {
+      photo: "Photo",
+      bio: "Bio",
+      grid: "Grille",
+    },
+    steps: {
+      capture: {
+        label: "Capture",
+        title: "Screenshot du profil.",
+        body: "Le tien, ou celui de n'importe qui. Une image suffit — sans connexion, sans lier Instagram.",
+      },
+      upload: {
+        label: "Envoi",
+        title: "Dépose-la dans Blink.",
+        body: "Elle part directement à l'analyse. Rien n'est publié nulle part.",
+      },
+      read: {
+        label: "Lecture",
+        title: "Blink lit ce qu'une personne lirait.",
+        body: "Photo, bio, grille — les trois choses que tout le monde juge en trois secondes.",
+      },
+      score: {
+        label: "Score",
+        title: "Tu obtiens une note sur dix.",
+        body: "À quel point le profil colle à la niche sur laquelle il est lu — pas à quel point tu es sympathique.",
+      },
+    },
+    outOfTen: "/ 10",
+    measuredAgainst: "Mesuré sur",
+    exampleNiche: "Photographie",
+    progress: "Étape",
   },
 
   perceptions: {
