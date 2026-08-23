@@ -547,8 +547,12 @@ function ProfileShot() {
             key={i}
             className="aspect-square"
             /* Not all one shade: nine identical squares read as a placeholder,
-               and the grid is the thing the read spends longest on. */
-            style={{ background: `hsl(212 ${16 + (i % 4) * 6}% ${13 + ((i * 5) % 7)}%)` }}
+               and the grid is the thing the read spends longest on.
+
+               Lifted from 13–19% lightness, where the tiles were very nearly
+               black against the card and the "grid" the copy talks about was
+               not visibly there. */
+            style={{ background: `hsl(212 ${18 + (i % 4) * 7}% ${21 + ((i * 5) % 7) * 1.6}%)` }}
           />
         ))}
       </div>

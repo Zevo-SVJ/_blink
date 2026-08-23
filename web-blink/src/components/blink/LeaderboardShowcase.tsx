@@ -42,6 +42,7 @@ import { BadgeEmblem } from "@/components/app/BadgeEmblem";
 import { CTAButton } from "@/components/blink/CTAButton";
 import { Reveal } from "@/components/blink/Reveal";
 import type { BadgeSpec } from "@/lib/badges";
+import { categoryLabel } from "@/lib/categories";
 import { useT } from "@/lib/i18n";
 import { deltaOutOfTen, scoreOutOfTen } from "@/lib/ranking";
 import { useSectionMotion } from "@/lib/use-section-motion";
@@ -79,8 +80,14 @@ const INITIAL_ROWS: Row[] = [
  */
 const IMPROVED_SCORE = 889;
 
-/** Shown when the board narrows. `All` first, Larp next — as in the app. */
-const CATEGORY_PILLS = ["All", "Larp", "Creator", "Fashion", "Fitness"];
+/**
+ * Shown when the board narrows. `All` first, Larp next — as in the app.
+ *
+ * Ids, not words: `null` is "all", and the rest are looked up in the same
+ * dictionary the app's own category strip uses, so the showcase can never
+ * name a category the product does not have or leave one in English.
+ */
+const CATEGORY_PILLS = [null, "larp", "creator", "fashion", "fitness"] as const;
 
 /**
  * The three things this section has to land, one per beat, then the payoff.
@@ -272,7 +279,7 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
             Works, and it is not being reintroduced here.
           */}
           <div className="h-[3.25rem]">
-            <CategoryStrip shown={past("categories")} selected={narrowed ? "Larp" : "All"} />
+            <CategoryStrip shown={past("categories")} selected={narrowed ? "larp" : null} />
           </div>
 
           <div className="h-[6.5rem]">
@@ -321,6 +328,8 @@ function Caption({ id, text }: { id: string; text: string }) {
 
 /** "Global" becomes "Larp" — the same board, narrowed. */
 function BoardHeader({ narrowed, showWeek }: { narrowed: boolean; showWeek: boolean }) {
+  const t = useT();
+
   return (
     /* Fixed: the week label arrives mid-sequence and was worth two pixels of
        document every time it did. */
@@ -338,7 +347,7 @@ function BoardHeader({ narrowed, showWeek }: { narrowed: boolean; showWeek: bool
               narrowed ? "text-blink-sky" : "text-white/30",
             )}
           >
-            {narrowed ? "Larp" : "Global"}
+            {narrowed ? "Larp" : t.leaderboardSection.global}
           </motion.span>
         </AnimatePresence>
       </span>
@@ -351,7 +360,7 @@ function BoardHeader({ narrowed, showWeek }: { narrowed: boolean; showWeek: bool
             exit={{ opacity: 0 }}
             className="text-[0.6rem] font-bold uppercase tracking-[0.16em] text-white/30"
           >
-            This week
+            {t.leaderboardSection.thisWeek}
           </motion.span>
         )}
       </AnimatePresence>
@@ -371,6 +380,8 @@ function BoardHeader({ narrowed, showWeek }: { narrowed: boolean; showWeek: bool
  * reader parked below.
  */
 function CategoryStrip({ shown, selected }: { shown: boolean; selected: string | null }) {
+  const t = useT();
+
   return (
     <AnimatePresence>
       {shown && (
@@ -382,11 +393,12 @@ function CategoryStrip({ shown, selected }: { shown: boolean; selected: string |
           className="overflow-hidden"
         >
           <div className="flex items-center gap-1.5 overflow-hidden pt-4">
-            {CATEGORY_PILLS.map((label, i) => {
-              const active = label === selected;
+            {CATEGORY_PILLS.map((id, i) => {
+              const label = id === null ? t.ranksPage.all : (categoryLabel(id, t) ?? id);
+              const active = id === selected;
               return (
                 <motion.span
-                  key={label}
+                  key={id ?? "all"}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: active ? 1 : 0.45, y: 0 }}
                   transition={{ ...spring, delay: 0.05 + i * 0.05 }}
@@ -472,6 +484,7 @@ function BoardRow({
   showCrown: boolean;
   showCategory: boolean;
 }) {
+  const t = useT();
   // The moving row leads; the rest step back so the eye knows where to look.
   const focused = !!row.isYou;
 
@@ -511,7 +524,7 @@ function BoardRow({
 
       <div className="min-w-0 flex-1">
         {row.isYou ? (
-          <span className="text-sm font-bold text-white">You</span>
+          <span className="text-sm font-bold text-white">{t.leaderboardSection.you}</span>
         ) : (
           <span className="block h-2 w-14 rounded-full bg-white/[0.14]" />
         )}

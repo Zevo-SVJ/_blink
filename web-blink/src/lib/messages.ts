@@ -234,6 +234,11 @@ const en = {
     captionLarp: "Larp — one of Blink's categories.",
     captionBadges: "Rank high enough and it becomes status.",
     illustrative: "Illustration — not live standings",
+    /* The board's own chrome. It was English literals in the component, so the
+       French page showed a row labelled "You" under a header saying "Global". */
+    you: "You",
+    global: "Global",
+    thisWeek: "This week",
   },
 
   testimonials: {
@@ -889,6 +894,9 @@ const fr: Messages = {
     captionLarp: "Larp — une des catégories de Blink.",
     captionBadges: "Monte assez haut et ça devient un statut.",
     illustrative: "Illustration — classement non réel",
+    you: "Toi",
+    global: "Global",
+    thisWeek: "Cette semaine",
   },
 
   testimonials: {
