@@ -20,7 +20,7 @@ import { Crash, fitBlock } from "../motion/Kinetic";
 import { springAt } from "../motion/springs";
 import type { FilmCopy } from "../copy";
 import { a, C, HEIGHT, T, WIDTH } from "../theme";
-import { HOOK_A, HOOK_B, PHOTO_DROP } from "../timeline";
+import { HOOK_A, HOOK_B, HOOK_B_EVERY, HOOK_EVERY, PHOTO_DROP } from "../timeline";
 
 /** Columns the two statements are set in. */
 const COL_A = WIDTH - 160;
@@ -90,12 +90,12 @@ export function Hook({ copy }: { copy: FilmCopy }) {
         <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
             {copy.hookA.map((line, i) => {
-              /* Three short lines, ten frames apart. One seventeen-character
-                 line had to be set at 95px to fit the frame, which is small
-                 for the claim the whole film rests on; broken in three it
-                 sets at the full 124 and lands three impacts instead of two,
-                 which is also the rhythm the scene wants. */
-              const start = HOOK_A + i * 10;
+              /* Three short lines, eight frames apart — closer together than
+                 the springs take to settle, so each one lands while the last
+                 is still moving. One seventeen-character line had to be set at
+                 95px to fit the frame, which is small for the claim the whole
+                 film rests on; broken in three it sets at the full 124. */
+              const start = HOOK_A + i * HOOK_EVERY;
               if (frame < start) return null;
               return (
                 <Crash
@@ -137,7 +137,7 @@ export function Hook({ copy }: { copy: FilmCopy }) {
           />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
             {copy.hookB.map((line, i) => {
-              /* Three lines, eight frames apart. Two lines capped the whole
+              /* Three lines, seven frames apart. Two lines capped the whole
                  block at the width of "SANS QUE TU" — 127px against the
                  claim's 124 — so the interrupt was the same size as the thing
                  it was interrupting. Broken shorter it sets at the full 168
@@ -145,7 +145,7 @@ export function Hook({ copy }: { copy: FilmCopy }) {
               /* The first line lands *on* the beat, not two frames after it:
                  the sub-bass fires at HOOK_B and that frame was rendering the
                  slab opening over an empty pane. */
-              const start = HOOK_B + i * 8;
+              const start = HOOK_B + i * HOOK_B_EVERY;
               if (frame < start) return null;
               return (
                 <Crash

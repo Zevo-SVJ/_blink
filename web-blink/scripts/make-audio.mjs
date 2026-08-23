@@ -3,8 +3,10 @@
  *
  *   node scripts/make-audio.mjs
  *
- * The music is generated first because the SFX script owns the encode step and
- * clears the scratch directory when it is done.
+ * Each script now finishes its own job: `make-music.mjs` synthesises the bed
+ * and encodes it to MP3, `make-sfx.mjs` writes the five placeholder sounds
+ * straight to `public/audio/` where the film reads them from. Order is
+ * cosmetic, not load-bearing.
  */
 
 import { execFileSync } from "node:child_process";

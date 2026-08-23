@@ -15,11 +15,12 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 
 import { Beam, Projector, Slide } from "../objects/Projector";
 import { Imprint } from "../objects/Stamp";
+import { PUSH_TO, TIP_TO } from "./Verdict";
 import { Camera } from "../motion/Camera";
 import { springAt } from "../motion/springs";
 import type { FilmCopy } from "../copy";
 import { a, C, HEIGHT, WIDTH } from "../theme";
-import { DIVE, INK, PROJECT, SCORE_FROM, SCORE_TO, at, end } from "../timeline";
+import { DIVE, INK, PROJECT, SCORE_FROM, SCORE_LOCK, SCORE_TO, at, end } from "../timeline";
 
 /** Ink blooms in the flooded frame: x%, y%, diameter, alpha. Deterministic. */
 const BLOOMS: Array<[number, number, number, number]> = [
@@ -62,6 +63,12 @@ export function ScoreScene({ copy }: { copy: FilmCopy }) {
     extrapolateRight: "clamp",
   });
   const shown = (Math.round(target * t * 10) / 10).toFixed(1);
+
+  /* The number settling. A short flare on the slide, dying over ten frames. */
+  const lock = interpolate(frame, [SCORE_LOCK, SCORE_LOCK + 3, SCORE_LOCK + 14], [0, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
   return (
     <AbsoluteFill style={{ background: C.inkDeep, overflow: "hidden" }}>
@@ -126,7 +133,10 @@ export function ScoreScene({ copy }: { copy: FilmCopy }) {
               alignItems: "center",
               justifyContent: "center",
               boxShadow: `0 40px 90px ${a("hsl(0 0% 0%)", 0.5)}`,
-              transform: `scale(${1 + dive * 26})`,
+              /* Picked up at exactly the scale *and* the tilt the verdict's
+                 camera left off at, so the cut lands in the middle of one
+                 continuous push rather than at the start of a new one. */
+              transform: `perspective(1600px) rotateX(${TIP_TO}deg) scale(${PUSH_TO + dive * 26})`,
               transformOrigin: "50% 50%",
             }}
           >
@@ -161,8 +171,11 @@ export function ScoreScene({ copy }: { copy: FilmCopy }) {
             >
               <div
                 style={{
-                  transform: `scale(${0.86 + springAt({ frame, fps, start: PROJECT + 8, preset: "crash" }) * 0.14})`,
+                  /* And a nudge as the number locks, so the last second of the
+                     scene is not the projector holding a still slide. */
+                  transform: `scale(${0.86 + springAt({ frame, fps, start: PROJECT + 8, preset: "crash" }) * 0.14 + lock * 0.03})`,
                   opacity: Math.min(1, (frame - PROJECT - 6) / 4),
+                  filter: lock > 0.01 ? `drop-shadow(0 0 ${lock * 60}px ${a(C.lamp, 0.75)})` : undefined,
                 }}
               >
                 <Slide

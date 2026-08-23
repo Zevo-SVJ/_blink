@@ -1,21 +1,26 @@
 /**
  * Spring presets.
  *
- * `CRASH` is the film's default and the one the brief specifies: stiffness
- * 300, damping 20. Its damping ratio is 0.58, so it overshoots by about 11% —
- * enough that a word visibly arrives past its mark and settles back, which is
- * the difference between landing and appearing.
+ * Nervy on purpose. `crash` is the film's default. At 300/20 it settled in
+ * about twelve frames — four tenths of a second, which is long enough that
+ * the next beat had to wait for it, and waiting for things to finish is what
+ * made an earlier cut of this film feel like a slideshow. At 480/23 it is
+ * inside nine, so the following beat starts while this one is still moving.
+ *
+ * The overshoot is kept: a damping ratio near 0.55 throws a word about 12%
+ * past its mark before it settles back, which is the difference between
+ * landing and appearing.
  */
 
 import { spring } from "remotion";
 
 export const SPRING = {
   /** The default. Text and UI both arrive on this. */
-  crash: { stiffness: 300, damping: 20, mass: 1 },
+  crash: { stiffness: 480, damping: 23, mass: 0.85 },
   /** Heavier and looser — for the one element that should feel like weight. */
-  slam: { stiffness: 260, damping: 13, mass: 1.1 },
+  slam: { stiffness: 420, damping: 16, mass: 1 },
   /** Almost no overshoot. For UI that must feel precise, not playful. */
-  tight: { stiffness: 380, damping: 26, mass: 0.8 },
+  tight: { stiffness: 560, damping: 28, mass: 0.65 },
   /** None at all. For anything that must not draw attention to itself. */
   flat: { stiffness: 200, damping: 30, mass: 1 },
   /**
@@ -25,7 +30,7 @@ export const SPRING = {
    * settles. That single bounce is what separates an object hitting a desk
    * from an image sliding into position.
    */
-  drop: { stiffness: 190, damping: 11, mass: 1.4 },
+  drop: { stiffness: 300, damping: 13, mass: 1.15 },
 } as const;
 
 export type SpringName = keyof typeof SPRING;
