@@ -150,14 +150,22 @@ is no import to edit and no code to change.
 
 Frame-exact, and enforced rather than intended.
 
-`timeline.ts` exports `SPRINGS` — every frame on which something visually
-arrives — and `MOVES` — every frame on which the camera itself starts moving,
-which is a different list, because a whip pan has nothing arriving on it and
-the pull-back is forty frames of travel with nothing appearing at all. The
-scenes and the cues both read those constants, and a test asserts that all 43
-springs and all 22 camera moves carry a cue **on their own frame**, not near
-it: a sound placed a frame or two after an arrival is heard as a separate
-event rather than as the arrival.
+`timeline.ts` exports three lists, and the scenes and the cues all read them:
+
+- `SPRINGS` — every frame something visually *arrives* on. 43 of them.
+- `MOVES` — every frame the *camera* starts moving. 22. A different list: a
+  whip has nothing arriving on it, and the pull-back is forty frames of travel
+  with nothing appearing at all.
+- `ANIMATIONS` — every start that is neither. 18. A card flying out of frame,
+  glass falling out of a mirror, ink flooding a shot. This is the list that
+  found the holes the other two could not see: four of those were either
+  silent or a frame or two off from their sound.
+
+A test asserts all 83 carry a cue **on their own frame**, not near it — a
+sound placed a frame or two after an arrival is heard as a separate event
+rather than as the arrival itself. Another asserts every file the cues name
+actually exists in `public/audio/`, because a missing placeholder otherwise
+fails at render time and nowhere earlier.
 
 Cues are allowed to ring into each other: a swoosh still decaying under the
 drop that follows it is what makes the mix continuous rather than a row of

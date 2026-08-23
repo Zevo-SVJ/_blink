@@ -24,7 +24,7 @@
 
 import { Audio, Sequence, staticFile } from "remotion";
 
-import { BED, CUES } from "./cues";
+import { BED, CUES, FILES } from "./cues";
 
 import bed from "./bed.mp3";
 
@@ -66,7 +66,7 @@ export function Track({ muted = false }: { muted?: boolean }) {
           from={cue.frame}
           durationInFrames={RING}
         >
-          <Audio src={staticFile(`audio/${cue.sfx}.wav`)} volume={cue.gain ?? 0.4} />
+          <Audio src={staticFile(FILES[cue.sfx])} volume={cue.gain ?? 0.4} />
         </Sequence>
       ))}
     </>

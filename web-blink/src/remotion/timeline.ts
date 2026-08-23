@@ -156,12 +156,16 @@ export const WHIP = at("mirror") - OVERLAP;
 export const MIRROR_IN = 264;
 /** The impact point, and the fracture spreading. */
 export const CRACK = 300;
+/** The shards start leaving the frame — the reveal, as opposed to the shock. */
+export const SHED_FROM = 308;
 /** What was actually behind it. */
 export const TRUTH = 316;
 
 /* ── 5 · the verdict ───────────────────────────────────────────────── */
 /** The stamp starts its descent, on the way in. */
 export const STAMP_LIFT = 354;
+/** It stops climbing and comes down. */
+export const STAMP_FALL = 366;
 /** It hits. Everything shakes. */
 export const STAMP_HIT = 372;
 /** The imprint is left behind as the stamp lifts away. */
@@ -185,6 +189,8 @@ export const SHEET_LIFT = 434;
 export const DIVE = 452;
 /** The ink fills the frame — the match cut. */
 export const INK = 464;
+/** The ink starts flooding the frame. */
+export const FLOOD_FROM = 458;
 /** The projector's lamp strikes. */
 export const PROJECT = 470;
 /** The score counts up mechanically and lands. */
@@ -214,6 +220,8 @@ export const TYPE_FROM = 666;
 export const KEY_EVERY = 2;
 /** The button pressed. */
 export const PRESS = 694;
+/** The app card leaves the frame, upward, rather than dissolving. */
+export const APP_EXIT = 700;
 /** The slogan. */
 export const SLOGAN = 704;
 /** And the ask, under it. The film does not end on a logo. */
@@ -302,6 +310,38 @@ export const MOVES: number[] = [
   PULL_FROM,
   APP_IN,
   PRESS,
+]
+  .filter((f, i, all) => all.indexOf(f) === i)
+  .sort((a, b) => a - b);
+
+/**
+ * Every frame on which something starts moving that is *not* a spring.
+ *
+ * A third list, and the one that found the holes the other two could not see.
+ * `SPRINGS` covers things that arrive and `MOVES` covers the camera, but a
+ * card flying out of frame, glass falling out of a mirror and ink flooding a
+ * shot are none of those — they are interpolations, and every one of them was
+ * either silent or a frame or two off from its sound.
+ */
+export const ANIMATIONS: number[] = [
+  HOOK_B,
+  FRAGMENT,
+  CRACK,
+  SHED_FROM,
+  STAMP_LIFT,
+  STAMP_FALL,
+  STAMP_HIT,
+  STAMP_UP,
+  SHEET_LIFT,
+  VERDICT_PUSH,
+  DIVE,
+  FLOOD_FROM,
+  PROJECT,
+  SCORE_FROM,
+  SCORE_LOCK,
+  PULL_FROM,
+  PRESS,
+  APP_EXIT,
 ]
   .filter((f, i, all) => all.indexOf(f) === i)
   .sort((a, b) => a - b);

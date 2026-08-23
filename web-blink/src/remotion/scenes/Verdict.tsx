@@ -21,6 +21,7 @@ import type { FilmCopy } from "../copy";
 import { a, C, HEIGHT, WIDTH } from "../theme";
 import {
   SHEET_LIFT,
+  STAMP_FALL,
   STAMP_HIT,
   STAMP_LIFT,
   STAMP_UP,
@@ -62,7 +63,7 @@ export function Verdict({ copy }: { copy: FilmCopy }) {
     extrapolateRight: "clamp",
     easing: (t) => 1 - Math.pow(1 - t, 3),
   });
-  const fall = interpolate(frame, [STAMP_HIT - 6, STAMP_HIT], [0, 1], {
+  const fall = interpolate(frame, [STAMP_FALL, STAMP_HIT], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: (t) => t * t * t,

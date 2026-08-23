@@ -12,12 +12,15 @@
  * systematically underestimating.
  */
 
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { COPY, type Lang } from "@/remotion/copy";
 import { fitBlock, fitSize, measure } from "@/remotion/motion/Kinetic";
 import { peakOf, SPRING } from "@/remotion/motion/springs";
-import { BED, CUES } from "@/remotion/audio/cues";
+import { BED, CUES, FILES } from "@/remotion/audio/cues";
 import { a, C, HEIGHT, WIDTH } from "@/remotion/theme";
 import {
   BEATS,
@@ -38,6 +41,7 @@ import {
   SEAM,
   SPRINGS,
   MOVES,
+  ANIMATIONS,
   SHEET_LIFT,
   STAMP_HIT,
   STAMP_UP,
@@ -262,6 +266,27 @@ describe("the sound", () => {
     const on = new Set(CUES.map((c) => c.frame));
     const missing = MOVES.filter((f) => !on.has(f));
     expect(missing, `camera moves with no cue: ${missing}`).toEqual([]);
+  });
+
+  it("plays a file that exists for every sound it names", () => {
+    // A missing placeholder otherwise fails at render time and nowhere
+    // earlier — and these are meant to be swapped for sourced recordings, so
+    // the moment somebody drops in a differently-named file this should say
+    // so rather than the render dying twenty minutes later.
+    for (const [name, file] of Object.entries(FILES)) {
+      expect(file, name).toBe(`audio/${name}.wav`);
+      expect(existsSync(resolve("public", file)), `public/${file} is missing`).toBe(true);
+    }
+    for (const cue of CUES) expect(FILES[cue.sfx], cue.sfx).toBeDefined();
+  });
+
+  it("sounds every animation that is not a spring", () => {
+    // Cards flying out of frame, glass falling out of a mirror, ink flooding
+    // a shot: none of those is a spring or a camera move, and every one of
+    // them was silent or a frame off before this list existed.
+    const on = new Set(CUES.map((c) => c.frame));
+    const missing = ANIMATIONS.filter((f) => !on.has(f));
+    expect(missing, `animations with no cue on their own frame: ${missing}`).toEqual([]);
   });
 
   it("uses only the five files the film ships", () => {
