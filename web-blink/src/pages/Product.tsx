@@ -60,7 +60,12 @@ import { fetchMyStanding, fetchScoreStanding } from "@/lib/leaderboard";
 import { getVoice, type Voice } from "@/lib/ownership";
 import { pdpAnchor } from "@/lib/pdp";
 import { detectPdp } from "@/lib/pdp-detect";
-import { computeBlinkScore, type ProfileStats } from "@/lib/ranking";
+import {
+  computeBlinkScore,
+  deltaOutOfTen,
+  scoreOutOfTen,
+  type ProfileStats,
+} from "@/lib/ranking";
 import { resizeForUpload } from "@/lib/resize";
 import { cn } from "@/lib/utils";
 
@@ -1558,12 +1563,14 @@ function ProgressionCard({
 
   if (!progression) {
     return (
-      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5">
-        <p className="text-xs font-bold uppercase tracking-widest text-white/45">Blink Score</p>
-        <p className="mt-2 text-3xl font-extrabold tabular-nums text-white">{score}</p>
-        <p className="mt-1.5 text-xs leading-relaxed text-white/45">
-          Saving this analysis to your profile…
+      <div className="surface p-5">
+        {/* Both of these were English literals, and the score was in ladder
+            points while the verdict above it was out of ten. */}
+        <p className="t-label text-white/45">{t.analysis.blinkScore}</p>
+        <p className="t-numeric mt-2 text-3xl font-extrabold text-white">
+          {scoreOutOfTen(score)}
         </p>
+        <p className="t-caption mt-1.5 text-white/45">{t.product.savingToProfile}</p>
       </div>
     );
   }
@@ -1589,7 +1596,7 @@ function ProgressionCard({
       </p>
 
       <div className="mt-2 flex items-baseline gap-3">
-        <span className="text-3xl font-extrabold tabular-nums text-white">{score}</span>
+        <span className="t-numeric text-3xl font-extrabold text-white">{scoreOutOfTen(score)}</span>
         {check.counts && delta !== 0 && (
           <span
             className={cn(
@@ -1597,7 +1604,7 @@ function ProgressionCard({
               delta > 0 ? "text-emerald-300" : "text-amber-300",
             )}
           >
-            {delta > 0 ? `+${delta}` : delta}
+            {deltaOutOfTen(delta)}
           </span>
         )}
       </div>

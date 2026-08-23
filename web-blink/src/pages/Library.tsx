@@ -8,7 +8,7 @@
 import { motion } from "framer-motion";
 import { LayoutGrid, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { AppShell } from "@/components/app/AppShell";
 import { EmptyState, ErrorState, SkeletonList } from "@/components/app/states";
@@ -113,7 +113,7 @@ export default function Library() {
                   analysis={analysis}
                   index={i}
                   deleting={deleting === analysis.id}
-                  onOpen={() => navigate(`/library/${analysis.id}`)}
+                  to={`/library/${analysis.id}`}
                   onDelete={() => void handleDelete(analysis.id)}
                 />
               ))}
@@ -172,13 +172,13 @@ function AnalysisRow({
   analysis,
   index,
   deleting,
-  onOpen,
+  to,
   onDelete,
 }: {
   analysis: SavedAnalysis;
   index: number;
   deleting: boolean;
-  onOpen: () => void;
+  to: string;
   onDelete: () => void;
 }) {
   const { lang, t } = useI18n();
@@ -194,11 +194,18 @@ function AnalysisRow({
       transition={{ type: "spring", stiffness: 320, damping: 32, delay: Math.min(index * 0.04, 0.3) }}
       className="flex items-center gap-1 rounded-2xl border border-white/[0.07] bg-white/[0.03] transition-colors hover:bg-white/[0.06]"
     >
-      {/* The row is the button; delete sits outside it so targets never nest. */}
-      <button
-        type="button"
-        onClick={onOpen}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl p-3.5 text-left"
+      {/*
+        A link, not a button.
+
+        It navigates to a URL, so it has to be an anchor: a button cannot be
+        opened in a new tab, middle-clicked, copied, or read as a destination
+        by a screen reader — and this list is the one place in the app where
+        "open that one" is the whole interaction. Delete sits outside it so the
+        two targets never nest.
+      */}
+      <Link
+        to={to}
+        className="focus-ring flex min-w-0 flex-1 items-center gap-3 rounded-[var(--r-lg)] p-3.5 text-left"
       >
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 truncate text-sm font-bold text-white">
@@ -232,7 +239,7 @@ function AnalysisRow({
         <span className="t-numeric shrink-0 text-lg font-extrabold text-white">
           {scoreOutOfTen(score)}
         </span>
-      </button>
+      </Link>
 
       <button
         type="button"

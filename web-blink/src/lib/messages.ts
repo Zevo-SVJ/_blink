@@ -402,6 +402,9 @@ const en = {
     analyzingAlt: "The profile being analyzed",
     inspecting: "Blink is inspecting this",
     analyzing: "Analyzing…",
+    /* Shown while the analysis is on its way to the profile. It was an
+       English literal on the analyse screen, so the French app said it too. */
+    savingToProfile: "Saving this analysis to your profile…",
     counts: "Verified — this counts",
     notCounted: "Not counted",
     rankUpdated: "Your rank has been updated from this screenshot.",
@@ -644,6 +647,104 @@ const en = {
     saveImage: "Save image",
   },
 
+  /**
+   * "How to climb" — the paths, the track names and the standing line.
+   *
+   * This prose lived as literals inside `lib/climb.ts`, so the French Profile
+   * screen was half English: seven paths, three track names and four standing
+   * lines, all untranslated. Which paths appear and in what order is still
+   * decided there, from the reader's own stats — only the words are here.
+   *
+   * `{label}`, `{signal}`, `{score}` and `{rank}` are filled in by the caller.
+   * Where a path reads differently when Blink does not yet know the category
+   * or the strongest signal, both wordings are given.
+   */
+  climbPaths: {
+    tracks: {
+      perception: "Improve perception",
+      momentum: "Build momentum",
+      recognition: "Earn recognition",
+    },
+    standing: {
+      noScore: "Analyze your own profile to get a score and a position.",
+      unranked: "You're at {score}. Turn on leaderboard visibility to take a position.",
+      climbing: "You're at {score}, rank #{rank}, and climbing.",
+      falling: "You're at {score}, rank #{rank}. Momentum has turned negative.",
+      steady: "You're at {score}, rank #{rank}.",
+    },
+    identity: {
+      kind: "Your identity",
+      title: "Lean into {label}",
+      titleUnknown: "Lean into what you already are",
+      whatToTry:
+        "Blink reads you as {label}. Post two or three more in the treatment that already reads that way — same palette, same framing, same energy. You are not starting a new direction, you are making the existing one unmistakable.",
+      whatToTryUnknown:
+        "Pick the three posts that feel most like you and make the next few look like they belong beside them. Not a new direction — a clearer version of the one you have.",
+      why:
+        "{signal} is already your strongest signal. Signals compound: the clearer a profile is about one thing, the higher every other axis reads, because nothing is fighting for the interpretation.",
+      whyUnknown:
+        "Coherence is a fifth of the score, and it is the axis that lifts the others. A profile that is unmistakably about one thing reads as deliberate rather than accumulated.",
+      notNeeded: "Nothing about your profile as it stands. No new bio, no new picture, no new aesthetic.",
+      impact: "Typically +0.3 to +0.7",
+    },
+    bodyOfWork: {
+      kind: "Your work",
+      title: "Deepen the body of work",
+      whatToTry:
+        "Add to the grid in the treatment you already use — Reels count. Depth, not variety: five more posts that look like they belong together do more than five that each try something new.",
+      why: "A grid that stops early reads as abandoned rather than curated. Volume in one direction is what turns a consistent look into a body of work, which is what lifts Visual Identity and Aesthetic together.",
+      notNeeded: "A new look. This path is explicitly about more of the same.",
+      impact: "Typically +0.2 to +0.6",
+    },
+    lane: {
+      kind: "Your lane",
+      title: "Compete inside {label}",
+      titleUnknown: "Compete inside your category",
+      whatToTry:
+        "The global board mixes every kind of profile. {label} is a much smaller field, and it is the one where your signals are actually comparable. Keep your category clear and your position in it moves faster than your global rank ever will.",
+      whatToTryUnknown:
+        "Categories are smaller boards where your signals are compared against profiles doing the same thing. The clearer your category reads, the more meaningful — and the more winnable — your position becomes.",
+      why: "Category rank is computed from the same score against a narrower field, so the same improvement moves you further. It is also how weekly winners are chosen.",
+      notNeeded: "Changing what kind of account you run to chase an easier category.",
+      impact: "Moves your category rank fastest",
+    },
+    verify: {
+      kind: "Housekeeping",
+      title: "Re-verify what you've already changed",
+      whatToTry:
+        "Upload a fresh screenshot after any real change. Blink re-reads the profile and the new score replaces the old one.",
+      why: "Nothing moves your rank until it is verified. Changes you have already made are worth nothing to the board until a new screenshot proves them.",
+      notNeeded: "Any further changes — this is about banking the ones you already made.",
+      impact: "Unlocks every other path",
+    },
+    streak: {
+      kind: "Housekeeping",
+      title: "Show up weekly",
+      whatToTry: "One verified analysis a week keeps your streak alive. A single upload counts.",
+      why: "Streaks record sustained attention, and an active profile holds its position while dormant ones drift down as others improve.",
+      notNeeded: "Posting on a schedule. This is about analysing, not performing.",
+      impact: "Protects your rank",
+    },
+    momentum: {
+      kind: "Momentum",
+      title: "Turn momentum positive",
+      whatToTry:
+        "Momentum is the gap between your last two verified analyses. Make one concrete change — any of the paths here — and re-upload to flip it.",
+      why: "Momentum is what separates profiles on similar scores, and it is the signal weekly winners are chosen on: biggest verified improvement, not highest score.",
+      notNeeded: "A big change. The smallest real one still registers.",
+      impact: "Decides close positions",
+    },
+    perception: {
+      kind: "Optional",
+      title: "Sharpen the first three seconds",
+      whatToTry:
+        "If someone landing cold can't tell what the account is about, the fastest fixes are the name field, the first line of the bio, and highlight covers in your existing palette. Take any one of them, or none.",
+      why: "Clarity is a tenth of the score and the axis most often left on the table. But deliberate opacity is a valid strategy — if being hard to read is the point, this path is not for you.",
+      notNeeded: "Your profile picture, your aesthetic, or how you already present yourself.",
+      impact: "Typically +0.1 to +0.3",
+    },
+  },
+
   climb: {
     title: "How to climb",
     startHere: "Start here",
@@ -652,6 +753,9 @@ const en = {
       "Blink saw this on your last upload. Make the change, upload a new screenshot, and it counts towards your rank.",
     whyThisHelps: "Why this helps.",
     noNeedToChange: "You don't need to change.",
+    noRedesign:
+      "You never have to redesign your profile to climb. Depth, consistency and staying active move the score on their own.",
+    uploadNew: "Upload a new screenshot",
   },
 
   detail: {
@@ -1071,6 +1175,7 @@ const fr: Messages = {
     analyzingAlt: "Le profil en cours d'analyse",
     inspecting: "Blink examine ça",
     analyzing: "Analyse…",
+    savingToProfile: "Enregistrement de cette analyse sur ton profil…",
     counts: "Vérifié — ça compte",
     notCounted: "Non comptabilisé",
     rankUpdated: "Ton rang a été mis à jour à partir de cette capture.",
@@ -1298,6 +1403,92 @@ const fr: Messages = {
     saveImage: "Enregistrer l'image",
   },
 
+  climbPaths: {
+    tracks: {
+      perception: "Améliorer la perception",
+      momentum: "Créer de l'élan",
+      recognition: "Gagner en reconnaissance",
+    },
+    standing: {
+      noScore: "Analyse ton propre profil pour avoir un score et une position.",
+      unranked: "Tu es à {score}. Active la visibilité sur le classement pour prendre une position.",
+      climbing: "Tu es à {score}, rang #{rank}, et tu montes.",
+      falling: "Tu es à {score}, rang #{rank}. Ton élan est devenu négatif.",
+      steady: "Tu es à {score}, rang #{rank}.",
+    },
+    identity: {
+      kind: "Ton identité",
+      title: "Assume ton côté {label}",
+      titleUnknown: "Assume ce que tu es déjà",
+      whatToTry:
+        "Blink te lit comme {label}. Poste deux ou trois contenus de plus dans le traitement qui va déjà dans ce sens — même palette, même cadrage, même énergie. Tu ne pars pas dans une nouvelle direction, tu rends celle qui existe indiscutable.",
+      whatToTryUnknown:
+        "Prends les trois posts qui te ressemblent le plus et fais en sorte que les suivants aient leur place à côté. Pas une nouvelle direction — une version plus nette de celle que tu as déjà.",
+      why:
+        "{signal} est déjà ton signal le plus fort. Les signaux se renforcent : plus un profil est clair sur une chose, plus tous les autres axes montent, parce que rien ne se dispute l'interprétation.",
+      whyUnknown:
+        "La cohérence vaut un cinquième du score, et c'est l'axe qui tire les autres vers le haut. Un profil qui parle sans ambiguïté d'une seule chose se lit comme réfléchi plutôt qu'accumulé.",
+      notNeeded: "Rien à changer sur ton profil actuel. Pas de nouvelle bio, pas de nouvelle photo, pas de nouvelle esthétique.",
+      impact: "En général +0,3 à +0,7",
+    },
+    bodyOfWork: {
+      kind: "Ton travail",
+      title: "Étoffe le corpus",
+      whatToTry:
+        "Ajoute à la grille dans le traitement que tu utilises déjà — les Reels comptent. De la profondeur, pas de la variété : cinq posts de plus qui vont ensemble valent mieux que cinq qui tentent chacun autre chose.",
+      why: "Une grille qui s'arrête tôt se lit comme abandonnée plutôt que curatée. C'est le volume dans une seule direction qui transforme un style constant en corpus, et c'est ce qui fait monter Identité visuelle et Esthétique ensemble.",
+      notNeeded: "Un nouveau style. Ce chemin parle justement de faire plus de la même chose.",
+      impact: "En général +0,2 à +0,6",
+    },
+    lane: {
+      kind: "Ton terrain",
+      title: "Joue dans la catégorie {label}",
+      titleUnknown: "Joue dans ta catégorie",
+      whatToTry:
+        "Le classement global mélange tous les types de profils. {label} est un terrain bien plus petit, et c'est celui où tes signaux sont réellement comparables. Garde ta catégorie lisible et ta position y bougera plus vite que ton rang global.",
+      whatToTryUnknown:
+        "Les catégories sont des classements plus petits où tes signaux sont comparés à des profils qui font la même chose. Plus ta catégorie se lit clairement, plus ta position devient parlante — et gagnable.",
+      why: "Le rang de catégorie est calculé à partir du même score sur un terrain plus étroit : la même amélioration te fait donc gagner plus de places. C'est aussi comme ça que les gagnants de la semaine sont choisis.",
+      notNeeded: "Changer le type de compte que tu tiens pour viser une catégorie plus facile.",
+      impact: "Fait bouger ton rang de catégorie le plus vite",
+    },
+    verify: {
+      kind: "Entretien",
+      title: "Fais revérifier ce que tu as déjà changé",
+      whatToTry:
+        "Envoie une nouvelle capture après chaque vrai changement. Blink relit le profil et le nouveau score remplace l'ancien.",
+      why: "Rien ne bouge ton rang tant que ce n'est pas vérifié. Les changements que tu as déjà faits ne valent rien pour le classement tant qu'une nouvelle capture ne les prouve pas.",
+      notNeeded: "D'autres changements — il s'agit d'encaisser ceux que tu as déjà faits.",
+      impact: "Débloque tous les autres chemins",
+    },
+    streak: {
+      kind: "Entretien",
+      title: "Montre-toi chaque semaine",
+      whatToTry: "Une analyse vérifiée par semaine garde ta série en vie. Un seul envoi suffit.",
+      why: "Les séries enregistrent une attention continue, et un profil actif garde sa position pendant que les profils dormants reculent à mesure que les autres progressent.",
+      notNeeded: "Poster selon un calendrier. Il s'agit d'analyser, pas de performer.",
+      impact: "Protège ton rang",
+    },
+    momentum: {
+      kind: "Élan",
+      title: "Repasse en élan positif",
+      whatToTry:
+        "L'élan, c'est l'écart entre tes deux dernières analyses vérifiées. Fais un changement concret — n'importe lequel des chemins ici — et renvoie une capture pour l'inverser.",
+      why: "L'élan est ce qui départage des profils au score voisin, et c'est le signal sur lequel les gagnants de la semaine sont choisis : la plus grosse progression vérifiée, pas le score le plus haut.",
+      notNeeded: "Un gros changement. Le plus petit changement réel compte quand même.",
+      impact: "Départage les positions serrées",
+    },
+    perception: {
+      kind: "Facultatif",
+      title: "Affûte les trois premières secondes",
+      whatToTry:
+        "Si quelqu'un qui arrive sans contexte ne comprend pas de quoi parle le compte, les correctifs les plus rapides sont le champ nom, la première ligne de la bio, et les couvertures de stories à la une dans ta palette actuelle. Prends-en un, ou aucun.",
+      why: "La clarté vaut un dixième du score et c'est l'axe le plus souvent laissé de côté. Mais l'opacité assumée est une stratégie valable — si être difficile à lire est le but, ce chemin n'est pas pour toi.",
+      notNeeded: "Ta photo de profil, ton esthétique, ou la façon dont tu te présentes déjà.",
+      impact: "En général +0,1 à +0,3",
+    },
+  },
+
   climb: {
     title: "Comment monter",
     startHere: "Commence ici",
@@ -1306,6 +1497,9 @@ const fr: Messages = {
       "Blink a vu ça sur ton dernier envoi. Fais le changement, envoie une nouvelle capture, et ça compte pour ton rang.",
     whyThisHelps: "Pourquoi ça aide.",
     noNeedToChange: "Tu n'as pas besoin de changer.",
+    noRedesign:
+      "Tu n'as jamais besoin de refaire ton profil pour monter. La profondeur, la constance et le fait de rester actif font monter le score tout seuls.",
+    uploadNew: "Envoyer une nouvelle capture",
   },
 
   detail: {

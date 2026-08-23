@@ -29,7 +29,7 @@ import { useMemo, useState } from "react";
 
 import { DeckProgress, DeckStatus, SwipeDeck, SwipeHint } from "@/components/blink/SwipeDeck";
 import {
-  TRACK_LABEL,
+  trackLabel,
   climbHeadline,
   getClimbPaths,
   type ClimbIdentity,
@@ -113,7 +113,7 @@ export function ClimbSection({
   const [index, setIndex] = useState(0);
 
   const cards = useMemo(() => {
-    const paths = getClimbPaths(stats, identity);
+    const paths = getClimbPaths(stats, identity, t);
     // `getClimbPaths` already sorts priority first and optional last; keeping
     // that order and slotting the recommendations behind the priority items
     // means the first card is always this user's actual next step.
@@ -135,13 +135,13 @@ export function ClimbSection({
         How to climb
       </p>
       <p className="mt-2.5 text-sm leading-relaxed text-white/70">
-        {climbHeadline(stats, rank)}
+        {climbHeadline(stats, rank, t)}
       </p>
 
       {/* The three routes, stated up front. Someone who likes their profile
           exactly as it is needs to see that before they see any advice. */}
       <div className="mt-4 flex flex-wrap gap-1.5">
-        {(Object.keys(TRACK_LABEL) as ClimbTrack[]).map((track) => (
+        {(["perception", "momentum", "recognition"] as ClimbTrack[]).map((track) => (
           <span
             key={track}
             className={cn(
@@ -151,7 +151,7 @@ export function ClimbSection({
                 : "bg-white/[0.05] text-white/35 ring-1 ring-white/[0.06]",
             )}
           >
-            {TRACK_LABEL[track]}
+            {trackLabel(track, t)}
             {track === "perception" && (
               <span className="ml-1 font-semibold opacity-60">· optional</span>
             )}
@@ -180,8 +180,7 @@ export function ClimbSection({
       </div>
 
       <p className="mt-6 text-[0.72rem] leading-relaxed text-white/35">
-        You never have to redesign your profile to climb. Depth, consistency and staying
-        active move the score on their own.
+        {t.climb.noRedesign}
       </p>
 
       {onAnalyze && (
@@ -192,7 +191,7 @@ export function ClimbSection({
           transition={{ type: "spring", stiffness: 400, damping: 30 }}
           className="mt-4 min-h-[48px] w-full rounded-2xl bg-blink-sky text-sm font-bold text-blink-navy"
         >
-          Upload a new screenshot
+          {t.climb.uploadNew}
         </motion.button>
       )}
     </section>
@@ -217,7 +216,7 @@ function ActionCardBody({ card }: { card: ActionCard }) {
         </span>
         {card.track && (
           <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[0.58rem] font-bold uppercase tracking-[0.1em] text-white/45">
-            {TRACK_LABEL[card.track]}
+            {trackLabel(card.track, t)}
           </span>
         )}
         {card.optional && (

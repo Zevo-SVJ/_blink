@@ -39,6 +39,7 @@
  */
 
 import { categoryLabel } from "@/lib/categories";
+import { MESSAGES, type Messages } from "@/lib/messages";
 import type { ProfileStats } from "@/lib/ranking";
 import { scoreOutOfTen } from "@/lib/ranking";
 
@@ -62,11 +63,15 @@ export type ClimbPathId =
  */
 export type ClimbTrack = "perception" | "momentum" | "recognition";
 
-export const TRACK_LABEL: Record<ClimbTrack, string> = {
-  perception: "Improve perception",
-  momentum: "Build momentum",
-  recognition: "Earn recognition",
-};
+/**
+ * The three track names, in the reader's language.
+ *
+ * Was a constant map of English strings, which is why the French Profile
+ * screen offered "Improve perception · Build momentum · Earn recognition".
+ */
+export function trackLabel(track: ClimbTrack, t: Messages): string {
+  return t.climbPaths.tracks[track];
+}
 
 export interface ClimbPath {
   id: ClimbPathId;
@@ -108,13 +113,22 @@ export interface ClimbIdentity {
 export function getClimbPaths(
   stats: ProfileStats,
   identity: ClimbIdentity = {},
+  t?: Messages,
 ): ClimbPath[] {
+  /* The words come from the dictionary; which paths appear, in what order, is
+     still decided here from the reader's own stats. */
+  const copy = (t ?? MESSAGES.en).climbPaths;
+  const fill = (text: string) =>
+    text
+      .replace("{label}", label ?? "")
+      .replace("{signal}", signal ?? "")
+      .trim();
   const neverReVerified = stats.verifiedCount <= 1;
   const streakBroken = stats.streak === 0;
   const losingGround = stats.momentum.direction === "down";
   const belowPeak = stats.peakScore > stats.score;
 
-  const label = categoryLabel(identity.category ?? stats.category);
+  const label = categoryLabel(identity.category ?? stats.category, t);
   const signal = identity.strongestSignal;
 
   // The identity path leads whenever nothing more urgent is wrong.
@@ -124,94 +138,84 @@ export function getClimbPaths(
     {
       id: "identity",
       track: "recognition",
-      kind: "Your identity",
-      title: label ? `Lean into ${label}` : "Lean into what you already are",
-      whatToTry: label
-        ? `Blink reads you as ${label}. Post two or three more in the treatment that already reads that way — same palette, same framing, same energy. You are not starting a new direction, you are making the existing one unmistakable.`
-        : "Pick the three posts that feel most like you and make the next few look like they belong beside them. Not a new direction — a clearer version of the one you have.",
-      why: signal
-        ? `${signal} is already your strongest signal. Signals compound: the clearer a profile is about one thing, the higher every other axis reads, because nothing is fighting for the interpretation.`
-        : "Coherence is a fifth of the score, and it is the axis that lifts the others. A profile that is unmistakably about one thing reads as deliberate rather than accumulated.",
-      notNeeded: "Nothing about your profile as it stands. No new bio, no new picture, no new aesthetic.",
-      impact: "Typically +0.3 to +0.7",
+      kind: copy.identity.kind,
+      title: label ? fill(copy.identity.title) : copy.identity.titleUnknown,
+      whatToTry: label ? fill(copy.identity.whatToTry) : copy.identity.whatToTryUnknown,
+      why: signal ? fill(copy.identity.why) : copy.identity.whyUnknown,
+      notNeeded: copy.identity.notNeeded,
+      impact: copy.identity.impact,
       priority: !housekeepingNeeded,
       redesign: false,
     },
     {
       id: "body-of-work",
       track: "momentum",
-      kind: "Your work",
-      title: "Deepen the body of work",
-      whatToTry:
-        "Add to the grid in the treatment you already use — Reels count. Depth, not variety: five more posts that look like they belong together do more than five that each try something new.",
-      why: "A grid that stops early reads as abandoned rather than curated. Volume in one direction is what turns a consistent look into a body of work, which is what lifts Visual Identity and Aesthetic together.",
-      notNeeded: "A new look. This path is explicitly about more of the same.",
-      impact: "Typically +0.2 to +0.6",
+      kind: copy.bodyOfWork.kind,
+      title: copy.bodyOfWork.title,
+      whatToTry: copy.bodyOfWork.whatToTry,
+      why: copy.bodyOfWork.why,
+      notNeeded: copy.bodyOfWork.notNeeded,
+      impact: copy.bodyOfWork.impact,
       priority: false,
       redesign: false,
     },
     {
       id: "lane",
       track: "recognition",
-      kind: "Your lane",
-      title: label ? `Compete inside ${label}` : "Compete inside your category",
-      whatToTry: label
-        ? `The global board mixes every kind of profile. ${label} is a much smaller field, and it is the one where your signals are actually comparable. Keep your category clear and your position in it moves faster than your global rank ever will.`
-        : "Categories are smaller boards where your signals are compared against profiles doing the same thing. The clearer your category reads, the more meaningful — and the more winnable — your position becomes.",
-      why: "Category rank is computed from the same score against a narrower field, so the same improvement moves you further. It is also how weekly winners are chosen.",
-      notNeeded: "Changing what kind of account you run to chase an easier category.",
-      impact: "Moves your category rank fastest",
+      kind: copy.lane.kind,
+      title: label ? fill(copy.lane.title) : copy.lane.titleUnknown,
+      whatToTry: label ? fill(copy.lane.whatToTry) : copy.lane.whatToTryUnknown,
+      why: copy.lane.why,
+      notNeeded: copy.lane.notNeeded,
+      impact: copy.lane.impact,
       priority: false,
       redesign: false,
     },
     {
       id: "verify",
       track: "momentum",
-      kind: "Housekeeping",
-      title: "Re-verify what you've already changed",
-      whatToTry:
-        "Upload a fresh screenshot after any real change. Blink re-reads the profile and the new score replaces the old one.",
-      why: "Nothing moves your rank until it is verified. Changes you have already made are worth nothing to the board until a new screenshot proves them.",
-      notNeeded: "Any further changes — this is about banking the ones you already made.",
-      impact: "Unlocks every other path",
+      kind: copy.verify.kind,
+      title: copy.verify.title,
+      whatToTry: copy.verify.whatToTry,
+      why: copy.verify.why,
+      notNeeded: copy.verify.notNeeded,
+      impact: copy.verify.impact,
       priority: neverReVerified || belowPeak,
       redesign: false,
     },
     {
       id: "streak",
       track: "momentum",
-      kind: "Housekeeping",
-      title: "Show up weekly",
-      whatToTry: "One verified analysis a week keeps your streak alive. A single upload counts.",
-      why: "Streaks record sustained attention, and an active profile holds its position while dormant ones drift down as others improve.",
-      notNeeded: "Posting on a schedule. This is about analysing, not performing.",
-      impact: "Protects your rank",
+      kind: copy.streak.kind,
+      title: copy.streak.title,
+      whatToTry: copy.streak.whatToTry,
+      why: copy.streak.why,
+      notNeeded: copy.streak.notNeeded,
+      impact: copy.streak.impact,
       priority: streakBroken,
       redesign: false,
     },
     {
       id: "momentum",
       track: "momentum",
-      kind: "Momentum",
-      title: "Turn momentum positive",
-      whatToTry:
-        "Momentum is the gap between your last two verified analyses. Make one concrete change — any of the paths here — and re-upload to flip it.",
-      why: "Momentum is what separates profiles on similar scores, and it is the signal weekly winners are chosen on: biggest verified improvement, not highest score.",
-      notNeeded: "A big change. The smallest real one still registers.",
-      impact: "Decides close positions",
+      kind: copy.momentum.kind,
+      title: copy.momentum.title,
+      whatToTry: copy.momentum.whatToTry,
+      why: copy.momentum.why,
+      notNeeded: copy.momentum.notNeeded,
+      impact: copy.momentum.impact,
       priority: losingGround,
       redesign: false,
     },
     {
       id: "perception",
       track: "perception",
-      kind: "Optional",
-      title: "Sharpen the first three seconds",
-      whatToTry:
-        "If someone landing cold can't tell what the account is about, the fastest fixes are the name field, the first line of the bio, and highlight covers in your existing palette. Take any one of them, or none.",
-      why: "Clarity is a tenth of the score and the axis most often left on the table. But deliberate opacity is a valid strategy — if being hard to read is the point, this path is not for you.",
-      notNeeded: "Your profile picture, your aesthetic, or how you already present yourself.",
-      impact: "Typically +0.1 to +0.3",
+      kind: copy.perception.kind,
+      title: copy.perception.title,
+      whatToTry: copy.perception.whatToTry,
+      why: copy.perception.why,
+      notNeeded: copy.perception.notNeeded,
+      impact: copy.perception.impact,
       priority: false,
       redesign: true,
     },
@@ -227,18 +231,22 @@ export function getClimbPaths(
 }
 
 /** One-line summary of where the user stands, shown above the paths. */
-export function climbHeadline(stats: ProfileStats, rank: number | null): string {
-  if (stats.verifiedCount === 0) {
-    return "Analyze your own profile to get a score and a position.";
-  }
-  if (rank === null) {
-    return `You're at ${scoreOutOfTen(stats.score)}. Turn on leaderboard visibility to take a position.`;
-  }
-  if (stats.momentum.direction === "up") {
-    return `You're at ${scoreOutOfTen(stats.score)}, rank #${rank}, and climbing.`;
-  }
-  if (stats.momentum.direction === "down") {
-    return `You're at ${scoreOutOfTen(stats.score)}, rank #${rank}. Momentum has turned negative.`;
-  }
-  return `You're at ${scoreOutOfTen(stats.score)}, rank #${rank}.`;
+export function climbHeadline(
+  stats: ProfileStats,
+  rank: number | null,
+  t?: Messages,
+): string {
+  const copy = (t ?? MESSAGES.en).climbPaths.standing;
+  const score = scoreOutOfTen(stats.score);
+
+  if (stats.verifiedCount === 0) return copy.noScore;
+  if (rank === null) return copy.unranked.replace("{score}", score);
+
+  const line =
+    stats.momentum.direction === "up" ? copy.climbing
+    : stats.momentum.direction === "down" ? copy.falling
+    : copy.steady;
+
+  return line.replace("{score}", score).replace("{rank}", String(rank));
 }
+
