@@ -17,6 +17,7 @@ import { useState } from "react";
 
 import { PageBackground } from "@/components/blink/PageBackground";
 import { SPRING, STAGGER } from "@/design/motion";
+import { Rise, Shared, SharedScope, Stagger, Swap, press } from "@/design/Motion";
 
 const SURFACES = ["--surface-0", "--surface-1", "--surface-2", "--surface-3"];
 const INKS = ["--ink-1", "--ink-2", "--ink-3", "--ink-4"];
@@ -156,6 +157,10 @@ export default function DesignSystem() {
         <Group title="Springs — press one">
           <SpringLab />
         </Group>
+
+        <Group title="Transform, don't cross-fade">
+          <GazeLab />
+        </Group>
       </div>
     </div>
   );
@@ -195,5 +200,96 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
       <p className="t-label mb-4 text-blink-sky/50">{title}</p>
       {children}
     </section>
+  );
+}
+
+/**
+ * The rule, demonstrated.
+ *
+ * The same four insights under two different gazes. The subject does not
+ * reload and the panel does not cross-fade: the insights that both gazes share
+ * *travel* to their new rank, and only the ones that genuinely differ are
+ * replaced. That is what makes the movement mean "the same profile, read
+ * differently" rather than "here is another screen".
+ */
+const GAZES = [
+  { id: "crush", label: "❤️ Crush", reads: ["Confident", "Interesting", "Mysterious", "Warm"] },
+  { id: "stranger", label: "👤 Stranger", reads: ["Distinctive", "Confident", "Hard to read", "Interesting"] },
+  { id: "pro", label: "💼 Professional", reads: ["Credible", "Ambitious", "Confident", "Polished"] },
+];
+
+function GazeLab() {
+  const [gaze, setGaze] = useState(GAZES[0]);
+
+  return (
+    <SharedScope id="gaze-lab">
+      <div className="surface p-5">
+        <div className="glass-inset inline-flex gap-1 rounded-[var(--r-pill)] p-1">
+          {GAZES.map((g) => (
+            <motion.button
+              key={g.id}
+              type="button"
+              onClick={() => setGaze(g)}
+              className="focus-ring relative rounded-[var(--r-pill)] px-3 py-1.5 text-[0.8rem] font-semibold text-white/70"
+              {...press}
+            >
+              {/* The selection is one object that slides between the
+                  segments, not a background that lights up and goes out. */}
+              {gaze.id === g.id && (
+                <Shared
+                  name="gaze-pill"
+                  spring="snap"
+                  className="absolute inset-0 rounded-[var(--r-pill)] bg-white/[0.14]"
+                />
+              )}
+              <span className="relative">{g.label}</span>
+            </motion.button>
+          ))}
+        </div>
+
+        <ul className="mt-5 space-y-2">
+          {gaze.reads.map((read, i) => (
+            <motion.li
+              key={read}
+              layout
+              layoutId={`read:${read}`}
+              transition={SPRING.morph}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center gap-3"
+            >
+              <span className="t-numeric t-caption w-5 text-white/[var(--ink-4)]">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span
+                className="rounded-[var(--r-pill)] px-3 py-1.5 text-[0.9rem] font-semibold"
+                style={{
+                  background: i === 0 ? "hsl(var(--blink-sky) / 0.16)" : "hsl(0 0% 100% / 0.05)",
+                  color: i === 0 ? "hsl(var(--blink-sky))" : "hsl(0 0% 100% / var(--ink-2))",
+                }}
+              >
+                {read}
+              </span>
+            </motion.li>
+          ))}
+        </ul>
+
+        <p className="t-caption mt-5 text-white/[var(--ink-3)]">
+          Score, same place, counting:{" "}
+          <Swap value={gaze.id} className="t-numeric font-bold text-white">
+            {gaze.id === "crush" ? "8.7" : gaze.id === "stranger" ? "8.1" : "9.0"}
+          </Swap>
+        </p>
+      </div>
+
+      <Stagger className="mt-4 grid grid-cols-3 gap-3">
+        {["Rises", "In order", "Together"].map((t) => (
+          <Rise key={t} className="elev-2 rounded-[var(--r-md)] px-4 py-3">
+            <span className="t-caption text-white/[var(--ink-2)]">{t}</span>
+          </Rise>
+        ))}
+      </Stagger>
+    </SharedScope>
   );
 }
