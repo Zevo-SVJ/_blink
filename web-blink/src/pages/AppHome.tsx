@@ -151,7 +151,7 @@ function StandingSummary({ data, rank }: { data: FullProfile; rank: number | nul
       <button
         type="button"
         onClick={() => navigate("/profile")}
-        className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-blink-sky transition-opacity hover:opacity-80"
+        className="focus-ring mt-3 inline-flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-sm)] text-sm font-semibold text-blink-sky transition-opacity hover:opacity-80"
       >
         {t.home.viewFullProfile}
         <ArrowRight className="h-4 w-4" aria-hidden />

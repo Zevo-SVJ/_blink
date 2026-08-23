@@ -63,7 +63,7 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
               <a
                 key={link.href}
                 href={link.href}
-                className="focus-ring rounded-[var(--r-sm)] px-1 text-sm font-medium text-white/60 transition-colors hover:text-white"
+                className="focus-ring inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[var(--r-sm)] px-1 text-sm font-medium text-white/60 transition-colors hover:text-white"
               >
                 {t.nav[link.key]}
               </a>

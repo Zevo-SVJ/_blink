@@ -155,7 +155,7 @@ function TopNav() {
         <button
           type="button"
           onClick={() => navigate("/app")}
-          className="focus-ring rounded-[var(--r-sm)] text-lg font-bold tracking-tight text-white transition-opacity hover:opacity-80"
+          className="focus-ring inline-flex min-h-[44px] items-center rounded-[var(--r-sm)] pr-2 text-lg font-bold tracking-tight text-white transition-opacity hover:opacity-80"
         >
           {BRAND.name}
         </button>
@@ -176,7 +176,7 @@ function TopNav() {
         <button
           type="button"
           onClick={() => navigate("/analyze")}
-          className="focus-ring flex min-h-[40px] items-center gap-2 rounded-[var(--r-pill)] bg-blink-sky px-4 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.03] active:scale-[0.98]"
+          className="focus-ring flex min-h-[44px] items-center gap-2 rounded-[var(--r-pill)] bg-blink-sky px-4 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.03] active:scale-[0.98]"
         >
           <ScanLine className="h-4 w-4" />
           {t.app.tabAnalyze}

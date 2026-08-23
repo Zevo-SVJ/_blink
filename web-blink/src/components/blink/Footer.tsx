@@ -27,8 +27,16 @@ const GRID = social.length
  * and stacked. The anchor grows to a 44px row on mobile and collapses back to
  * its natural height from `sm` up, where a cursor makes the padding pointless.
  */
+/*
+  44px under a thumb, 32 under a cursor.
+
+  WCAG 2.2 asks for 24×24 as the floor (SC 2.5.8) and 44×44 where a touch
+  screen is the input (SC 2.5.5). `sm:min-h-0` collapsed these to the height of
+  the text — 20px — which clears neither. 32 keeps the footer compact and still
+  leaves eight pixels of margin over the requirement.
+*/
 const LINK =
-  "inline-flex min-h-[44px] items-center text-sm font-medium text-white/55 transition-colors hover:text-white sm:min-h-0";
+  "focus-ring inline-flex min-h-[44px] min-w-[44px] items-center rounded-[var(--r-xs)] text-sm font-medium text-white/55 transition-colors hover:text-white sm:min-h-[32px] sm:min-w-0";
 
 export function Footer() {
   const { lang, t } = useI18n();

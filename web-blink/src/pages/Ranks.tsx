@@ -185,7 +185,7 @@ export default function Ranks() {
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-white/[0.06] px-3.5 text-xs font-bold text-white/80 ring-1 ring-white/10 transition-colors hover:bg-white/[0.11]"
+          className="focus-ring inline-flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-pill)] bg-white/[0.06] px-3.5 text-xs font-bold text-white/80 ring-1 ring-white/10 transition-colors hover:bg-white/[0.11]"
         >
           <UserPlus className="h-3.5 w-3.5" aria-hidden />
           {t.ranksPage.addSomeone}
@@ -553,7 +553,7 @@ function CategoryChip({
       // Read by the strip to scroll the chosen board back into view.
       data-active={active}
       className={cn(
-        "relative shrink-0 snap-start whitespace-nowrap rounded-full px-4 py-2.5 text-xs font-bold transition-colors",
+        "focus-ring relative flex min-h-[44px] shrink-0 snap-start items-center whitespace-nowrap rounded-[var(--r-pill)] px-4 text-xs font-bold transition-colors",
         active
           ? "text-blink-navy"
           : populated

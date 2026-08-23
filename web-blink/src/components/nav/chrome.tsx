@@ -144,7 +144,7 @@ export function PillNav({
                 onClick={() => onGo(item.path)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "focus-ring relative min-h-[40px] rounded-[var(--r-pill)] px-4 text-sm font-semibold transition-colors",
+                  "focus-ring relative min-h-[44px] rounded-[var(--r-pill)] px-4 text-sm font-semibold transition-colors",
                   active ? "text-blink-navy" : "text-white/60 hover:text-white",
                 )}
               >
