@@ -18,7 +18,16 @@ import { Crash, fitBlock } from "../motion/Kinetic";
 import { springAt } from "../motion/springs";
 import type { FilmCopy } from "../copy";
 import { a, C, FONT, T, WIDTH } from "../theme";
-import { APP_IN, CTA_BUTTON, KEY_EVERY, PRESS, SLOGAN, TYPE_FROM, at } from "../timeline";
+import {
+  APP_IN,
+  CTA_BUTTON,
+  KEY_EVERY,
+  PRESS,
+  SLOGAN,
+  SLOGAN_LINES,
+  TYPE_FROM,
+  at,
+} from "../timeline";
 
 /** The eye, cropped to itself so it works as a mark beside a line of type. */
 function Mark({ width }: { width: number }) {
@@ -182,7 +191,7 @@ export function Cta({ copy }: { copy: FilmCopy }) {
             }}
           >
             {copy.slogan.map((line, i) => {
-              const start = SLOGAN + i * 4;
+              const start = SLOGAN_LINES[i];
               if (frame < start) return null;
               return (
                 <Crash

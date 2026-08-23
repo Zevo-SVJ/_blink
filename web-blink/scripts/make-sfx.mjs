@@ -13,8 +13,8 @@
  *
  * Measured off that reference rather than guessed at: 71% of its energy sits
  * below 250 Hz, its spectral centroid is 1.8 kHz, and only 1.5% of the energy
- * is above 2 kHz. Its transients rise over about 20 ms — soft-knee, an order
- * of magnitude slower than a click.
+ * is above 2 kHz. Its transients rise over about 6 ms measured at millisecond
+ * resolution — soft-knee, several times slower than a click.
  *
  * So: no bright transients, no chimes, no sweeps, nothing above 4 kHz worth
  * speaking of. Impacts are sub-bass with a slow attack. Interface sounds are
@@ -127,6 +127,42 @@ function lowpass(out, hz, poles = 2) {
   return out;
 }
 
+/**
+ * A damped resonance, struck once.
+ *
+ * The difference between a click and a *thock*, and between a blip and a
+ * bloop. Both of those are a body ringing briefly at its own pitch after
+ * being hit — not a waveform with an envelope drawn over it. `q` is how long
+ * it rings: 20 is a plastic tap, 120 is a struck glass.
+ *
+ * `excite` is how hard it is hit, in seconds. A single-sample impulse gives a
+ * resonator a perfectly instantaneous front edge — measured, the first thock
+ * built this way had a 0 ms attack, which is the definition of the click this
+ * kit exists to avoid. Spreading the excitation over a few milliseconds is
+ * the difference between a key striking bare plastic and one bottoming out on
+ * foam.
+ */
+function resonate(out, { freq, q = 40, gain = 1, at = 0, excite = 0.004 }) {
+  const w = (2 * Math.PI * freq) / RATE;
+  const r = Math.exp(-w / (2 * q));
+  const c = 2 * r * Math.cos(w);
+  const d = r * r;
+  let y1 = 0;
+  let y2 = 0;
+  const start = Math.round(at * RATE);
+  const hit = Math.max(1, Math.round(excite * RATE));
+  for (let i = start; i < out.length; i += 1) {
+    const k = i - start;
+    // A raised cosine over `hit` samples: all the energy, none of the edge.
+    const x = k < hit ? (0.5 - 0.5 * Math.cos((2 * Math.PI * k) / hit)) / hit : 0;
+    const y = x + c * y1 - d * y2;
+    y2 = y1;
+    y1 = y;
+    out[i] += y * gain * 0.02;
+  }
+  return out;
+}
+
 function write(name, samples, peak = 0.9) {
   let max = 0;
   for (const s of samples) max = Math.max(max, Math.abs(s));
@@ -179,6 +215,15 @@ console.log("Writing the kit to public/audio …");
   const s = buf(1.7);
   sine(s, { freq: 52, to: 28, gain: 1, decay: 1.1, attack: 0.022, curve: 0.7 });
   sine(s, { freq: 104, to: 56, gain: 0.3, decay: 0.55, attack: 0.026, curve: 0.8 });
+  /* A resonance under the bend — what "resonant" means as opposed to "loud":
+     the note keeps ringing after the swell has gone.
+
+     Q is 80, not the 260 this was first written with. Every file is peak-
+     normalised, so a ring that long does not add depth, it raises the whole
+     file's average level: at 260 this one sound measured 12 dB hotter than
+     everything else in the kit and pushed the finished master 3 dB past the
+     reference's sub while the rest of the mix stayed where it was. */
+  resonate(s, { freq: 44, q: 80, gain: 14, excite: 0.02 });
   // Enough upper body to survive a laptop speaker, nowhere near enough to
   // read as a click.
   sine(s, { freq: 168, to: 92, gain: 0.11, decay: 0.2, attack: 0.03 });
@@ -186,58 +231,65 @@ console.log("Writing the kit to public/audio …");
 }
 
 /*
-  A soft pop, for a word or a label arriving.
+  A water drop, for a word or a label arriving.
 
-  A bubble is a fast downward pitch bend with no edge on it. The 20 ms attack
-  is doing most of the work — the same shape at 2 ms is a UI blip, which is
-  the sound this kit exists to avoid.
+  A bubble's pitch *rises* as it collapses — that is the whole reason a drop
+  sounds like a drop and not like a synth blip. The first cut of this bent the
+  other way, 640 Hz down to 250, which is exactly the "digital" sound the brief
+  rules out. Bent upward over sixty milliseconds it reads as liquid.
+
+  Under it, a short resonance for the body of the water and a low thump for
+  the impact, so it has somewhere to sit in the mix.
 */
 {
-  const s = buf(0.26);
-  sine(s, { freq: 640, to: 250, gain: 0.85, decay: 0.11, attack: 0.019, curve: 0.9 });
-  sine(s, { freq: 320, to: 150, gain: 0.4, decay: 0.14, attack: 0.022 });
-  /* An upper voice, quiet and with the same slow attack as everything else.
-
-     Without it the finished mix measured 16 dB below the reference between 800
-     Hz and 2 kHz and 28 dB below it above that — which is not "dark", it is
-     hollow, and on a phone speaker (which reproduces almost nothing under 200
-     Hz) it would have been close to inaudible. This is the band a small
-     speaker actually has. */
-  sine(s, { freq: 1500, to: 720, gain: 0.17, decay: 0.05, attack: 0.018 });
-  // A breath of body underneath so it has somewhere to sit in the mix.
-  sine(s, { freq: 120, to: 78, gain: 0.22, decay: 0.16, attack: 0.02 });
+  const s = buf(0.3);
+  sine(s, { freq: 380, to: 980, gain: 0.72, decay: 0.06, attack: 0.006, curve: 1.4 });
+  resonate(s, { freq: 620, q: 26, gain: 24, excite: 0.005 });
+  resonate(s, { freq: 1480, q: 18, gain: 8, excite: 0.004 });
+  // The impact under the bloop. Felt, not heard.
+  sine(s, { freq: 150, to: 84, gain: 0.3, decay: 0.12, attack: 0.008 });
+  lowpass(s, 3200, 1);
   write("ui_soft_pop_bubble", s, 0.8);
 }
 
 /*
-  A soft air swoosh, for whips and transitions.
+  A cottony slide, for whips and transitions.
 
-  Filtered downward rather than the usual bright rush: the band starts at
-  900 Hz and lands at 220, so it reads as air moving past rather than as a
-  transition effect. A 60 ms attack keeps it from having a front edge.
+  Heavy fabric or water moving past, not wind. The distinction is the
+  envelope: wind decays from a front edge, but something *passing* you swells
+  and falls. So the band opens upward and closes again, and the amplitude is
+  shaped as a swell rather than as a decay — which is also why there is no
+  attack transient anywhere in it.
 */
 {
-  const s = buf(0.72);
-  noise(s, { from: 900, to: 220, q: 1.5, gain: 0.9, decay: 0.34, attack: 0.06 });
-  noise(s, { from: 420, to: 140, q: 2.4, gain: 0.5, decay: 0.42, attack: 0.09 });
+  const s = buf(0.78);
+  noise(s, { from: 260, to: 900, q: 1.6, gain: 0.9, decay: 0.5, attack: 0.1 });
+  noise(s, { from: 700, to: 200, q: 2.6, gain: 0.6, decay: 0.55, attack: 0.14 });
   // The pressure behind it. Below the noise, and mostly felt.
-  sine(s, { freq: 90, to: 46, gain: 0.35, decay: 0.36, attack: 0.05 });
+  sine(s, { freq: 90, to: 46, gain: 0.35, decay: 0.4, attack: 0.06 });
+  // Swell and fall: a raised sine over the whole length, so nothing in this
+  // sound ever has a front edge.
+  for (let i = 0; i < s.length; i += 1) {
+    s[i] *= Math.sin((Math.PI * i) / s.length) ** 1.3;
+  }
   lowpass(s, 2400, 2);
   write("soft_air_swoosh", s, 0.72);
 }
 
 /*
-  A muffled click, for typing.
+  A muffled thock, for typing.
 
-  Ninety milliseconds, everything above 800 Hz filtered away, and a 6 ms
-  attack — present enough to be a keystroke, blunt enough that thirty of them
-  in a row do not become a machine gun.
+  A round mechanical keyboard, not a click: two low resonances dying inside
+  forty milliseconds with barely any noise on top. Noise is what makes a
+  keystroke sound like a mouse button; the body is what makes it sound like a
+  key bottoming out on foam.
 */
 {
-  const s = buf(0.1);
-  noise(s, { from: 1600, to: 380, q: 1.1, gain: 0.55, decay: 0.028, attack: 0.006 });
-  tri(s, { freq: 180, to: 96, gain: 0.75, decay: 0.045, attack: 0.005 });
-  lowpass(s, 2600, 2);
+  const s = buf(0.12);
+  resonate(s, { freq: 168, q: 22, gain: 46, excite: 0.007 });
+  resonate(s, { freq: 305, q: 14, gain: 20, excite: 0.006 });
+  noise(s, { from: 1400, to: 420, q: 1.2, gain: 0.16, decay: 0.014, attack: 0.003 });
+  lowpass(s, 2200, 2);
   write("asmr_muffled_clicks", s, 0.6);
 }
 
@@ -256,7 +308,11 @@ console.log("Writing the kit to public/audio …");
   // Slow amplitude movement — friction is never even.
   for (let i = 0; i < s.length; i += 1) {
     const t = i / RATE;
-    s[i] *= 0.72 + 0.28 * Math.sin(2 * Math.PI * 3.1 * t + Math.sin(2 * Math.PI * 0.7 * t));
+    // Two rates of movement, not one. A single wobble is a tremolo; two at
+    // unrelated speeds is a hand that is not moving perfectly evenly.
+    const slow = 0.78 + 0.22 * Math.sin(2 * Math.PI * 0.9 * t);
+    const fast = 0.82 + 0.18 * Math.sin(2 * Math.PI * 4.7 * t + 1.1);
+    s[i] *= slow * fast;
   }
   sine(s, { freq: 78, to: 58, gain: 0.18, decay: 0.8, attack: 0.14 });
   lowpass(s, 1700, 2);

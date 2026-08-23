@@ -97,13 +97,19 @@ was designed against works: 8.7 seconds carrying 23 audible events out of a
 handful of textures at different pitches and levels. Variety comes from
 placement and gain, not from a library of one-shots.
 
-| file | for |
-| --- | --- |
-| `deep_sub_bass_pulse.wav` | the hook, the crack, the stamp, the ink |
-| `ui_soft_pop_bubble.wav` | every word, label and card that arrives |
-| `soft_air_swoosh.wav` | every seam, and the dive |
-| `asmr_muffled_clicks.wav` | typing, and the button |
-| `glass_slide_friction.wav` | the loupe crossing the print |
+| file | what it is | for |
+| --- | --- | --- |
+| `deep_sub_bass_pulse.wav` | a swell into a low resonance, 10ms attack | the hook, the crack, the stamp, the ink |
+| `ui_soft_pop_bubble.wav` | a water drop — pitch bending *up*, as a real bubble does | every word, label and card that arrives |
+| `soft_air_swoosh.wav` | heavy fabric passing: the band opens and closes, and the level swells and falls rather than decaying | every seam, and the dive |
+| `asmr_muffled_clicks.wav` | a thock — two low resonances struck softly, nothing above 2 kHz | typing, and the button |
+| `glass_slide_friction.wav` | sustained friction with two unrelated rates of movement | the loupe crossing the print |
+
+None of them is a waveform with an envelope drawn over it. The drop and the
+thock are struck resonators, because that is what gives a body its pitch and
+its ring — and the excitation is spread over a few milliseconds, because a
+resonator hit with a single-sample impulse has a perfectly instantaneous front
+edge, which is the definition of the click this kit exists to avoid.
 
 The aesthetic was measured off that reference rather than guessed at: 71% of
 its energy sits below 250 Hz, its spectral centroid is 1.8 kHz, almost nothing
@@ -113,13 +119,22 @@ the kit, no chimes and no sweeps. `node qa/sfx-profile.mjs` reports the same
 three figures for whatever is in `public/audio/`, so a replacement can be held
 to the profile instead of to an opinion.
 
-Measuring the *finished master* the same way is what caught the mix being
-hollow rather than dark: the sub matched the reference to within a decibel and
+Measuring the *finished master* the same way is what keeps catching mistakes.
+It caught the mix being hollow rather than dark: the sub matched the reference to within a decibel and
 every band above 120 Hz was between seven and forty decibels quieter, which on
 a phone speaker — which reproduces almost nothing under 200 Hz — would have
 been close to silence. The pops carry an upper voice now, the sub pulses are
 trimmed at source, and the bed carries the body. `node qa/mix-bands.mjs` is
 that check.
+
+It also caught the opposite, later: giving the sub pulse a long resonant tail
+made that one file twelve decibels hotter than everything else in the kit in
+average terms — every file is peak-normalised, so a longer ring does not add
+depth, it raises the average — and pushed the master three decibels past the
+reference's sub while the rest of the mix stayed put. The number to watch is
+the gap between the 20–120 Hz band and everything above it. The reference
+keeps its body *louder* than its sub; anything much past eight decibels the
+other way is a boomy mix.
 
 What remains is a difference in content, not a defect: the reference is a full
 music track and this bed is a pad, so it still sits about twelve decibels under
@@ -131,9 +146,21 @@ The files shipped are placeholders written by `scripts/make-sfx.mjs`.
 `public/audio/`** — `Track.tsx` resolves them through `staticFile()`, so there
 is no import to edit and no code to change.
 
-Cues are frames imported from `timeline.ts`, so moving a beat moves its sound,
-and they are allowed to ring into each other: a swoosh still decaying under the
-pop that follows it is what makes the mix continuous rather than a row of
+### Sync
+
+Frame-exact, and enforced rather than intended.
+
+`timeline.ts` exports `SPRINGS` — every frame on which something visually
+arrives — and `MOVES` — every frame on which the camera itself starts moving,
+which is a different list, because a whip pan has nothing arriving on it and
+the pull-back is forty frames of travel with nothing appearing at all. The
+scenes and the cues both read those constants, and a test asserts that all 43
+springs and all 22 camera moves carry a cue **on their own frame**, not near
+it: a sound placed a frame or two after an arrival is heard as a separate
+event rather than as the arrival.
+
+Cues are allowed to ring into each other: a swoosh still decaying under the
+drop that follows it is what makes the mix continuous rather than a row of
 separate noises. The bed is written *against* the cut — it drops out under the
 crack and returns for the score.
 

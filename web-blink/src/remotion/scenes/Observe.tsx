@@ -22,7 +22,13 @@ import { springAt } from "../motion/springs";
 import { Tag } from "../objects/Card";
 import type { FilmCopy } from "../copy";
 import { a, C, HEIGHT, WIDTH } from "../theme";
-import { DETAIL_BEATS, LOUPE_FROM, LOUPE_IN, LOUPE_TO } from "../timeline";
+import {
+  DETAIL_BEATS,
+  LOUPE_ENTER,
+  LOUPE_FROM,
+  LOUPE_IN,
+  LOUPE_TO,
+} from "../timeline";
 
 /*
   Where the lens is, frame by frame.
@@ -70,7 +76,7 @@ export function Observe({ copy }: { copy: FilmCopy }) {
      only 520px: at 900 the loupe was still past the right edge of a 1080
      frame on the frame the entrance was supposed to be photographed, so the
      scene opened on a print with nothing happening to it. */
-  const enter = springAt({ frame, fps, start: LOUPE_IN - 6, preset: "crash" });
+  const enter = springAt({ frame, fps, start: LOUPE_ENTER, preset: "crash" });
 
   const [lx, ly] = lensAt(frame);
   // Off frame to the right before it enters.

@@ -20,7 +20,17 @@ import { Camera } from "../motion/Camera";
 import { springAt } from "../motion/springs";
 import type { FilmCopy } from "../copy";
 import { a, C, HEIGHT, WIDTH } from "../theme";
-import { DIVE, INK, PROJECT, SCORE_FROM, SCORE_LOCK, SCORE_TO, at, end } from "../timeline";
+import {
+  DIVE,
+  INK,
+  PROJECT,
+  SCORE_FROM,
+  SCORE_LOCK,
+  SCORE_TO,
+  SLIDE_IN,
+  at,
+  end,
+} from "../timeline";
 
 /** Ink blooms in the flooded frame: x%, y%, diameter, alpha. Deterministic. */
 const BLOOMS: Array<[number, number, number, number]> = [
@@ -173,8 +183,8 @@ export function ScoreScene({ copy }: { copy: FilmCopy }) {
                 style={{
                   /* And a nudge as the number locks, so the last second of the
                      scene is not the projector holding a still slide. */
-                  transform: `scale(${0.86 + springAt({ frame, fps, start: PROJECT + 8, preset: "crash" }) * 0.14 + lock * 0.03})`,
-                  opacity: Math.min(1, (frame - PROJECT - 6) / 4),
+                  transform: `scale(${0.86 + springAt({ frame, fps, start: SLIDE_IN, preset: "crash" }) * 0.14 + lock * 0.03})`,
+                  opacity: Math.min(1, (frame - SLIDE_IN + 2) / 4),
                   filter: lock > 0.01 ? `drop-shadow(0 0 ${lock * 60}px ${a(C.lamp, 0.75)})` : undefined,
                 }}
               >

@@ -20,7 +20,15 @@ import { Crash, fitBlock } from "../motion/Kinetic";
 import { springAt } from "../motion/springs";
 import type { FilmCopy } from "../copy";
 import { a, C, HEIGHT, T, WIDTH } from "../theme";
-import { HOOK_A, HOOK_B, HOOK_B_EVERY, HOOK_EVERY, PHOTO_DROP } from "../timeline";
+import {
+  HOOK_A,
+  HOOK_A_LINES,
+  HOOK_B,
+  HOOK_B_EVERY,
+  HOOK_B_LINES,
+  HOOK_EVERY,
+  PHOTO_DROP,
+} from "../timeline";
 
 /** Columns the two statements are set in. */
 const COL_A = WIDTH - 160;
@@ -95,7 +103,7 @@ export function Hook({ copy }: { copy: FilmCopy }) {
                  is still moving. One seventeen-character line had to be set at
                  95px to fit the frame, which is small for the claim the whole
                  film rests on; broken in three it sets at the full 124. */
-              const start = HOOK_A + i * HOOK_EVERY;
+              const start = HOOK_A_LINES[i];
               if (frame < start) return null;
               return (
                 <Crash
@@ -145,7 +153,7 @@ export function Hook({ copy }: { copy: FilmCopy }) {
               /* The first line lands *on* the beat, not two frames after it:
                  the sub-bass fires at HOOK_B and that frame was rendering the
                  slab opening over an empty pane. */
-              const start = HOOK_B + i * HOOK_B_EVERY;
+              const start = HOOK_B_LINES[i];
               if (frame < start) return null;
               return (
                 <Crash

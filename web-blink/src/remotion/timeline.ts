@@ -226,6 +226,86 @@ export const CTA_BUTTON = 720;
  * is what makes that testable rather than a claim — a gap longer than the
  * ceiling is a scene that has gone slack, and the test says which one.
  */
+/**
+ * Every frame on which something visually *arrives*.
+ *
+ * The sound brief asks for a cue on the first frame of each spring, and a
+ * list of frames written in one file and matched by hand in another is a list
+ * that drifts. So the scenes and the cues both read these, and a test asserts
+ * that every one of them carries a sound.
+ *
+ * A spring's own start frame is the one that matters: it is where the thing
+ * is largest and moving fastest, and a sound placed a frame or two later is
+ * heard as a separate event rather than as the arrival itself.
+ */
+export const HOOK_A_LINES = [0, 1, 2].map((i) => HOOK_A + i * HOOK_EVERY);
+export const HOOK_B_LINES = [0, 1, 2].map((i) => HOOK_B + i * HOOK_B_EVERY);
+/** The loupe's slide starts before the scene's own beat. */
+export const LOUPE_ENTER = LOUPE_IN - 6;
+/** "CE QUE TU VOIS", over the intact mirror. */
+export const MIRROR_LABEL = MIRROR_IN + 6;
+/** "VERDICT", over the empty sheet. */
+export const VERDICT_LABEL = at("verdict") + 4;
+/** The slide dropping into the projector's gate. */
+export const SLIDE_IN = PROJECT + 8;
+/** One keystroke per character of the handle. */
+export const TYPED_KEYS = Array.from({ length: 12 }, (_, i) => TYPE_FROM + i * KEY_EVERY);
+/** The three lines of the closing statement. */
+export const SLOGAN_LINES = [0, 1, 2].map((i) => SLOGAN + i * 4);
+
+export const SPRINGS: number[] = [
+  PHOTO_DROP,
+  ...HOOK_A_LINES,
+  HOOK_B,
+  ...HOOK_B_LINES,
+  LOUPE_ENTER,
+  ...DETAIL_BEATS,
+  ...CARD_BEATS,
+  MIRROR_IN,
+  MIRROR_LABEL,
+  TRUTH,
+  VERDICT_LABEL,
+  PROJECT,
+  SLIDE_IN,
+  ...LABEL_BEATS,
+  APP_IN,
+  ...TYPED_KEYS,
+  PRESS,
+  ...SLOGAN_LINES,
+  CTA_BUTTON,
+]
+  .filter((f, i, all) => all.indexOf(f) === i)
+  .sort((a, b) => a - b);
+
+/**
+ * Every frame on which the camera itself starts moving.
+ *
+ * Shakes, pushes, pull-backs and the seams. The brief asks for every camera
+ * move to have a sound of its own, which is a different list from the springs:
+ * a whip pan has no element arriving on it, and the pull-back out of the
+ * projector is forty frames of travel with nothing appearing at all.
+ */
+export const MOVES: number[] = [
+  ...SCENES.filter((s) => SEAM[s.id] !== "cut").map((s) => mounts(s.id)),
+  PHOTO_DROP + 8,
+  HOOK_A,
+  HOOK_B,
+  LOUPE_IN,
+  ...CARD_BEATS,
+  MIRROR_IN,
+  CRACK,
+  STAMP_HIT,
+  VERDICT_PUSH,
+  DIVE,
+  INK,
+  PROJECT,
+  PULL_FROM,
+  APP_IN,
+  PRESS,
+]
+  .filter((f, i, all) => all.indexOf(f) === i)
+  .sort((a, b) => a - b);
+
 export const BEATS: number[] = [
   // Every seam is an event in its own right: the frame is thrown sideways and
   // a new scene is already arriving. Derived, so a seam cannot be forgotten.
