@@ -99,6 +99,19 @@ const ENGLISH_MARKERS = [
   "download",
   "share your",
   "save image",
+  /*
+    The activity ticker.
+
+    Its twelve lines lived as English literals inside `lib/activity.ts`, so the
+    French landing page announced that someone "got a Magnetic verdict" — and
+    nothing here caught it, because the ticker only shows one line at a time
+    and picks it at random. These four words appear in four different lines of
+    it, which is enough that a regression is caught on almost any frame.
+  */
+  "scanned",
+  "climbed",
+  "verdict",
+  "unlocked",
 ];
 
 /**
@@ -147,7 +160,23 @@ for (const [lang, foreign, name] of [
   for (const route of ROUTES) {
     await page.goto(`${BASE}${route}`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(500);
-    const text = await page.evaluate(() => document.body.innerText);
+
+    /*
+      On the landing page, keep watching.
+
+      The activity ticker stays quiet for five seconds after load and then
+      shows one line at a time, chosen at random from twelve. A single sample
+      taken half a second in sees none of them — which is how the whole ticker
+      shipped in English on the French page with this harness passing. Sampling
+      across twenty seconds catches several different lines per run.
+    */
+    let text = await page.evaluate(() => document.body.innerText);
+    if (route === "/") {
+      for (let i = 0; i < 20; i++) {
+        await page.waitForTimeout(1000);
+        text += "\n" + (await page.evaluate(() => document.body.innerText));
+      }
+    }
 
     for (const phrase of foreign) {
       if (text.includes(phrase)) {

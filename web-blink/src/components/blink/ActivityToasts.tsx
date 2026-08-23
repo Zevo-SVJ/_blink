@@ -24,6 +24,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 import { makeEvent, nextDelay, type ActivityEvent } from "@/lib/activity";
+import { useT } from "@/lib/i18n";
 
 /** How long a notification stays before it leaves on its own. */
 const VISIBLE_MS = 4200;
@@ -33,6 +34,11 @@ const INITIAL_QUIET_MS = 5200;
 
 export function ActivityToasts() {
   const reduceMotion = useReducedMotion();
+  const t = useT();
+  /* Read through a ref so switching language does not tear down the schedule
+     and start the quiet period again. */
+  const actions = useRef(t.activity.actions);
+  actions.current = t.activity.actions;
   const [event, setEvent] = useState<(ActivityEvent & { id: number }) | null>(null);
   const timers = useRef<number[]>([]);
 
@@ -55,7 +61,7 @@ export function ActivityToasts() {
           return;
         }
         id += 1;
-        setEvent({ ...makeEvent(), id });
+        setEvent({ ...makeEvent(actions.current), id });
         const hide = window.setTimeout(() => setEvent(null), VISIBLE_MS);
         timers.current.push(hide);
         schedule(nextDelay());

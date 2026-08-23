@@ -39,29 +39,25 @@ const SECOND = [
   "_official", ".daily", "3", ".exe", "____",
 ];
 
-const ACTIONS = [
-  "scanned a profile",
-  "just got read by a stranger",
-  "checked how their crush sees them",
-  "climbed into the top 100",
-  "ran their first Blink",
-  "compared two profiles",
-  "moved up 12 places",
-  "unlocked a new category",
-  "re-scanned after a redesign",
-  "found out they read as a Larp",
-  "sent their result to a friend",
-  "got a Magnetic verdict",
-];
 
 function pick<T>(list: readonly T[], rand: () => number): T {
   return list[Math.floor(rand() * list.length)];
 }
 
-export function makeEvent(rand: () => number = Math.random): ActivityEvent {
+/**
+ * One illustrative notification.
+ *
+ * The actions come from the caller's dictionary rather than from a list in
+ * here: they are user-facing prose, and as literals in this file the French
+ * landing announced that someone "got a Magnetic verdict".
+ */
+export function makeEvent(
+  actions: readonly string[],
+  rand: () => number = Math.random,
+): ActivityEvent {
   return {
     handle: `${pick(FIRST, rand)}${pick(SECOND, rand)}`,
-    action: pick(ACTIONS, rand),
+    action: pick(actions, rand),
   };
 }
 

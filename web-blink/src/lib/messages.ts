@@ -198,6 +198,30 @@ const en = {
     },
   },
 
+  /**
+   * The landing's activity ticker.
+   *
+   * Illustrative, and marked as such wherever it is shown — see
+   * `lib/activity.ts`. These lived in that file as English literals, so the
+   * French landing announced that someone "got a Magnetic verdict".
+   */
+  activity: {
+    actions: [
+      "scanned a profile",
+      "just got read by a stranger",
+      "checked how their crush sees them",
+      "climbed into the top 100",
+      "ran their first Blink",
+      "compared two profiles",
+      "moved up 12 places",
+      "unlocked a new category",
+      "re-scanned after a redesign",
+      "found out they read as a Larp",
+      "sent their result to a friend",
+      "got a Magnetic verdict",
+    ],
+  },
+
   leaderboardSection: {
     eyebrow: "Where it goes",
     heading: "There's a leaderboard.",
@@ -834,6 +858,23 @@ const fr: Messages = {
       quote: "Tout est presque trop léché. Certains lisent ça comme « difficile à cerner ».",
       tags: ["Distant", "Insaisissable", "Trop curaté"],
     },
+  },
+
+  activity: {
+    actions: [
+      "a scanné un profil",
+      "vient d'être lu par un inconnu",
+      "a vu comment son crush le voit",
+      "est entré dans le top 100",
+      "a lancé son premier Blink",
+      "a comparé deux profils",
+      "a gagné 12 places",
+      "a débloqué une nouvelle catégorie",
+      "a rescanné après un relooking",
+      "a découvert qu'il se lit comme un Larp",
+      "a envoyé son résultat à un ami",
+      "a obtenu un verdict Magnétique",
+    ],
   },
 
   leaderboardSection: {
