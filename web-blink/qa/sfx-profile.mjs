@@ -71,8 +71,14 @@ for (const f of fs.readdirSync(DIR).filter((f) => f.endsWith(".wav")).sort()) {
     cd += mag[k];
   }
 
-  // 10–90% rise of the loudest 5ms window: how sharp the front edge is.
-  const W = Math.round(rate * 0.005);
+  /* Rise time to the loudest window, in 1 ms steps.
+
+     This used to measure in 5 ms windows, which cannot resolve the front edge
+     of a 120 ms sound at all: the peak lands in the first window and the
+     answer is always "0 ms", whether the sound is a click or not. A
+     millisecond is short enough to tell a 7 ms attack from a 1 ms one, which
+     is the whole distinction this column exists to make. */
+  const W = Math.max(1, Math.round(rate * 0.001));
   let peak = 0, peakAt = 0;
   for (let i = 0; i + W <= x.length; i += W) {
     let s = 0;
@@ -96,4 +102,4 @@ for (const f of fs.readdirSync(DIR).filter((f) => f.endsWith(".wav")).sort()) {
       (attack + "ms").padStart(6),
   );
 }
-console.log("\nreference: 71% below 250Hz · centroid 1822Hz · attacks ~20ms");
+console.log("\nreference: 71% below 250Hz · centroid 1822Hz · attack 6ms");

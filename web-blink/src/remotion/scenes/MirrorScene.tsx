@@ -20,7 +20,14 @@ import { Crash, Label } from "../motion/Kinetic";
 import { springAt } from "../motion/springs";
 import type { FilmCopy } from "../copy";
 import { a, C, FONT, HEIGHT, T, WIDTH } from "../theme";
-import { CRACK, MIRROR_IN, TRUTH, at, end } from "../timeline";
+import {
+  CRACK,
+  MIRROR_IN,
+  MIRROR_LABEL,
+  TRUTH,
+  at,
+  end,
+} from "../timeline";
 
 /** The composed, deliberate version. Neat grid, even spacing, all correct. */
 function Polished({ handle }: { handle: string }) {
@@ -174,7 +181,7 @@ export function MirrorScene({ copy }: { copy: FilmCopy }) {
         }}
       >
         <Label
-          start={MIRROR_IN + 6}
+          start={MIRROR_LABEL}
           color={a(C.white, frame >= TRUTH ? 0.34 : 0.72)}
           size={52}
           style={{

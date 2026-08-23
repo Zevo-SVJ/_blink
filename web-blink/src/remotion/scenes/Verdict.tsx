@@ -24,6 +24,7 @@ import {
   STAMP_HIT,
   STAMP_LIFT,
   STAMP_UP,
+  VERDICT_LABEL,
   VERDICT_PUSH,
   at,
   end,
@@ -153,7 +154,7 @@ export function Verdict({ copy }: { copy: FilmCopy }) {
       </Camera>
 
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "flex-start", paddingTop: 210 }}>
-        <Label start={at("verdict") + 4} color={a(C.white, 0.68)} size={50}>
+        <Label start={VERDICT_LABEL} color={a(C.white, 0.68)} size={50}>
           {copy.verdictLabel}
         </Label>
       </AbsoluteFill>

@@ -36,6 +36,8 @@ import {
   SCORE_FROM,
   SCORE_TO,
   SEAM,
+  SPRINGS,
+  MOVES,
   SHEET_LIFT,
   STAMP_HIT,
   STAMP_UP,
@@ -242,6 +244,24 @@ describe("the sound", () => {
     const gaps = frames.slice(1).map((f, i) => f - frames[i]).sort((x, y) => x - y);
     expect(gaps[gaps.length >> 1] / FPS).toBeLessThanOrEqual(0.25);
     expect(gaps[gaps.length - 1] / FPS, "longest silence").toBeLessThanOrEqual(0.8);
+  });
+
+  it("puts a sound on the first frame of every spring", () => {
+    // The brief asks for frame-exact sync. A cue a frame or two after an
+    // arrival is heard as a separate event rather than as the arrival, so
+    // "near" is not good enough here — `SPRINGS` and the scenes read the same
+    // constants, and this asserts the sound does too.
+    const on = new Set(CUES.map((c) => c.frame));
+    const missing = SPRINGS.filter((f) => !on.has(f));
+    expect(missing, `springs with no cue on their own frame: ${missing}`).toEqual([]);
+  });
+
+  it("puts a sound on every camera move", () => {
+    // A different list from the springs: a whip has nothing arriving on it and
+    // the pull-back is forty frames of travel with nothing appearing at all.
+    const on = new Set(CUES.map((c) => c.frame));
+    const missing = MOVES.filter((f) => !on.has(f));
+    expect(missing, `camera moves with no cue: ${missing}`).toEqual([]);
   });
 
   it("uses only the five files the film ships", () => {
