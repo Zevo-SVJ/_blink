@@ -209,8 +209,16 @@ export function EyeReveal() {
     <section
       id="problem"
       aria-label={t.problem.knows}
-      /* Fixed, reserved height. Nothing here may resize during scroll. */
-      className="relative h-[260svh]"
+      /*
+        Fixed, reserved height. Nothing here may resize during scroll.
+
+        Shortened from 260svh after measuring the landing frame by frame: the
+        middle of this section's travel was producing one to four percent of
+        visual change per 240px of scroll, which reads as the page having
+        stopped responding. The eye still opens across the whole section — it
+        simply does so over one screen of scrolling rather than one and a half.
+      */
+      className="relative h-[190svh]"
     >
       <div ref={stage} className="absolute inset-0">
         <div className="sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden">

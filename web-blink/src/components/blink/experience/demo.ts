@@ -91,3 +91,12 @@ export const PASSES = [
 export const NICHE = { id: "entrepreneur", label: "Entrepreneur" };
 
 export const SCORE = 8.7;
+
+/**
+ * How many readings each gaze carries.
+ *
+ * Every gaze has the same count on purpose — the claim is that the same
+ * profile is re-ranked, not that some gazes see more than others — and the
+ * sequence needs the number to pace their arrival.
+ */
+export const GAZE_READS = GAZES[0].reads.length;

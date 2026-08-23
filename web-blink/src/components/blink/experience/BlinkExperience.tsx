@@ -25,13 +25,20 @@
  * interaction alone buries the story behind a control nobody presses.
  */
 
-import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+  type MotionValue,
+} from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 import { SPRING } from "@/design/motion";
 import { press } from "@/design/Motion";
 import { useT } from "@/lib/i18n";
-import { GAZES, NICHE, PASSES, SCORE, type Gaze } from "./demo";
+import { GAZE_READS, GAZES, NICHE, PASSES, SCORE, type Gaze } from "./demo";
 import { ProfileCard, type Regions } from "./ProfileCard";
 
 /**
@@ -40,12 +47,12 @@ import { ProfileCard, type Regions } from "./ProfileCard";
  * one place and retimed without hunting.
  */
 const ACT = {
-  settle: [0.0, 0.1],
-  analysis: [0.1, 0.4],
-  gaze: [0.38, 0.5],
-  perception: [0.46, 0.72],
-  niche: [0.72, 0.84],
-  score: [0.82, 0.96],
+  settle: [0.0, 0.08],
+  analysis: [0.08, 0.34],
+  gaze: [0.32, 0.46],
+  perception: [0.44, 0.68],
+  niche: [0.66, 0.82],
+  score: [0.8, 1.0],
 } as const;
 
 /** 0 → 1 across an act, clamped either side. */
@@ -68,6 +75,20 @@ export function BlinkExperience() {
      the tree sixty times a second. */
   const [act, setAct] = useState(0);
   const [pass, setPass] = useState(-1);
+  /**
+   * How many readings have arrived.
+   *
+   * The perception act used to fade all four in at once and then hold for the
+   * rest of its travel — a quarter of the section during which the picture did
+   * not change at all. A filmstrip of the landing caught two consecutive
+   * frames here that were pixel-identical, which is what a reader experiences
+   * as the page having stopped responding to them.
+   *
+   * Arriving one at a time also happens to be the honest depiction: the
+   * readings are ranked, and watching them land in order is watching the rank
+   * being decided.
+   */
+  const [revealed, setRevealed] = useState(0);
   const [gaze, setGaze] = useState<Gaze>(GAZES[0]);
   const [regions, setRegions] = useState<Regions>({});
 
@@ -84,6 +105,12 @@ export function BlinkExperience() {
       // Which region the reticle is reading, or -1 before/after the pass.
       const a = across(p, ACT.analysis);
       setPass(a <= 0 || a >= 1 ? -1 : Math.min(PASSES.length - 1, Math.floor(a * PASSES.length)));
+
+      /* The readings land across the perception act rather than together.
+         `+ 0.35` so the first one is already on its way as the act opens —
+         otherwise the act starts with an empty column. */
+      const r = across(p, ACT.perception);
+      setRevealed(Math.round(Math.min(1, r * 1.15 + 0.35) * GAZE_READS));
     });
     return stop;
   }, [scrollYProgress]);
@@ -93,6 +120,22 @@ export function BlinkExperience() {
   const cardY = useTransform(scrollYProgress, [0, ACT.settle[1]], [26, 0]);
   const cardScale = useTransform(scrollYProgress, [0, ACT.settle[1]], [0.965, 1]);
 
+  /*
+    The score counts with the scroll rather than on a timer.
+
+    On a timer it finished in nine hundred milliseconds and then held for the
+    remaining fifth of the section — four hundred pixels of scrolling during
+    which the only thing on screen was a number that had already stopped. It is
+    also the wrong relationship: this is the conclusion of a sequence the
+    reader is driving, so the reader should be the one arriving at it.
+
+    A motion value rather than state, so counting does not re-render the tree
+    sixty times a second.
+  */
+  const scoreProgress = useTransform(scrollYProgress, [ACT.score[0], 1], [0, 1], {
+    clamp: true,
+  });
+
   const analysing = act === 1;
   const target = pass >= 0 ? regions[PASSES[pass].at] : undefined;
 
@@ -101,9 +144,26 @@ export function BlinkExperience() {
       ref={section}
       id="experience"
       aria-label={t.film.heading}
-      /* Tall enough to have somewhere to scroll through, short enough that a
-         reader who is not interested is not trapped in it. */
-      className="relative h-[420svh]"
+      /*
+        Retimed after measuring what a reader actually sees.
+
+        A filmstrip down the landing — one frame every 2% of the document,
+        measuring how many pixels changed since the frame before — found three
+        consecutive frames inside this section at *zero* change. That is around
+        two thousand pixels of scrolling during which nothing whatsoever
+        happens, followed by everything happening at once. A reader cannot tell
+        that apart from the page having jumped, and reported it as exactly
+        that.
+
+        The cause was arithmetic, not a bug: 420svh is 3.2 viewports of travel
+        for six acts, so the quiet ones — the readings arriving, the niche
+        resolving — were each given the better part of a screen of scroll to
+        move a few words. At 260svh every act gets roughly a third of a phone
+        screen, which is enough to read and short enough that the picture is
+        always moving. The last act also now runs to 1.0: it used to stop at
+        0.96, leaving a dead strip at the very end.
+      */
+      className="relative h-[260svh]"
     >
       <div
         ref={stage}
@@ -188,13 +248,13 @@ export function BlinkExperience() {
                   animate={{ opacity: act >= 3 ? 1 : 0 }}
                   transition={SPRING.base}
                 >
-                  <Readings gaze={gaze} />
+                  <Readings gaze={gaze} revealed={revealed} />
                 </motion.div>
                 <motion.div
                   animate={{ opacity: act >= 4 ? 1 : 0 }}
                   transition={SPRING.base}
                 >
-                  <Verdict revealScore={act >= 5} />
+                  <Verdict revealScore={act >= 5} progress={scoreProgress} />
                 </motion.div>
               </motion.div>
             </div>
@@ -367,18 +427,26 @@ function GazePicker({ value, onChange }: { value: Gaze; onChange: (g: Gaze) => v
  * feature — the profile has not changed, so the words have not changed; their
  * *order of importance* has.
  */
-function Readings({ gaze }: { gaze: Gaze }) {
+function Readings({ gaze, revealed }: { gaze: Gaze; revealed: number }) {
   return (
     <div className="mt-4 lg:mt-5">
+      {/* Fixed height: the readings arrive one at a time, and a column that
+          grows as they land would push the verdict below it down the screen
+          four times. */}
       <ul className="space-y-1 lg:space-y-1.5">
-        {gaze.reads.map((word, i) => (
+        {gaze.reads.map((word, i) => {
+          /* Once a reading is out, changing the gaze re-ranks it rather than
+             re-revealing it — so a reader who has scrolled past this act and
+             then switches gaze sees a re-ranking, not a replay. */
+          const here = i < revealed;
+          return (
           <motion.li
             key={word}
             layout
             layoutId={`read-${word}`}
             transition={SPRING.morph}
             initial={{ opacity: 0, scale: 0.94 }}
-            animate={{ opacity: 1, scale: 1 }}
+            animate={{ opacity: here ? 1 : 0, scale: here ? 1 : 0.94, x: here ? 0 : -10 }}
             className="flex items-center gap-3"
           >
             <span className="t-numeric w-4 text-[0.68rem] text-white/[var(--ink-4)]">
@@ -399,7 +467,8 @@ function Readings({ gaze }: { gaze: Gaze }) {
               {word}
             </motion.span>
           </motion.li>
-        ))}
+          );
+        })}
       </ul>
 
       <AnimatePresence mode="wait">
@@ -429,7 +498,13 @@ function Readings({ gaze }: { gaze: Gaze }) {
  * appears answers the question before it is asked, which is the only reason
  * the two are in the same box.
  */
-function Verdict({ revealScore }: { revealScore: boolean }) {
+function Verdict({
+  revealScore,
+  progress,
+}: {
+  revealScore: boolean;
+  progress: MotionValue<number>;
+}) {
   const t = useT();
   return (
     <motion.div
@@ -447,7 +522,7 @@ function Verdict({ revealScore }: { revealScore: boolean }) {
         className="text-right"
         aria-hidden={!revealScore}
       >
-        {revealScore ? <Counting to={SCORE} /> : <span className="t-numeric block text-[2rem] font-extrabold leading-none sm:text-[2.4rem]">&nbsp;</span>}
+        {revealScore ? <Counting to={SCORE} progress={progress} /> : <span className="t-numeric block text-[2rem] font-extrabold leading-none sm:text-[2.4rem]">&nbsp;</span>}
         <p className="t-label text-white/[var(--ink-4)]">{t.experience.outOfTen}</p>
       </motion.div>
     </motion.div>
@@ -464,29 +539,28 @@ function Verdict({ revealScore }: { revealScore: boolean }) {
  *
  * Tabular figures, so the width does not jitter on the way.
  */
-function Counting({ to }: { to: number }) {
+function Counting({ to, progress }: { to: number; progress: MotionValue<number> }) {
   const reduced = useReducedMotion();
-  const [n, setN] = useState(reduced ? to : Math.max(0, to - 0.9));
 
-  useEffect(() => {
-    if (reduced) return;
-    let raf = 0;
-    const started = performance.now();
+  /*
+    Decelerating, and quantised by the display itself.
+
+    The eased curve puts most of the distance into the first part of the
+    travel, so the last tenth is the slowest — the number visibly *arrives* at
+    a value rather than sliding past it. Rendering one decimal does the rest:
+    what the reader sees is 7.8, 8.2, 8.5, 8.6, 8.7, which is a score being
+    reached rather than a slider being dragged.
+  */
+  const shown = useTransform(progress, (k) => {
+    if (reduced) return to.toFixed(1);
     const from = Math.max(0, to - 0.9);
-    const tick = (now: number) => {
-      const k = Math.min(1, (now - started) / 900);
-      // Decelerating: most of the distance early, then a slow settle onto the
-      // value, which is what "precise" reads as.
-      setN(from + (to - from) * (1 - Math.pow(1 - k, 3)));
-      if (k < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [to, reduced]);
+    const eased = 1 - Math.pow(1 - Math.min(1, Math.max(0, k)), 3);
+    return (from + (to - from) * eased).toFixed(1);
+  });
 
   return (
-    <span className="t-numeric block text-[2rem] font-extrabold leading-none tracking-[-0.04em] text-white sm:text-[2.4rem]">
-      {n.toFixed(1)}
-    </span>
+    <motion.span className="t-numeric block text-[2rem] font-extrabold leading-none tracking-[-0.04em] text-white sm:text-[2.4rem]">
+      {shown}
+    </motion.span>
   );
 }
