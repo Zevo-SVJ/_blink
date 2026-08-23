@@ -31,6 +31,10 @@ const NotFound = lazy(() => import("./pages/NotFound"));
  * is statically replaced at build time, so the route and its chunk are dropped
  * from production entirely.
  */
+const DesignSystem = import.meta.env.DEV
+  ? lazy(() => import("./pages/DesignSystem"))
+  : null;
+
 const DevGallery = import.meta.env.DEV
   ? lazy(() => import("./pages/DevGallery"))
   : null;
@@ -183,6 +187,7 @@ const ROUTES = (
     <Route path="/legal" element={<Legal.Notice />} />
     <Route path="/mentions-legales" element={<Legal.Notice />} />
     {DevGallery && <Route path="/dev" element={<DevGallery />} />}
+    {DesignSystem && <Route path="/dev/system" element={<DesignSystem />} />}
     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
     <Route path="*" element={<NotFound />} />
   </>
