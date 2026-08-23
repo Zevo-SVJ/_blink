@@ -18,7 +18,7 @@ import { MomentumPill, StatGrid, StatTile } from "@/components/app/stats";
 import { formatRank } from "@/lib/app-nav";
 import { useAuth } from "@/hooks/useAuth";
 import { useT } from "@/lib/i18n";
-import { fetchFullProfile, type FullProfile } from "@/lib/blink-profile";
+import { fetchFullProfile, withRank, type FullProfile } from "@/lib/blink-profile";
 import { fetchMyStanding } from "@/lib/leaderboard";
 import { pointsToNextTier, scoreOutOfTen, tierLabel } from "@/lib/ranking";
 
@@ -37,15 +37,20 @@ export default function AppHome() {
     if (!user) return;
     setLoad({ state: "loading" });
 
-    const standing = await fetchMyStanding(user.id);
+    /* Together, not one after the other: they are independent reads, and in
+       sequence their timeouts stack into sixteen seconds of skeleton when the
+       backend is unreachable. The rank is folded in afterwards. */
+    const [standing, full] = await Promise.all([
+      fetchMyStanding(user.id),
+      fetchFullProfile(user.id),
+    ]);
     const rank = standing.status === "ok" ? (standing.data?.rank ?? null) : null;
 
-    const full = await fetchFullProfile(user.id, rank);
     if (full.status === "error") {
       setLoad({ state: "error", message: full.message });
       return;
     }
-    setLoad({ state: "ready", data: full.data, rank });
+    setLoad({ state: "ready", data: withRank(full.data, rank), rank });
   }, [user]);
 
   useEffect(() => {

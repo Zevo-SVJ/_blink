@@ -63,7 +63,9 @@ for (const width of WIDTHS) {
   const from = await scrollDown(page, 600);
   await shot(page, `nav-${width}-1-library-scrolled`);
 
-  const rows = page.locator("button", { hasText: "@" });
+  /* Library rows are links now, not buttons — they navigate to a URL, so they
+     have to be openable in a new tab and copyable. */
+  const rows = page.locator("main a", { hasText: "@" });
   const count = await rows.count();
   if (count === 0) {
     check(false, "library has rows to open", "library rendered no analyses to open");
@@ -114,7 +116,7 @@ section("§3 Library → analysis → Back");
 
   // Read the offset at the instant of the click, so the comparison is against
   // where the reader actually was.
-  const left = await clickInPage(page, "main button", { index: 4, contains: "@" });
+  const left = await clickInPage(page, "main a, main button", { index: 4, contains: "@" });
   await page.waitForTimeout(1600);
   const detail = path(page);
   await shot(page, "nav-back-2-analysis");

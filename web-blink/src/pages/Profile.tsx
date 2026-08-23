@@ -24,6 +24,7 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   fetchFullProfile,
   updateBlinkProfile,
+  withRank,
   type BlinkProfile,
   type FullProfile,
 } from "@/lib/blink-profile";
@@ -57,10 +58,18 @@ export default function Profile() {
 
   const refresh = useCallback(async () => {
     if (!user) return;
-    const standingRes = await fetchMyStanding(user.id);
+    /* Three independent reads, all at once. In sequence their timeouts stacked
+       into most of half a minute of skeleton with the backend unreachable, and
+       cost two extra round trips on every ordinary visit. The perception is
+       best-effort — see below — so its rejection is caught here rather than
+       being allowed to fail the page. */
+    const [standingRes, full, saved] = await Promise.all([
+      fetchMyStanding(user.id),
+      fetchFullProfile(user.id),
+      fetchSavedAnalyses().catch(() => null),
+    ]);
     const standing = standingRes.status === "ok" ? standingRes.data : null;
 
-    const full = await fetchFullProfile(user.id, standing?.rank ?? null);
     if (full.status === "error") {
       setLoad({ state: "error", message: full.message });
       return;
@@ -68,21 +77,20 @@ export default function Profile() {
 
     // Best-effort: the page is still complete without it, so a failure here
     // must not take down the profile.
-    let perception: Perception | null = null;
-    try {
-      const saved = await fetchSavedAnalyses();
-      const mine = saved.find((a) => a.result.ownership === "own");
-      if (mine) {
-        perception = {
+    const mine = saved?.find((a) => a.result.ownership === "own");
+    const perception: Perception | null = mine
+      ? {
           firstImpression: mine.result.firstImpression || null,
           traits: mine.result.traits ?? [],
-        };
-      }
-    } catch {
-      perception = null;
-    }
+        }
+      : null;
 
-    setLoad({ state: "ready", data: full.data, standing, perception });
+    setLoad({
+      state: "ready",
+      data: withRank(full.data, standing?.rank ?? null),
+      standing,
+      perception,
+    });
   }, [user]);
 
   useEffect(() => {

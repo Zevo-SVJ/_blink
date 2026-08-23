@@ -8,6 +8,7 @@
  */
 
 import { type DataResult } from "@/lib/blink-profile";
+import { withReadCeiling } from "@/lib/read-ceiling";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export interface LeaderboardEntry {
@@ -90,7 +91,9 @@ async function safe<T>(
   run: () => Promise<DataResult<T>>,
 ): Promise<DataResult<T>> {
   try {
-    return await run();
+    // Same ceiling as every other read — see `withReadCeiling`. Without it
+    // this wrapper was where the twenty-second wait actually lived.
+    return await withReadCeiling(context, run());
   } catch (err) {
     console.error(`[${context}]`, err);
     return { status: "error", message: UNREACHABLE };

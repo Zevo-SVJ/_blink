@@ -17,6 +17,7 @@ import {
   type ProgressionCheck,
   type ScoreEntry,
 } from "@/lib/ranking";
+import { withReadCeiling } from "@/lib/read-ceiling";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export type DataResult<T> =
@@ -92,16 +93,26 @@ function fail<T>(context: string, detail: unknown): DataResult<T> {
 }
 
 /**
- * Run a query and turn a *thrown* failure into an error result.
+ * Run a read, and never let it hang.
  *
- * supabase-js rejects rather than resolving `{ error }` when the request never
- * reaches the server (DNS failure, offline, CORS). Without this, the rejection
- * escapes the caller's `await`, the screen's `setLoad` never runs, and the UI
- * sits on a loading skeleton forever instead of offering a retry.
+ * The ceiling is not defensive dressing. With the backend unreachable, Home
+ * and Profile sat on a pulsing skeleton for the better part of twenty seconds
+ * — supabase-js retries a token refresh with backoff before the query is even
+ * issued, and every read queued behind it waits with it. Twenty seconds of
+ * skeleton has stopped reading as "nearly there" and started reading as
+ * "broken", and there is no way for the reader to tell which.
+ *
+ * It also catches the case this wrapper originally existed for: supabase-js
+ * rejects rather than resolving `{ error }` when a request never reaches the
+ * server at all — DNS failure, offline, CORS — and without this that rejection
+ * escapes the caller's `await` and the screen's `setLoad` never runs.
+ *
+ * Either way the caller gets the one shape it already handles, and every screen
+ * reaches a state it can render.
  */
 async function safe<T>(context: string, run: () => Promise<DataResult<T>>): Promise<DataResult<T>> {
   try {
-    return await run();
+    return await withReadCeiling(context, run());
   } catch (err) {
     return fail(context, err);
   }
@@ -486,6 +497,29 @@ export async function fetchFullProfile(
       // since history is capped at the most recent 200 entries.
       stats: profile ? { ...stats, peakScore: Math.max(stats.peakScore, profile.peakScore) } : stats,
       history: historyRes.data,
+    },
+  };
+}
+
+/**
+ * Fill in a rank that arrived separately.
+ *
+ * Home and Profile need two independent reads: the standing, and the profile
+ * with its history. They used to run in sequence purely because
+ * `fetchFullProfile` takes the rank as an argument — so every visit waited for
+ * one round trip before starting the other, and with the backend unreachable
+ * the two eight-second ceilings stacked into sixteen seconds of skeleton.
+ *
+ * They now run together and the rank is folded in here. It only ever set these
+ * two fields, and the `bestRank ?? rank` precedence is preserved exactly.
+ */
+export function withRank(full: FullProfile, rank: number | null): FullProfile {
+  return {
+    ...full,
+    stats: {
+      ...full.stats,
+      rank,
+      bestRank: full.profile?.bestRank ?? rank,
     },
   };
 }

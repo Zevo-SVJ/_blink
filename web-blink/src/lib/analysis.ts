@@ -535,30 +535,38 @@ export async function saveAnalysis(
 // Fetch saved analyses (Library) — uses Supabase directly with RLS
 // ---------------------------------------------------------------------------
 
+/**
+ * Every analysis this account has saved.
+ *
+ * **Throws when it cannot reach the database, and that is the point.** It used
+ * to swallow the failure and return an empty array, which Library could not
+ * tell apart from a genuinely empty library — so a reader on a train was shown
+ * "No analyses yet. Analyze a profile to start building your library." while
+ * every one of their analyses sat safely on the server. Telling somebody their
+ * work is gone when the network is down is worse than any error message.
+ *
+ * Library already has an error state with a retry; it simply never fired,
+ * because nothing ever rejected.
+ */
 export async function fetchSavedAnalyses(): Promise<SavedAnalysis[]> {
-  try {
-    const { data, error } = await supabase
-      .from("analyses")
-      .select("id, created_at, ownership, result")
-      .order("created_at", { ascending: false });
+  const { data, error } = await supabase
+    .from("analyses")
+    .select("id, created_at, ownership, result")
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("[fetchSavedAnalyses] Supabase error:", error.message);
-      return [];
-    }
-
-    if (!data || !Array.isArray(data)) return [];
-
-    return data.map((row) => ({
-      id: row.id,
-      createdAt: row.created_at,
-      ownership: validateOwnership(row.ownership),
-      result: validateAnalysisResult(row.result),
-    }));
-  } catch (err) {
-    console.error("[fetchSavedAnalyses] exception:", err);
-    return [];
+  if (error) {
+    console.error("[fetchSavedAnalyses] Supabase error:", error.message);
+    throw new Error(error.message);
   }
+
+  if (!data || !Array.isArray(data)) return [];
+
+  return data.map((row) => ({
+    id: row.id,
+    createdAt: row.created_at,
+    ownership: validateOwnership(row.ownership),
+    result: validateAnalysisResult(row.result),
+  }));
 }
 
 // ---------------------------------------------------------------------------
