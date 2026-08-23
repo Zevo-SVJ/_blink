@@ -78,7 +78,9 @@ export function AppShell({
 
       <main
         className={cn(
-          "mx-auto w-full px-4 pt-24 sm:px-6 sm:pt-28",
+          // The top bar grows by the notch inset, so what sits under it has
+          // to clear the notch too.
+          "mx-auto w-full px-4 pt-[calc(6rem+env(safe-area-inset-top))] sm:px-6 sm:pt-[calc(7rem+env(safe-area-inset-top))]",
           // Room for the floating tab bar plus the home indicator on phones.
           "pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-24",
           wide ? "max-w-5xl" : "max-w-2xl",

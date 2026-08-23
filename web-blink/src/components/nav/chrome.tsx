@@ -68,6 +68,17 @@ export function TopBar({
         solid ? "glass-chrome border-x-0 border-t-0" : "border-transparent bg-transparent",
         className,
       )}
+      /*
+        The notch is not part of the page.
+
+        `env(safe-area-inset-top)` is zero in every desktop browser, so a bar
+        that ignores it looks perfect in review and puts the wordmark, the
+        language toggle and the menu button underneath an iPhone's Dynamic
+        Island. Padding the bar rather than offsetting it keeps the material
+        running to the top edge, which is what it should do — it is the
+        content inside that has to move down.
+      */
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       {children}
     </header>

@@ -457,7 +457,7 @@ export default function Product() {
 
       <main
         className={cn(
-          "px-4 pt-20 sm:px-6 sm:pt-24",
+          "px-4 pt-[calc(5rem+env(safe-area-inset-top))] sm:px-6 sm:pt-[calc(6rem+env(safe-area-inset-top))]",
           chromeVisible ? "pb-[calc(7rem+env(safe-area-inset-bottom))]" : "pb-24",
         )}
       >

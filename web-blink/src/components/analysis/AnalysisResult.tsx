@@ -281,8 +281,9 @@ function Segments({ segments }: { segments: Segment[] }) {
         is the one control that cannot be inferred: where you are, and where
         else you can go.
 
-        `top-16` clears the app's own bar, which is 4rem tall on every surface
-        this renders on.
+        It sticks 4rem down — the height of the app's own bar on every surface
+        this renders on — plus the notch inset, because the bar above it is
+        padded by the same amount.
       */}
       {/*
         A bar, not a pill floating on a transparent strip.
@@ -299,7 +300,7 @@ function Segments({ segments }: { segments: Segment[] }) {
       */}
       <nav
         aria-label={t.analysis.sections}
-        className="glass-chrome sticky top-16 z-40 -mx-4 mb-6 flex justify-center rounded-none border-x-0 border-t-0 px-4 py-2 sm:rounded-b-[var(--r-lg)]"
+        className="glass-chrome sticky top-[calc(4rem+env(safe-area-inset-top))] z-40 -mx-4 mb-6 flex justify-center rounded-none border-x-0 border-t-0 px-4 py-2 sm:rounded-b-[var(--r-lg)]"
       >
         <div className="flex gap-0.5 rounded-[var(--r-pill)] p-1">
           {segments.map((segment) => {
