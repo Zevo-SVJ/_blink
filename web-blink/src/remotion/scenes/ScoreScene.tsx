@@ -22,6 +22,7 @@ import type { FilmCopy } from "../copy";
 import { a, C, HEIGHT, WIDTH } from "../theme";
 import {
   DIVE,
+  FLOOD_FROM,
   INK,
   PROJECT,
   SCORE_FROM,
@@ -54,7 +55,7 @@ export function ScoreScene({ copy }: { copy: FilmCopy }) {
      Nine frames to drain, not fourteen, and it never quite reaches opaque:
      held at 1 for that long the film sat on half a second of flat red with
      nothing in it, which is a dead spot in the middle of its best cut. */
-  const flood = interpolate(frame, [INK - 6, INK, INK + 9], [0, 0.94, 0.24], {
+  const flood = interpolate(frame, [FLOOD_FROM, INK, INK + 9], [0, 0.94, 0.24], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });

@@ -19,6 +19,7 @@ import { springAt } from "../motion/springs";
 import type { FilmCopy } from "../copy";
 import { a, C, FONT, T, WIDTH } from "../theme";
 import {
+  APP_EXIT,
   APP_IN,
   CTA_BUTTON,
   KEY_EVERY,
@@ -66,7 +67,7 @@ export function Cta({ copy }: { copy: FilmCopy }) {
   const breathe = Math.sin((frame - CTA_BUTTON) / 6.5) * 0.5 + 0.5;
 
   /* The card leaves the frame rather than dissolving under the slogan. */
-  const clear = interpolate(frame, [SLOGAN - 4, SLOGAN + 6], [0, 1], {
+  const clear = interpolate(frame, [APP_EXIT, SLOGAN + 6], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: (t) => 1 - Math.pow(1 - t, 3),

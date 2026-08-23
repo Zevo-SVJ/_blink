@@ -24,6 +24,7 @@ import {
   CRACK,
   MIRROR_IN,
   MIRROR_LABEL,
+  SHED_FROM,
   TRUTH,
   at,
   end,
@@ -134,7 +135,7 @@ export function MirrorScene({ copy }: { copy: FilmCopy }) {
   /* And then the glass goes. The fracture is the shock; the shards leaving is
      the reveal, and without it the polished version stayed on top of the real
      one for the whole second half of the scene. */
-  const shed = interpolate(frame, [TRUTH - 8, TRUTH + 16], [0, 1], {
+  const shed = interpolate(frame, [SHED_FROM, TRUTH + 16], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: (t) => t * t * (3 - 2 * t),

@@ -28,6 +28,7 @@
  */
 
 import {
+  APP_EXIT,
   APP_IN,
   CARD_BEATS,
   CRACK,
@@ -35,6 +36,7 @@ import {
   DETAIL_BEATS,
   DIVE,
   DURATION,
+  FLOOD_FROM,
   FRAGMENT,
   HOOK_A,
   HOOK_A_LINES,
@@ -60,11 +62,13 @@ import {
   SCORE_LOCK,
   SCORE_TO,
   SEAM,
+  SHED_FROM,
   SHEET_LIFT,
   SLIDE_IN,
   SLOGAN,
   SLOGAN_LINES,
   SPRINGS,
+  STAMP_FALL,
   STAMP_HIT,
   STAMP_LIFT,
   STAMP_UP,
@@ -93,6 +97,23 @@ export type Sfx =
   | "asmr_muffled_clicks"
   /** The loupe crossing the print. Sustained, laid under a whole move. */
   | "glass_slide_friction";
+
+/**
+ * The file each sound plays, by name.
+ *
+ * Written out rather than built from the type with a template literal, so
+ * that `grep ui_soft_pop_bubble.wav` finds the thing that actually plays it —
+ * and so a name and a file can be checked against each other. A test asserts
+ * every one of these exists on disk, because a missing placeholder otherwise
+ * fails at render time and nowhere earlier.
+ */
+export const FILES: Record<Sfx, string> = {
+  deep_sub_bass_pulse: "audio/deep_sub_bass_pulse.wav",
+  ui_soft_pop_bubble: "audio/ui_soft_pop_bubble.wav",
+  soft_air_swoosh: "audio/soft_air_swoosh.wav",
+  asmr_muffled_clicks: "audio/asmr_muffled_clicks.wav",
+  glass_slide_friction: "audio/glass_slide_friction.wav",
+};
 
 export interface Cue {
   frame: number;
@@ -200,6 +221,11 @@ const LIST: Cue[] = [
   pop(CRACK + 2, 0.5),
   pop(CRACK + 6, 0.38),
   pop(CRACK + 11, 0.28),
+  /* The glass leaving. The fracture is the shock and this is the reveal, and
+     it was the one physical event in the film with nothing on its own frame:
+     a mirror emptying itself in silence. */
+  glass(SHED_FROM, 0.42),
+  pop(SHED_FROM, 0.24),
   sub(TRUTH, 0.62),
   pop(TRUTH, 0.42),
   // The four readings surfacing behind the glass.
@@ -212,7 +238,7 @@ const LIST: Cue[] = [
   air(STAMP_LIFT, 0.4),
   pop(VERDICT_LABEL, 0.24),
   pop(STAMP_LIFT + 12, 0.2),
-  air(STAMP_HIT - 5, 0.5),
+  air(STAMP_FALL, 0.5),
   sub(STAMP_HIT, 1),
   tap(STAMP_HIT, 0.5),
   air(STAMP_UP, 0.34),
@@ -225,7 +251,7 @@ const LIST: Cue[] = [
      The dive is one long swell rather than a hit: two swooshes overlapping
      into the sub that lands on the match cut. */
   air(DIVE, 0.4),
-  air(DIVE + 7, 0.5),
+  air(FLOOD_FROM, 0.5),
   sub(INK, 0.95),
   pop(PROJECT, 0.36),
   air(PROJECT + 2, 0.3),
@@ -255,6 +281,9 @@ const LIST: Cue[] = [
   tap(PRESS, 0.5),
   sub(PRESS, 0.6),
   air(PRESS + 2, 0.4),
+  // The card flying up out of frame. A whole interface element leaving with
+  // no sound of its own is the sort of thing the springs-only check misses.
+  air(APP_EXIT, 0.44),
   ...SLOGAN_LINES.map((f, i) => pop(f, 0.46 - (i % 2) * 0.04)),
   sub(CTA_BUTTON, 0.72),
   pop(CTA_BUTTON, 0.5),
