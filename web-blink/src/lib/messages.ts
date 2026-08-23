@@ -78,6 +78,19 @@ const en = {
    * out in a document — and because they are baked into a rendered file, not
    * read from here at runtime.
    */
+  experience: {
+    eyebrow: "What Blink does",
+    actProfile: "A profile. Nothing else.",
+    actAnalysis: "Blink reads it.",
+    actGaze: "Who's looking?",
+    actNiche: "Measured against a niche.",
+    actScore: "That's the score.",
+    whosLooking: "Who's looking",
+    measuredAs: "Measured as",
+    outOfTen: "out of 10",
+    sample: "A sample profile, so you can see the whole thing before you upload anything.",
+  },
+
   film: {
     eyebrow: "In twenty seconds",
     heading: "This is what Blink does.",
@@ -673,6 +686,19 @@ const fr: Messages = {
     headlineAccent: "les autres te voient.",
     subtitle:
     "Blink analyse ta présence Instagram et révèle la première impression que tu donnes.",
+  },
+
+  experience: {
+    eyebrow: "Ce que fait Blink",
+    actProfile: "Un profil. Rien d'autre.",
+    actAnalysis: "Blink le lit.",
+    actGaze: "Qui regarde ?",
+    actNiche: "Mesuré pour une niche.",
+    actScore: "Voilà le score.",
+    whosLooking: "Qui regarde",
+    measuredAs: "Mesuré comme",
+    outOfTen: "sur 10",
+    sample: "Un profil d'exemple, pour tout voir avant d'envoyer quoi que ce soit.",
   },
 
   film: {

@@ -3,7 +3,7 @@ import { useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { FAQSection } from "@/components/blink/FAQSection";
-import { FilmSection } from "@/components/blink/FilmSection";
+import { BlinkExperience } from "@/components/blink/experience/BlinkExperience";
 import { FinalCTA } from "@/components/blink/FinalCTA";
 import { Footer } from "@/components/blink/Footer";
 import { EyeReveal } from "@/components/blink/EyeReveal";
@@ -78,10 +78,10 @@ const Index = () => {
               away from the hero, and is open by the time the film starts. */}
           <EyeReveal />
           {/* Straight after the eye finishes opening. The eye is the promise —
-              something is looking at you — and the film is what it saw, so the
-              two read as one thought rather than as a set piece and, three
-              sections later, an advert for it. */}
-          <FilmSection />
+              something is looking at you — and this is what it saw, so the two
+              read as one thought rather than as a set piece followed, three
+              sections later, by an advert for it. */}
+          <BlinkExperience />
           <HowItWorks onCTA={handleCTA} />
           <LeaderboardShowcase onCTA={handleCTA} />
           <Testimonials onCTA={handleCTA} />
