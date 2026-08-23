@@ -14,6 +14,7 @@ import {
   type ProfileOwnership,
   type SubjectGender,
 } from "@/lib/ownership";
+import type { Messages } from "@/lib/messages";
 import { DEFAULT_LANG, type Lang } from "@/lib/i18n";
 import { normaliseSupabaseUrl, supabase } from "@/lib/supabase";
 
@@ -627,4 +628,19 @@ export async function deleteAnalysis(id: string): Promise<boolean> {
     console.error("[deleteAnalysis] exception:", err);
     return false;
   }
+}
+
+/**
+ * A signal's name in the reader's language.
+ *
+ * The canonical English string is an identifier: `computeBlinkScore` finds the
+ * craft signals by looking those exact words up, and the model returns them in
+ * a fixed order. Translating at the point of display keeps that contract while
+ * letting the French app say "Identité visuelle" — the same arrangement
+ * `tierLabel` and `categoryLabel` already use. An unrecognised label falls back
+ * to itself, so a new signal appears in English rather than not at all.
+ */
+export function signalName(label: string, t?: Messages): string {
+  const names = t?.analysis.signalNames as Record<string, string> | undefined;
+  return names?.[label] ?? label;
 }

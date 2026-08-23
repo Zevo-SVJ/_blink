@@ -172,7 +172,7 @@ function PublicShell({ title, children }: { title: string; children: React.React
   const { t } = useI18n();
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
+    <div className="relative min-h-screen overflow-x-clip">
       <PageBackground />
 
       <header className="fixed inset-x-0 top-0 z-40 border-b border-white/5 bg-blink-navy/70 backdrop-blur-xl">

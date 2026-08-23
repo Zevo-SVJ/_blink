@@ -387,6 +387,31 @@ function seedDefault() {
   };
 }
 
+/**
+ * A brand new account, the moment after signing up.
+ *
+ * Distinct from `empty`: there *is* a board, with other people on it, but this
+ * user has analysed nothing, has no public profile and holds no position. That
+ * is the state every real first-run is in, and it is the one where an empty
+ * state either explains itself or leaves someone staring at a blank screen
+ * wondering whether the product is broken.
+ */
+function seedNew() {
+  const base = seedDefault();
+  return {
+    ...base,
+    analyses: [],
+    blink_profiles: [],
+    score_history: [],
+    leaderboard_suggestions: [],
+    // Everyone else's standings stay: a new arrival should see a live board.
+    // Keyed by `id`, which is the user id on this view — filtering on a
+    // `user_id` that does not exist silently kept the row and made the new
+    // account look like it was already ranked second.
+    leaderboard: base.leaderboard.filter((r) => r.id !== OWN_USER),
+  };
+}
+
 /** Nothing anywhere — for the empty states. */
 function seedEmpty() {
   return {
@@ -400,7 +425,7 @@ function seedEmpty() {
   };
 }
 
-const SEEDS = { default: seedDefault, empty: seedEmpty };
+const SEEDS = { default: seedDefault, empty: seedEmpty, new: seedNew };
 
 let db = (SEEDS[process.env.SEED] ?? seedDefault)();
 
@@ -631,6 +656,20 @@ async function handle(req, res) {
   // -- GoTrue --------------------------------------------------------------
   if (path.startsWith("/auth/v1/")) {
     if (path === "/auth/v1/token") return send(res, 200, session());
+    /*
+      Signing up.
+
+      GoTrue returns the same session shape as a sign-in when confirmation is
+      off, which is what `autoconfirm: true` below advertises. Modelled so the
+      first-run experience can be walked from the landing page's own CTA rather
+      than by injecting a session into storage — the two take different paths
+      through the app, and the one a real person takes is the one worth
+      looking at.
+    */
+    if (path === "/auth/v1/signup") {
+      db = seedNew();
+      return send(res, 200, session());
+    }
     if (path === "/auth/v1/user") return send(res, 200, USER);
     if (path === "/auth/v1/logout") return send(res, 204, null);
     if (path === "/auth/v1/settings")

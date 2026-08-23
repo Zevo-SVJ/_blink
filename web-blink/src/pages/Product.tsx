@@ -15,9 +15,9 @@
  *     moves your score. The result screen closes that loop explicitly.
  */
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ImagePlus, Lock, RefreshCw, Share2, Trophy, User } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import {
@@ -30,6 +30,8 @@ import { ShareSheet } from "@/components/analysis/ShareSheet";
 import { AuthModal } from "@/components/blink/AuthModal";
 import { CTAButton } from "@/components/blink/CTAButton";
 import { PageBackground } from "@/components/blink/PageBackground";
+import { SPRING } from "@/design/motion";
+import { TopBar } from "@/components/nav/chrome";
 import { useImmersive } from "@/components/app/AppChrome";
 import { ScoreVerdict } from "@/components/app/ScoreVerdict";
 import { useAuth } from "@/hooks/useAuth";
@@ -43,6 +45,7 @@ import {
   type AnalysisErrorCode,
   type AnalysisResult as AnalysisResultType,
   type ProfileOwnership,
+  signalName,
 } from "@/lib/analysis";
 import { ClimbSection } from "@/components/app/ClimbSection";
 import {
@@ -393,13 +396,17 @@ export default function Product() {
   return (
     <div
       className={cn(
-        "relative min-h-screen overflow-x-hidden",
+        // `clip` rather than `hidden`: see the note in AppShell.
+        "relative min-h-screen overflow-x-clip",
         chromeVisible && "has-app-tabbar",
       )}
     >
       <PageBackground />
 
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-blink-navy/50 backdrop-blur-xl">
+      {/* The same bar the rest of the product uses. It used to be a fourth
+          navigation chrome with its own glass recipe — a translucent navy
+          plate with a hand-rolled blur — which read as a different app. */}
+      <TopBar>
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           {/* The label is `hidden sm:inline` by design — on a phone this is an
               arrow and nothing else. That left the control with no accessible
@@ -413,7 +420,7 @@ export default function Product() {
             aria-label={
               screen === "preview" ? t.product.change : user ? t.product.home : t.product.back
             }
-            className="group flex min-h-[44px] items-center gap-2 text-sm font-semibold text-white/60 transition-colors hover:text-white"
+            className="focus-ring group flex min-h-[44px] items-center gap-2 rounded-[var(--r-sm)] pr-2 text-sm font-semibold text-white/60 transition-colors hover:text-white"
           >
             <ArrowLeft
               className="h-4 w-4 transition-transform group-hover:-translate-x-0.5"
@@ -426,19 +433,22 @@ export default function Product() {
 
           {/* No wordmark or logo here: the screenshot being analyzed is the
               subject, and branding above it competes for attention. */}
+          {/* Desktop only, and translated. On a phone the tab bar already
+              carries Library, and this was a second way to the same place —
+              in English, on the French app, because the word was a literal. */}
           <div className="flex justify-end">
             {user && !inAnalysisMode && (
               <button
                 type="button"
                 onClick={() => navigate("/library")}
-                className="text-sm font-semibold text-white/60 transition-colors hover:text-white"
+                className="focus-ring hidden min-h-[44px] items-center rounded-[var(--r-sm)] px-2 text-sm font-semibold text-white/60 transition-colors hover:text-white md:flex"
               >
-                Library
+                {t.nav.library}
               </button>
             )}
           </div>
         </div>
-      </header>
+      </TopBar>
 
       <main
         className={cn(
@@ -604,10 +614,8 @@ function UploadScreen({
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/[0.07]">
         <ImagePlus className="h-8 w-8 text-blink-sky" />
       </div>
-      <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-        {t.product.uploadTitle}
-      </h1>
-      <p className="mt-4 max-w-sm text-base leading-relaxed text-white/55">
+      <h1 className="t-title mt-6 text-balance text-white">{t.product.uploadTitle}</h1>
+      <p className="t-body mt-4 max-w-sm text-balance text-[length:var(--t-body-lg)] leading-relaxed text-white/55">
         {t.product.uploadBody}
       </p>
 
@@ -619,6 +627,21 @@ function UploadScreen({
           className="hidden"
           onChange={onFileInput}
         />
+        {/*
+          A capture frame, not a dashed box.
+
+          Two-pixel dashes around a rounded rectangle is the universal
+          file-upload widget — it belongs to every form on the web and to
+          nothing in particular. Corner brackets are the mark Blink already
+          uses on the landing page for the moment a profile is captured, so
+          the app and the landing say the same thing with the same shape, and
+          the frame reads as *something being aimed at* rather than as a slot
+          to drop a file into.
+
+          The brackets close in when a file is dragged over: the frame
+          tightening on its subject is the feedback, rather than a border
+          changing colour.
+        */}
         <div
           role="button"
           tabIndex={0}
@@ -630,17 +653,35 @@ function UploadScreen({
           }}
           onDragLeave={onDragLeave}
           onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
+          aria-label={t.product.dropzone}
           className={cn(
-            "group cursor-pointer rounded-2xl border-2 border-dashed p-6 transition-colors sm:p-8",
-            isDragging
-              ? "border-blink-sky-bright bg-blink-sky/10"
-              : "border-white/15 bg-white/[0.03] hover:border-blink-sky-bright hover:bg-blink-sky/5",
+            "focus-ring surface group relative cursor-pointer p-6 transition-colors sm:p-8",
+            isDragging ? "bg-blink-sky/[0.08]" : "hover:bg-white/[0.05]",
           )}
         >
+          {[
+            "left-3 top-3 border-l-2 border-t-2 rounded-tl-[10px]",
+            "right-3 top-3 border-r-2 border-t-2 rounded-tr-[10px]",
+            "left-3 bottom-3 border-b-2 border-l-2 rounded-bl-[10px]",
+            "right-3 bottom-3 border-b-2 border-r-2 rounded-br-[10px]",
+          ].map((corner) => (
+            <span
+              key={corner}
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute h-6 w-6 transition-all duration-200",
+                corner,
+                isDragging
+                  ? "m-1 border-blink-sky"
+                  : "border-white/25 group-hover:border-blink-sky/70",
+              )}
+            />
+          ))}
+
           <div className="flex flex-col items-center">
             <ProfilePlaceholder />
-            <p className="mt-5 text-sm font-bold text-white">{t.product.dropzone}</p>
-            <p className="mt-1 text-xs font-medium text-white/45">
+            <p className="t-body mt-5 font-bold text-white">{t.product.dropzone}</p>
+            <p className="t-caption mt-1 font-medium text-white/45">
               {t.product.dropzoneFormats.replace("{mb}", String(MAX_SIZE_MB))}
             </p>
           </div>
@@ -1188,14 +1229,14 @@ export function AnalysisScreen({
         {/* Ring, ripples and labels, drawn around the point the camera lands
             on — the centre of the stage. */}
         {transformed && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="pointer-events-none absolute inset-0">
             <ScannerOverlay signalsVisible={signalsVisible} />
           </div>
         )}
       </div>
 
       {/* Progress — a sibling of the stage, never overlapped by it. */}
-      <div className="mt-8 w-full max-w-[320px] shrink-0">
+      <div className="mt-10 w-full max-w-[320px] shrink-0">
         <div
           className="relative h-1 overflow-hidden rounded-full bg-white/10"
           role="progressbar"
@@ -1209,7 +1250,7 @@ export function AnalysisScreen({
             transition={{ duration: 0.4, ease: "easeOut" }}
           />
         </div>
-        <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="mt-3 flex min-h-[2.6rem] items-start justify-between gap-3">
           <AnimatePresence mode="wait">
             <motion.p
               key={messageIdx}
@@ -1217,7 +1258,12 @@ export function AnalysisScreen({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.3 }}
-              className="min-w-0 flex-1 truncate text-xs font-medium text-white/60 sm:text-sm"
+              /* Wraps rather than truncating. These lines are the only thing
+                 telling the reader what is being done to their screenshot, and
+                 "Seeing how different people may perceive t…" answers nothing.
+                 Two lines' worth of space is reserved so the block does not
+                 change height as the messages cycle. */
+              className="t-caption min-w-0 flex-1 text-balance font-medium text-white/60"
             >
               {messages[messageIdx] ?? t.product.analyzing}
             </motion.p>
@@ -1248,91 +1294,180 @@ const SIGNAL_LABELS = [
 ];
 
 /**
- * What is drawn *around* the profile picture once the camera has landed on it.
+ * What is drawn around the profile picture once the camera has landed on it.
  *
  * There is no avatar in here. The screenshot itself is the circle by this
  * point — see the camera note on the stage — so a second cropped copy would
- * only be a chance for the two to disagree by a pixel. This is the ring, the
- * reflection sweep that reads as "being read", and the perception labels.
+ * only be a chance for the two to disagree by a pixel. This is the lock-on
+ * ring, the sweep that reads as "being read", and the signals.
+ *
+ * ## The signals are placed around the picture, and that is the point
+ *
+ * Each one leaves the rim and travels outward to its own position, one after
+ * another, in the order the read produced them. What makes that different from
+ * the "AI is thinking" illustration it superficially resembles — a glowing disc
+ * with terms in orbit — is that nothing here is decoration:
+ *
+ *  - the disc is the reader's own profile picture, not an abstract orb;
+ *  - a label *starts at the rim* and moves out, so the movement itself says it
+ *    came off the picture rather than merely sitting near it;
+ *  - they arrive in sequence, so the group grows the way findings accumulate;
+ *  - the ring pulses once per arrival, as an event, instead of rippling on a
+ *    loop forever with nothing to say.
+ *
+ * ## Why the angles are not evenly spaced
+ *
+ * They were, and the two longest labels landed on the left and right, where a
+ * 390px phone has the least room. The positions are assigned by label width
+ * instead: the long ones go top and bottom where the full width of the screen
+ * is available, the short ones take the diagonals. Even spacing is only
+ * correct when every item is the same size.
  */
+
+/** Where each signal settles, in degrees, chosen for the label's length. */
+const SIGNAL_ANGLES = [-90, -32, 32, 148, 90, -148];
+
+/**
+ * True on a phone-width screen.
+ *
+ * The signals sit on a circle, so how far out they can go depends on the
+ * viewport rather than on a breakpoint class — a Tailwind `sm:` variant cannot
+ * change a number that is being fed to a transform.
+ */
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== "undefined" && window.innerWidth < 420,
+  );
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 419px)");
+    const update = () => setNarrow(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return narrow;
+}
+
 function ScannerOverlay({ signalsVisible }: { signalsVisible: boolean }) {
+  const t = useT();
+  const reduceMotion = useReducedMotion();
+  /* Tight enough that the widest label clears a 360px screen, wide enough on a
+     larger one that the labels are not crowding the rim. */
+  const radius = useNarrow() ? 132 : 158;
+
   return (
-    <div className="relative flex h-[300px] w-[300px] items-center justify-center sm:h-[340px] sm:w-[340px]">
-      {/* Ripples. Each is exactly the circle's size, so scale 1 sits on its rim
-          and there is no visible spawn — they fade up out of the edge. */}
-      {[0, 1, 2].map((i) => (
+    <div className="absolute inset-0">
+      {/* The lock-on ring, closing as the camera settles. Once. */}
+      <Centred>
         <motion.div
-          key={i}
-          className="absolute rounded-full border border-blink-sky/30"
-          style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}
-          initial={{ opacity: 0, scale: 1 }}
-          animate={{ opacity: [0, 0.45, 0], scale: [1, 1.55, 2.05] }}
-          transition={{
-            duration: 3.2,
-            repeat: Infinity,
-            ease: "easeOut",
-            delay: 0.9 + i * 1.05,
-            times: [0, 0.35, 1],
-          }}
+          className="rounded-full ring-1 ring-blink-sky/45"
+          style={{ width: CIRCLE_SIZE + 16, height: CIRCLE_SIZE + 16 }}
+          initial={{ opacity: 0, scale: 1.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.95, ease: [0.32, 0.72, 0, 1] }}
           aria-hidden
         />
-      ))}
+      </Centred>
 
-      {/* The lock-on ring, closing as the camera settles. */}
-      <motion.div
-        className="absolute rounded-full ring-1 ring-blink-sky/45"
-        style={{ width: CIRCLE_SIZE + 16, height: CIRCLE_SIZE + 16 }}
-        initial={{ opacity: 0, scale: 1.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.95, ease: [0.32, 0.72, 0, 1] }}
-        aria-hidden
-      />
+      {/* One pulse per signal found — an event, not a loop. */}
+      {!reduceMotion &&
+        signalsVisible &&
+        SIGNAL_LABELS.map((label, i) => (
+          <Centred key={`pulse-${label}`}>
+            <motion.div
+              className="rounded-full border border-blink-sky/40"
+              style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}
+              initial={{ opacity: 0, scale: 1 }}
+              animate={{ opacity: [0, 0.5, 0], scale: [1, 1.28, 1.5] }}
+              transition={{ duration: 0.85, delay: i * 0.16, ease: "easeOut" }}
+              aria-hidden
+            />
+          </Centred>
+        ))}
 
       {/* Reflection sweep across the locked profile picture. */}
-      <motion.div
-        className="absolute overflow-hidden rounded-full"
-        style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.85 }}
-        aria-hidden
-      >
+      <Centred>
         <motion.div
-          className="absolute inset-y-0 w-1/2"
-          style={{
-            background:
-              "linear-gradient(100deg, transparent, rgba(175,224,249,0.32), transparent)",
-          }}
-          initial={{ left: "-60%" }}
-          animate={{ left: "130%" }}
-          transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 0.9, ease: "easeInOut" }}
-        />
-      </motion.div>
-
-      {/* Perception signals fanning out. */}
-      {signalsVisible &&
-        SIGNAL_LABELS.map((label, i) => {
-          const angle = (i * 360) / SIGNAL_LABELS.length - 90;
-          // Far enough out that the longest label still clears the circle's
-          // rim, close enough that the widest one stays inside a 390px phone.
-          const radius = 146;
-          return (
+          className="overflow-hidden rounded-full"
+          style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.85 }}
+          aria-hidden
+        >
+          {!reduceMotion && (
             <motion.div
-              key={label}
-              className="absolute flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white/[0.06] px-3 py-1.5 ring-1 ring-white/10 backdrop-blur-sm"
-              initial={{ opacity: 0, x: 0, y: 0, scale: 0.6 }}
-              animate={{
-                opacity: 1,
-                x: Math.cos((angle * Math.PI) / 180) * radius,
-                y: Math.sin((angle * Math.PI) / 180) * radius,
-                scale: 1,
+              className="absolute inset-y-0 w-1/2"
+              style={{
+                background:
+                  "linear-gradient(100deg, transparent, rgba(175,224,249,0.32), transparent)",
               }}
-              transition={{ type: "spring", stiffness: 280, damping: 26, delay: i * 0.09 }}
+              initial={{ left: "-60%" }}
+              animate={{ left: "130%" }}
+              transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 0.9, ease: "easeInOut" }}
+            />
+          )}
+        </motion.div>
+      </Centred>
+
+      {/* The signals, leaving the rim. */}
+      {SIGNAL_LABELS.map((label, i) => {
+        const angle = ((SIGNAL_ANGLES[i] ?? 0) * Math.PI) / 180;
+        const from = CIRCLE_SIZE / 2;
+        const rest = { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+        const rim = { x: Math.cos(angle) * from, y: Math.sin(angle) * from };
+        return (
+          <Centred key={label}>
+            <motion.div
+              className="flex items-center whitespace-nowrap rounded-[var(--r-pill)] bg-white/[0.07] px-3 py-1.5 ring-1 ring-white/[0.12] backdrop-blur-sm"
+              initial={{ opacity: 0, scale: 0.7, ...rim }}
+              animate={
+                signalsVisible
+                  ? { opacity: 1, scale: 1, ...rest }
+                  : { opacity: 0, scale: 0.7, ...rim }
+              }
+              transition={
+                reduceMotion
+                  ? { duration: 0 }
+                  : {
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 27,
+                      delay: signalsVisible ? i * 0.16 : 0,
+                    }
+              }
             >
-              <span className="text-[10px] font-bold text-white/90 sm:text-xs">{label}</span>
+              <span className="t-micro font-bold text-white/90">{signalName(label, t)}</span>
             </motion.div>
-          );
-        })}
+          </Centred>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Puts its child's centre on the stage's centre.
+ *
+ * A plain element, deliberately. Tailwind's `-translate-x-1/2` writes to
+ * `transform`, and a motion component owns `transform` outright — so a motion
+ * element carrying both had its centring silently overwritten the moment
+ * Framer wrote a `scale` or an `x`, and everything drifted down and to the
+ * right by half its own size. Centring in a static wrapper leaves the motion
+ * element free to use the whole transform for what it is animating.
+ */
+function Centred({ children }: { children: ReactNode }) {
+  return (
+    /*
+      `w-max`, not a zero-sized flex box. The first version was
+      `flex h-0 w-0 items-center justify-center`, and a flex item's default
+      `flex-shrink: 1` squashed every child to the container's zero width — the
+      lock ring vanished and the reflection sweep rendered as a one-pixel
+      vertical line through the middle of the picture. Sizing the wrapper to its
+      content and translating it by half leaves the child at its natural size.
+    */
+    <div className="pointer-events-none absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2">
+      {children}
     </div>
   );
 }

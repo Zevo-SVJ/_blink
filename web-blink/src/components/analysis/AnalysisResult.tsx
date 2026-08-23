@@ -44,7 +44,7 @@ import { PerceptionCard, LENS_TINT } from "@/components/blink/PerceptionCard";
 import { PerceptionReveal } from "@/components/analysis/PerceptionReveal";
 import { buildRead } from "@/lib/perception-read";
 import { ScoreVerdict } from "@/components/app/ScoreVerdict";
-import type { AnalysisResult as Analysis, Perspective } from "@/lib/analysis";
+import { signalName, type AnalysisResult as Analysis, type Perspective } from "@/lib/analysis";
 import { useI18n, useT } from "@/lib/i18n";
 import type { Messages } from "@/lib/messages";
 import { getVoice, type Voice } from "@/lib/ownership";
@@ -244,18 +244,24 @@ interface Segment {
 /**
  * The segmented control plus its pane.
  *
- * **Why the bar is fixed, not sticky.** It was `sticky top-64` and it did not
- * stick: both surfaces that render this — the analysis flow and the Library
- * detail route — sit inside an ancestor with `overflow-x: hidden`, which makes
- * that ancestor the scroll container. The bar dutifully stuck to a box that
- * never scrolls, so it slid away with the page and the user lost their
- * navigation the moment they started reading. Removing the overflow guard
- * would reintroduce horizontal scrolling, so the bar is fixed to the viewport
- * instead, where no ancestor can take it away.
+ * ## The bar sticks to the top, and the reason it could not before
  *
- * It clears the app tab bar via `--blink-app-nav`, which the shell publishes
- * and which is zero everywhere else — so the same component is correct on
- * `/analyze` (no tab bar) and in the Library (tab bar present).
+ * It began as `sticky top-64` and did not stick: both surfaces that render it
+ * — the analysis flow and the Library detail route — sat inside an ancestor
+ * with `overflow-x: hidden`, and `hidden` on one axis coerces the other to
+ * `auto`, which makes that ancestor a scroll container. `position: sticky`
+ * sticks to its nearest scrolling ancestor, so the bar dutifully stuck to a box
+ * that never scrolled and slid away with the page.
+ *
+ * The fix at the time was to fix it to the viewport instead, floating above
+ * the bottom of the screen. That worked and cost more than it bought: a
+ * translucent pill parked permanently over the middle of whatever you were
+ * reading, stacked directly above the app's own tab bar — two floating bars,
+ * one of them covering the text.
+ *
+ * Those ancestors now use `overflow-x: clip`, which contains the same overflow
+ * without creating a scroll container, so the bar can be what it always should
+ * have been: sticky, under the top bar, with the content scrolling beneath it.
  */
 function Segments({ segments }: { segments: Segment[] }) {
   const t = useT();
@@ -266,6 +272,63 @@ function Segments({ segments }: { segments: Segment[] }) {
 
   return (
     <div className="mx-auto mt-10 w-full max-w-md">
+      {/*
+        A single thin pill, not a panel.
+
+        It used to be a full-width card carrying the score, the first
+        impression and the segments — three rows of chrome over the content,
+        which is a lot of furniture to answer "what else is here". What is left
+        is the one control that cannot be inferred: where you are, and where
+        else you can go.
+
+        `top-16` clears the app's own bar, which is 4rem tall on every surface
+        this renders on.
+      */}
+      {/*
+        A bar, not a pill floating on a transparent strip.
+
+        The first attempt kept the pill and made only the pill glass, so the
+        text scrolling underneath showed through the gaps either side of it and
+        straight past the heading it was sitting on. Chrome that content passes
+        beneath has to be opaque enough to occlude it; a pill cannot be, because
+        it does not span the column.
+
+        Bleeds to the gutter so it reads as continuous with the bar above it,
+        and takes a bottom radius on wider screens where the column has visible
+        edges.
+      */}
+      <nav
+        aria-label={t.analysis.sections}
+        className="glass-chrome sticky top-16 z-40 -mx-4 mb-6 flex justify-center rounded-none border-x-0 border-t-0 px-4 py-2 sm:rounded-b-[var(--r-lg)]"
+      >
+        <div className="flex gap-0.5 rounded-[var(--r-pill)] p-1">
+          {segments.map((segment) => {
+            const isActive = segment.id === current?.id;
+            return (
+              <button
+                key={segment.id}
+                type="button"
+                onClick={() => setActive(segment.id)}
+                aria-current={isActive ? "true" : undefined}
+                className={cn(
+                  "focus-ring relative min-h-[44px] rounded-[var(--r-pill)] px-4 text-[0.78rem] font-bold transition-colors",
+                  isActive ? "text-blink-navy" : "text-white/55 hover:text-white",
+                )}
+              >
+                {isActive && (
+                  <motion.span
+                    layoutId="analysis-segment"
+                    className="absolute inset-0 rounded-[var(--r-pill)] bg-blink-sky"
+                    transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 36 }}
+                  />
+                )}
+                <span className="relative">{segment.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
       <div className="text-left">
         <AnimatePresence mode="wait">
           <motion.div
@@ -280,54 +343,6 @@ function Segments({ segments }: { segments: Segment[] }) {
         </AnimatePresence>
       </div>
 
-      {/* Room for the bar, so the last line of a pane is never underneath it. */}
-      <div aria-hidden className="h-24" />
-
-      {/*
-        A single thin pill, not a panel.
-
-        It used to be a full-width card carrying the score, the first
-        impression and the segments — three rows of chrome permanently parked
-        over the content, which is a lot of furniture to answer "what else is
-        here". The score and the impression are already the largest things on
-        the screen a swipe away, so repeating them bought nothing. What is left
-        is the one control that can't be inferred: where you are, and where
-        else you can go.
-      */}
-      <nav
-        aria-label={t.analysis.sections}
-        className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-4"
-        style={{
-          bottom: "calc(var(--blink-app-nav, 0px) + max(env(safe-area-inset-bottom), 0.75rem))",
-        }}
-      >
-        <div className="pointer-events-auto flex gap-0.5 rounded-full bg-blink-navy-2/80 p-1 shadow-[0_10px_34px_-10px_rgba(0,0,0,0.8)] ring-1 ring-white/[0.09] backdrop-blur-2xl">
-          {segments.map((segment) => {
-            const isActive = segment.id === current?.id;
-            return (
-              <button
-                key={segment.id}
-                type="button"
-                onClick={() => setActive(segment.id)}
-                aria-current={isActive ? "true" : undefined}
-                className={cn(
-                  "relative min-h-[38px] rounded-full px-4 text-[0.78rem] font-bold transition-colors",
-                  isActive ? "text-blink-navy" : "text-white/55 hover:text-white",
-                )}
-              >
-                {isActive && (
-                  <motion.span
-                    layoutId="analysis-segment"
-                    className="absolute inset-0 rounded-full bg-blink-sky"
-                    transition={{ type: "spring", stiffness: 420, damping: 36 }}
-                  />
-                )}
-                <span className="relative">{segment.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
     </div>
   );
 }
@@ -676,7 +691,7 @@ function SignalBar({ signal }: { signal: { label: string; score: number; descrip
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-semibold text-white/90">{signal.label}</span>
+        <span className="text-sm font-semibold text-white/90">{signalName(signal.label, t)}</span>
         <div className="flex shrink-0 items-center gap-2">
           <span className="text-xs font-medium text-white/45">{signalLabel(signal.score, t)}</span>
           <span className="text-sm font-bold tabular-nums text-blink-sky">

@@ -63,8 +63,15 @@ export function AppShell({
   if (isLoading) return <AppShellLoading />;
   if (!user) return null;
 
+  /*
+    `clip`, not `hidden`. `overflow-x: hidden` coerces the other axis to
+    `auto`, which makes this element a scroll container — and a scroll
+    container swallows `position: sticky` for everything inside it. That is why
+    the analysis section bar had to be fixed to the viewport, where it sat on
+    top of the text it was meant to help you navigate.
+  */
   return (
-    <div className="has-app-tabbar relative min-h-screen overflow-x-hidden">
+    <div className="has-app-tabbar relative min-h-screen overflow-x-clip">
       <PageBackground />
 
       <TopNav />
@@ -173,10 +180,19 @@ function TopNav() {
           />
         </div>
 
+        {/*
+          Desktop only.
+
+          On a phone the tab bar already carries Analyze as its centre action,
+          so this made three ways to start an analysis on one screen — the top
+          bar, the tab bar and the card in the page — which is the opposite of
+          Home answering "what can I do now" with one obvious answer. Above
+          `md` there is no tab bar, so here it is the only persistent one.
+        */}
         <button
           type="button"
           onClick={() => navigate("/analyze")}
-          className="focus-ring flex min-h-[44px] items-center gap-2 rounded-[var(--r-pill)] bg-blink-sky px-4 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.03] active:scale-[0.98]"
+          className="focus-ring hidden min-h-[44px] items-center gap-2 rounded-[var(--r-pill)] bg-blink-sky px-4 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.03] active:scale-[0.98] md:flex"
         >
           <ScanLine className="h-4 w-4" />
           {t.app.tabAnalyze}

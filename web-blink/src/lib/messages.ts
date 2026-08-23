@@ -416,6 +416,24 @@ const en = {
     sections: "Analysis sections",
     perception: "Perception",
     signals: "Signals",
+    /**
+     * The six signals, for reading.
+     *
+     * The canonical English strings stay in `lib/analysis` and `lib/ranking`,
+     * where they are keys — `signalByLabel` looks craft signals up by exactly
+     * those words, and a translation reaching them would silently break
+     * scoring. These are display names only, keyed by the canonical string
+     * through `signalName`. Before this the French analysis screen said
+     * "Visual Identity", "Approachability" and "Mystery".
+     */
+    signalNames: {
+      "Visual Identity": "Visual identity",
+      Aesthetic: "Aesthetic",
+      Confidence: "Confidence",
+      Status: "Status",
+      Approachability: "Approachability",
+      Mystery: "Mystery",
+    },
     actions: "Actions",
     nextMove: "Your next move",
     standing: "Standing",
@@ -1067,6 +1085,14 @@ const fr: Messages = {
     sections: "Sections de l'analyse",
     perception: "Perception",
     signals: "Signaux",
+    signalNames: {
+      "Visual Identity": "Identité visuelle",
+      Aesthetic: "Esthétique",
+      Confidence: "Assurance",
+      Status: "Statut",
+      Approachability: "Accessibilité",
+      Mystery: "Mystère",
+    },
     actions: "Actions",
     nextMove: "Ta prochaine étape",
     standing: "Position",

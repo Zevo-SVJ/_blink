@@ -89,7 +89,7 @@ function LegalLayout({
   const { t } = useI18n();
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
+    <div className="relative min-h-screen overflow-x-clip">
       <div
         className="fixed inset-0 -z-10"
         aria-hidden

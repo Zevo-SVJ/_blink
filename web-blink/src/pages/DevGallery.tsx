@@ -95,7 +95,7 @@ export default function DevGallery() {
   // `has-app-tabbar` mirrors the app shell, so bottom-fixed UI is offset above
   // the tab bar here exactly as it is in the real app.
   return (
-    <div className="has-app-tabbar relative min-h-screen overflow-x-hidden pb-24">
+    <div className="has-app-tabbar relative min-h-screen overflow-x-clip pb-24">
       <PageBackground />
 
       <div className="mx-auto w-full max-w-2xl space-y-14 px-4 pt-10 sm:px-6">
