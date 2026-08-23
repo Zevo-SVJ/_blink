@@ -16,6 +16,7 @@ import { useEffect, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { PageBackground } from "@/components/blink/PageBackground";
+import { PillNav, TopBar } from "@/components/nav/chrome";
 import { useAuth } from "@/hooks/useAuth";
 import { APP_NAV_LINKS, isNavActive } from "@/lib/app-nav";
 import { BRAND } from "@/lib/brand";
@@ -105,11 +106,9 @@ export function AppShell({
               */
               <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                 <div className="min-w-0 flex-1 basis-64">
-                  <h1 className="truncate text-[1.75rem] font-extrabold tracking-tight text-white sm:text-4xl">
-                    {title}
-                  </h1>
+                  <h1 className="t-title truncate text-white">{title}</h1>
                   {subtitle && (
-                    <p className="mt-2 text-sm leading-relaxed text-white/50">{subtitle}</p>
+                    <p className="t-body mt-2 text-white/50">{subtitle}</p>
                   )}
                 </div>
                 {action && <div className="shrink-0 sm:pt-1">{action}</div>}
@@ -151,56 +150,39 @@ function TopNav() {
   const t = useT();
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-blink-navy/60 backdrop-blur-xl">
+    <TopBar>
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <button
           type="button"
           onClick={() => navigate("/app")}
-          className="text-lg font-bold tracking-tight text-white transition-opacity hover:opacity-80"
+          className="focus-ring rounded-[var(--r-sm)] text-lg font-bold tracking-tight text-white transition-opacity hover:opacity-80"
         >
           {BRAND.name}
         </button>
 
-        <nav className="hidden md:block">
-          <ul className="flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.04] p-1">
-            {APP_NAV_LINKS.map((item) => {
-              const active = isNavActive(location.pathname, item.path);
-              return (
-                <li key={item.path}>
-                  <button
-                    type="button"
-                    onClick={() => navigate(item.path)}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "relative rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-                      active ? "text-blink-navy" : "text-white/60 hover:text-white",
-                    )}
-                  >
-                    {active && (
-                      <motion.span
-                        layoutId="app-nav-pill"
-                        className="absolute inset-0 rounded-full bg-blink-sky"
-                        transition={{ type: "spring", stiffness: 420, damping: 36 }}
-                      />
-                    )}
-                    <span className="relative">{t.app[item.labelKey]}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+        <div className="hidden md:block">
+          <PillNav
+            group="app-top"
+            label={t.app.primaryNav}
+            items={APP_NAV_LINKS.map((item) => ({
+              path: item.path,
+              label: t.app[item.labelKey],
+            }))}
+            isActive={(path) => isNavActive(location.pathname, path)}
+            onGo={navigate}
+          />
+        </div>
 
         <button
           type="button"
           onClick={() => navigate("/analyze")}
-          className="flex items-center gap-2 rounded-full bg-blink-sky px-4 py-2 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.03] active:scale-[0.98]"
+          className="focus-ring flex min-h-[40px] items-center gap-2 rounded-[var(--r-pill)] bg-blink-sky px-4 text-sm font-bold text-blink-navy transition-transform hover:scale-[1.03] active:scale-[0.98]"
         >
           <ScanLine className="h-4 w-4" />
           {t.app.tabAnalyze}
         </button>
       </div>
-    </header>
+    </TopBar>
   );
 }
 
