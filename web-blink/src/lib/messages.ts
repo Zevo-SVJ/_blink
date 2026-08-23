@@ -1384,7 +1384,10 @@ const fr: Messages = {
     loadFailed: "Blink n'a pas pu charger tes analyses. Vérifie ta connexion et réessaie.",
     yours: "Ton profil",
     others: "Les autres",
-    someoneElse: "Quelqu'un d'autre",
+    // "Autre", not "Quelqu'un d'autre": the chip sits beside the handle, and
+    // the long form pushed "@mysteryguy" down to "@myster…" — truncating the
+    // one thing on the row that identifies it. Matches the "Les autres" tab.
+    someoneElse: "Autre",
     noneWithFilter: "Rien ici avec ce filtre.",
   },
 

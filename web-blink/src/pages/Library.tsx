@@ -218,7 +218,9 @@ function AnalysisRow({
                 same person "Private" — one row, two contradictory claims about
                 the same thing. */}
             {!voice.isOwn && (
-              <span className="shrink-0 rounded-full bg-white/[0.08] px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-white/45">
+              /* Capped, because the handle is what identifies the row and a
+                 `shrink-0` chip beside a `truncate` handle always wins. */
+              <span className="max-w-[45%] shrink-0 truncate rounded-full bg-white/[0.08] px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wider text-white/45">
                 {t.library.someoneElse}
               </span>
             )}

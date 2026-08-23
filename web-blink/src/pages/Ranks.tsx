@@ -780,7 +780,7 @@ function AnalyzedRow({ profile, index }: { profile: AnalyzedProfile; index: numb
           </span>
         </span>
 
-        <span className="t-numeric w-11 shrink-0 text-right text-base font-extrabold text-white sm:w-14 sm:text-lg">
+        <span className="t-numeric w-10 shrink-0 text-right text-base font-extrabold text-white sm:w-14 sm:text-lg">
           {scoreOutOfTen(profile.score)}
         </span>
       </Link>
@@ -847,7 +847,7 @@ function PendingRow({ suggestion, index }: { suggestion: PendingSuggestion; inde
 
       <span
         aria-hidden
-        className="w-11 shrink-0 text-right text-base font-extrabold text-white/20 sm:w-14 sm:text-lg"
+        className="w-10 shrink-0 text-right text-base font-extrabold text-white/20 sm:w-14 sm:text-lg"
       >
         —
       </span>
@@ -908,7 +908,12 @@ function RankRow({
       <RowAvatar url={entry.avatarUrl} name={name} />
 
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-1.5 truncate text-sm font-bold text-white">
+        {/* `gap-1`, and a narrower score column, because this line had 146px
+            and its four parts wanted 158 — so "@sam.dev" rendered as
+            "@sam...." to keep a claimed mark, a flag and a "You" pill whole.
+            The handle is what identifies the row; it is the last thing that
+            should give way. */}
+        <p className="flex items-center gap-1 truncate text-sm font-bold text-white">
           <span className="truncate">{name}</span>
           {/* Every row on this board is a profile whose owner claimed it — the
               `leaderboard` view filters to `verified_count > 0` — so the mark
@@ -927,7 +932,7 @@ function RankRow({
             </span>
           )}
           {isMe && (
-            <span className="shrink-0 rounded-full bg-blink-sky px-1.5 py-0.5 text-[0.58rem] font-bold text-blink-navy">
+            <span className="shrink-0 rounded-full bg-blink-sky px-1 py-0.5 text-[0.58rem] font-bold text-blink-navy">
               {t.ranksPage.you}
             </span>
           )}
@@ -941,7 +946,7 @@ function RankRow({
 
       <Movement movement={entry.movement} />
 
-      <span className="t-numeric w-11 shrink-0 text-right text-base font-extrabold text-white sm:w-14 sm:text-lg">
+      <span className="t-numeric w-10 shrink-0 text-right text-base font-extrabold text-white sm:w-14 sm:text-lg">
         {scoreOutOfTen(entry.score)}
       </span>
     </motion.button>
