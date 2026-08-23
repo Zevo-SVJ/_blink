@@ -21,13 +21,13 @@ export function FinalCTA({ onCTA }: { onCTA: () => void }) {
         </Reveal>
 
         <Reveal delay={0.12}>
-          <h2 className="mt-10 text-4xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-5xl">
+          <h2 className="t-display mt-10 text-balance text-white">
             {t.brand.tagline}
           </h2>
         </Reveal>
 
         <Reveal delay={0.22}>
-          <p className="mt-5 max-w-md text-base leading-relaxed text-white/50 sm:text-lg">
+          <p className="t-body mt-5 max-w-md text-balance text-[length:var(--t-body-lg)] leading-relaxed text-white/50">
             {t.finalCta.subtitle}
           </p>
         </Reveal>

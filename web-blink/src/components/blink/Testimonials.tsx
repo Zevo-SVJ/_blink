@@ -59,13 +59,11 @@ export function Testimonials({ onCTA }: { onCTA: () => void }) {
     <section id="reactions" className="relative py-20 sm:py-28">
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <Reveal className="text-center">
-          <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-blink-sky/70">
-            {t.testimonials.eyebrow}
-          </p>
-          <h2 className="mt-3 text-[1.75rem] font-extrabold tracking-tight text-white sm:text-4xl">
+          <p className="t-label text-blink-sky/70">{t.testimonials.eyebrow}</p>
+          <h2 className="t-title mt-3 text-balance text-white">
             {t.testimonials.heading}
           </h2>
-          <p className="mx-auto mt-3 max-w-md text-[0.95rem] leading-relaxed text-white/50 sm:mt-4 sm:text-base">
+          <p className="t-body mx-auto mt-3 max-w-md text-balance text-white/50 sm:mt-4">
             {t.testimonials.subtitle}
           </p>
         </Reveal>
@@ -93,7 +91,7 @@ export function Testimonials({ onCTA }: { onCTA: () => void }) {
       </div>
 
       <div className="mx-auto mt-12 flex max-w-3xl flex-col items-center gap-4 px-4 sm:px-6">
-        <p className="text-center text-sm font-medium text-white/45">
+        <p className="t-body text-balance text-center font-medium text-white/45">
           {t.testimonials.footer}
         </p>
         <CTAButton label={t.testimonials.cta} onClick={onCTA} size="lg" />
@@ -114,7 +112,7 @@ function ReactionCard({
   const text = lang === "fr" ? (TESTIMONIALS_FR[card.id] ?? card.text) : card.text;
 
   return (
-    <figure className="flex w-[15.5rem] flex-col rounded-2xl bg-blink-navy-2/70 p-4 ring-1 ring-white/[0.07] sm:w-[17rem]">
+    <figure className="surface flex w-[15.5rem] flex-col p-4 sm:w-[17rem]">
       <div className="flex items-center gap-2.5">
         <span
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
@@ -125,7 +123,7 @@ function ReactionCard({
         >
           {card.initial}
         </span>
-        <figcaption className="min-w-0 flex-1 truncate text-[0.75rem] font-semibold text-white/50">
+        <figcaption className="t-micro min-w-0 flex-1 truncate font-semibold text-white/50">
           @{card.handle}
           {card.age !== undefined && (
             <span className="text-white/30"> · {card.age}</span>
@@ -133,17 +131,17 @@ function ReactionCard({
         </figcaption>
         {/* Small, but on every card and never removable: a reader who never
             sees the heading still knows this is written, not collected. */}
-        <span className="shrink-0 rounded-full bg-white/[0.07] px-1.5 py-0.5 text-[0.55rem] font-bold uppercase tracking-[0.08em] text-white/40">
+        <span className="t-label shrink-0 rounded-[var(--r-pill)] bg-white/[0.07] px-1.5 py-0.5 text-[0.55rem] text-white/40">
           {badge}
         </span>
       </div>
 
-      <blockquote className="mt-3 text-[0.9rem] font-medium leading-snug text-white">
+      <blockquote className="t-body mt-3 font-medium leading-snug text-white">
         {text}
       </blockquote>
 
       {card.likes !== undefined && (
-        <p className="mt-3 flex items-center gap-1.5 text-[0.7rem] font-semibold text-white/30">
+        <p className="t-micro mt-3 flex items-center gap-1.5 font-semibold text-white/30">
           <Heart className="h-3 w-3 fill-current text-rose-400/60" aria-hidden />
           {formatLikes(card.likes)}
         </p>
