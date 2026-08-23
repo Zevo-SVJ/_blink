@@ -145,6 +145,30 @@ export function FilmSection() {
   }, [wanted]);
 
   /*
+    Follow the site's language.
+
+    Changing the `src` of a `<source>` element does nothing on its own: a
+    `<video>` picks its source when it is inserted into the document and never
+    reconsiders. So switching the site to English left the French cut playing
+    with English subtitles nowhere in sight — the markup said one thing and the
+    decoder was doing another.
+
+    `load()` is the only way to make it choose again, and it resets the element,
+    so anything that was playing has to be restarted afterwards. Skipped on the
+    first run: the element has just been inserted and has already chosen.
+  */
+  const chosen = useRef(lang);
+  useEffect(() => {
+    const el = video.current;
+    if (!el || chosen.current === lang) return;
+    chosen.current = lang;
+
+    const wasPlaying = !el.paused;
+    el.load();
+    if (wasPlaying) void el.play().catch(() => {});
+  }, [lang]);
+
+  /*
     Play only while it is on screen — and only if motion is wanted.
 
     This is the only thing that starts the film. The `autoPlay` attribute

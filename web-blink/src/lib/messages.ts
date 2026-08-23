@@ -68,17 +68,6 @@ const en = {
     headlineAccent: "others see you.",
     subtitle:
     "Blink analyzes your Instagram presence and reveals the first impression you make.",
-    // Each chip is a factual claim, so each one is checked against the
-    // implementation. See the privacy note in `Hero`.
-    trustFree: "Free to try",
-    trustNoLogin: "No Instagram login",
-    trustNotKept: "Screenshot not kept",
-    readsAs: "Reads as",
-    lensCrush: "your crush sees you",
-    lensStranger: "a stranger sees you",
-    lensFriends: "your friends see you",
-    lensRecruiter: "a recruiter sees you",
-    lensPrefix: "How",
   },
 
   /**
@@ -308,6 +297,9 @@ const en = {
     change: "Change",
     home: "Home",
     back: "Back",
+    gateTitle: "Create your account",
+    gateSubtitle:
+      "Your analysis is saved to your library, moves your score and places you on the leaderboard — so it needs an account. It takes a few seconds.",
     unlockTitle: "Unlock your Blink results",
     unlockSubtitle: "Create your account to see the complete analysis.",
     dropzone: "Upload profile screenshot",
@@ -681,15 +673,6 @@ const fr: Messages = {
     headlineAccent: "les autres te voient.",
     subtitle:
     "Blink analyse ta présence Instagram et révèle la première impression que tu donnes.",
-    trustFree: "Gratuit",
-    trustNoLogin: "Sans connexion Instagram",
-    trustNotKept: "Capture non conservée",
-    readsAs: "Perçu comme",
-    lensCrush: "ton crush te voit",
-    lensStranger: "un inconnu te voit",
-    lensFriends: "tes amis te voient",
-    lensRecruiter: "un recruteur te voit",
-    lensPrefix: "Comment",
   },
 
   film: {
@@ -899,6 +882,9 @@ const fr: Messages = {
     change: "Changer",
     home: "Accueil",
     back: "Retour",
+    gateTitle: "Crée ton compte",
+    gateSubtitle:
+      "Ton analyse est enregistrée dans ta bibliothèque, fait bouger ton score et te place au classement — il faut donc un compte. Ça prend quelques secondes.",
     unlockTitle: "Débloque tes résultats Blink",
     unlockSubtitle: "Crée ton compte pour voir l'analyse complète.",
     dropzone: "Dépose la capture du profil",

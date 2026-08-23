@@ -116,7 +116,18 @@ export default function Product() {
   const [result, setResult] = useState<AnalysisResultType | null>(null);
   const [unlocked, setUnlocked] = useState(false);
   const [revealStage, setRevealStage] = useState(0);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
+  /**
+   * Why the auth modal is open, or `null`.
+   *
+   * Two different situations open the same modal and they cannot close the
+   * same way. `"gate"` is a signed-out visitor arriving from the landing
+   * page's button: dismissing that means they changed their mind about
+   * signing up, so it returns them to the page they came from rather than
+   * dropping them on an upload screen they cannot finish. `"unlock"` is
+   * someone who already has a result in front of them and is deciding whether
+   * to keep it; dismissing that just closes the modal.
+   */
+  const [authReason, setAuthReason] = useState<"gate" | "unlock" | null>(null);
   const [progression, setProgression] = useState<RecordedAnalysis | null>(null);
   /** Points gained on a re-scan, while the confirmation is on screen. */
   const [gain, setGain] = useState<number | null>(null);
@@ -136,7 +147,7 @@ export default function Product() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string>("");
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { lang, t } = useI18n();
   // Error copy follows the reader's language; `AnalysisError` still carries the
   // English text for logs, which is where it belongs.
@@ -316,11 +327,36 @@ export default function Product() {
   useEffect(() => {
     if (!user || !result || unlocked || screen !== "result") return;
     setUnlocked(true);
-    setAuthModalOpen(false);
+    setAuthReason(null);
     const cleanup = runReveal();
     if (file) void persist(result, file, user.id);
     return cleanup;
   }, [user, result, unlocked, screen, file, runReveal, persist]);
+
+  /*
+    Sign in first.
+
+    The analysis is an account feature — the result is saved to a library, it
+    moves a score, it places a profile on a leaderboard — and the flow used to
+    ask for the account at the *end*, after the work was done, which is the
+    point at which being asked is most annoying. So a signed-out visitor
+    arriving from the landing page's button meets the sign-in screen first and
+    the rest of the flow after it. This is the same modal that unlocked
+    results before; nothing new was added for it, it moved.
+
+    Waits for the session to be restored: `user` is null for a moment on every
+    cold load, and gating on that would flash a sign-in screen at people who
+    are already signed in.
+  */
+  useEffect(() => {
+    if (authLoading || user) return;
+    setAuthReason((why) => why ?? "gate");
+  }, [authLoading, user]);
+
+  // Signed in — whatever the modal was asking for, it has its answer.
+  useEffect(() => {
+    if (user) setAuthReason(null);
+  }, [user]);
 
   const inAnalysisMode = screen === "analyzing" || screen === "result";
 
@@ -476,7 +512,7 @@ export default function Product() {
                 stats={myStats}
                 onUnlock={() => {
                   if (!user) {
-                    setAuthModalOpen(true);
+                    setAuthReason("unlock");
                     return;
                   }
                   setUnlocked(true);
@@ -519,10 +555,16 @@ export default function Product() {
       )}
 
       <AuthModal
-        open={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        title={t.product.unlockTitle}
-        subtitle={t.product.unlockSubtitle}
+        open={authReason !== null}
+        onClose={() => {
+          // Backing out of the gate means backing out of the flow.
+          if (authReason === "gate") navigate("/");
+          setAuthReason(null);
+        }}
+        title={authReason === "gate" ? t.product.gateTitle : t.product.unlockTitle}
+        subtitle={
+          authReason === "gate" ? t.product.gateSubtitle : t.product.unlockSubtitle
+        }
       />
     </div>
   );

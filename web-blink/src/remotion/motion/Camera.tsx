@@ -32,6 +32,14 @@ export function Camera({
   /** `[from, to]` scale, applied over `over`. */
   zoom,
   over,
+  /**
+   * The scale, straight from a function of the absolute frame.
+   *
+   * For a move that does not begin and end inside one scene: `zoom`/`over`
+   * bakes in its own easing, so two scenes sharing a move each get their own
+   * curve and the join between them stops. Takes precedence over `zoom`.
+   */
+  scaleAt,
   origin = [540, 960],
   /** Continuous creep, as a scale gained across `driftOver` frames. */
   drift = 0.05,
@@ -42,6 +50,7 @@ export function Camera({
   children: ReactNode;
   zoom?: [number, number];
   over?: [number, number];
+  scaleAt?: (frame: number) => number;
   origin?: [number, number];
   drift?: number;
   driftOver?: number;
@@ -52,7 +61,9 @@ export function Camera({
 
   /* The deliberate move, if there is one. */
   let scale = 1;
-  if (zoom && over && over[1] > over[0]) {
+  if (scaleAt) {
+    scale = scaleAt(frame);
+  } else if (zoom && over && over[1] > over[0]) {
     scale = interpolate(frame, over, zoom, {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",

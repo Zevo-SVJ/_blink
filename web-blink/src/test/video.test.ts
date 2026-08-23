@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest";
 import { COPY, type Lang } from "@/remotion/copy";
 import { fitBlock, fitSize, measure } from "@/remotion/motion/Kinetic";
 import { peakOf, SPRING } from "@/remotion/motion/springs";
-import { BED, CUES, FILES } from "@/remotion/audio/cues";
+import { BED, CUES, FILES, type Cue } from "@/remotion/audio/cues";
 import { a, C, HEIGHT, WIDTH } from "@/remotion/theme";
 import {
   BEATS,
@@ -287,6 +287,36 @@ describe("the sound", () => {
     const on = new Set(CUES.map((c) => c.frame));
     const missing = ANIMATIONS.filter((f) => !on.has(f));
     expect(missing, `animations with no cue on their own frame: ${missing}`).toEqual([]);
+  });
+
+  it("never starts the same sound twice on the same frame", () => {
+    // Not a style rule. Two copies of one file starting on the same frame is
+    // the identical sample at double amplitude, which is what turned the
+    // loupe's friction into a drone — and it is invisible in a cue list.
+    const seen = new Map<string, number>();
+    for (const cue of CUES) {
+      const key = `${cue.sfx}@${cue.frame}`;
+      seen.set(key, (seen.get(key) ?? 0) + 1);
+    }
+    const doubled = [...seen].filter(([, n]) => n > 1).map(([k]) => k);
+    expect(doubled, `doubled cues: ${doubled}`).toEqual([]);
+  });
+
+  it("varies a sound that repeats inside one scene", () => {
+    // A sustained texture laid down several times in a few seconds has to
+    // differ from itself or it stops reading as a texture.
+    const runs = new Map<string, Cue[]>();
+    for (const cue of CUES) {
+      const scene = SCENES.find((s) => cue.frame >= s.from && cue.frame < s.from + s.duration);
+      const key = `${cue.sfx}/${scene?.id}`;
+      runs.set(key, [...(runs.get(key) ?? []), cue]);
+    }
+    for (const [key, list] of runs) {
+      if (list.length < 3) continue;
+      const rates = new Set(list.map((c) => (c.rate ?? 1).toFixed(3)));
+      expect(rates.size, `${key}: ${list.length} plays, ${rates.size} distinct speeds`)
+        .toBeGreaterThan(1);
+    }
   });
 
   it("uses only the five files the film ships", () => {
