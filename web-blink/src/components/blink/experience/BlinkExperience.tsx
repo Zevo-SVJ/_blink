@@ -1,0 +1,492 @@
+/**
+ * What Blink does, as something you scroll through rather than watch.
+ *
+ * This replaces the twenty-five second film. A video is the same for everyone
+ * and asks to be sat through; this is the product's own interface performing
+ * its own argument, at the reader's pace, with the one interaction that
+ * actually matters left in their hands.
+ *
+ * ## The spine
+ *
+ *   PROFILE → ANALYSIS → WHO'S LOOKING? → PERCEPTION → NICHE → SCORE
+ *
+ * The profile is placed once and never moves again. Everything after it
+ * happens *to* it: the reticle reads regions of it, the readings arrange
+ * themselves around it, the niche and the score resolve beneath it. That is
+ * the whole reason it is one pinned stage and not six sections — the claim
+ * being made is "the profile did not change, the reading of it did", and a
+ * sequence of separate screens cannot make that claim.
+ *
+ * ## Scroll drives progress; the reader drives the gaze
+ *
+ * Scroll advances the sequence. Once the selector has arrived the reader can
+ * change who is looking, and the readings re-rank around the unchanged
+ * profile. Both at once matters: scroll alone is a video with extra steps, and
+ * interaction alone buries the story behind a control nobody presses.
+ */
+
+import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+
+import { SPRING } from "@/design/motion";
+import { press } from "@/design/Motion";
+import { useT } from "@/lib/i18n";
+import { GAZES, NICHE, PASSES, SCORE, type Gaze } from "./demo";
+import { ProfileCard, type Regions } from "./ProfileCard";
+
+/**
+ * Where each act begins and ends, as a fraction of the scroll through the
+ * section. Written down rather than scattered so the sequence can be read in
+ * one place and retimed without hunting.
+ */
+const ACT = {
+  settle: [0.0, 0.1],
+  analysis: [0.1, 0.4],
+  gaze: [0.38, 0.5],
+  perception: [0.46, 0.72],
+  niche: [0.72, 0.84],
+  score: [0.82, 0.96],
+} as const;
+
+/** 0 → 1 across an act, clamped either side. */
+const across = (p: number, [a, b]: readonly [number, number]) =>
+  Math.max(0, Math.min(1, (p - a) / (b - a)));
+
+export function BlinkExperience() {
+  const t = useT();
+  const reduced = useReducedMotion();
+  const section = useRef<HTMLElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: section,
+    offset: ["start start", "end end"],
+  });
+
+  /* React state only for the things that change what is *rendered*. The
+     continuous values stay as motion values, so scrolling does not re-render
+     the tree sixty times a second. */
+  const [act, setAct] = useState(0);
+  const [pass, setPass] = useState(-1);
+  const [gaze, setGaze] = useState<Gaze>(GAZES[0]);
+  const [regions, setRegions] = useState<Regions>({});
+
+  useEffect(() => {
+    const stop = scrollYProgress.on("change", (p) => {
+      setAct(
+        p >= ACT.score[0] ? 5
+        : p >= ACT.niche[0] ? 4
+        : p >= ACT.perception[0] ? 3
+        : p >= ACT.gaze[0] ? 2
+        : p >= ACT.analysis[0] ? 1
+        : 0,
+      );
+      // Which region the reticle is reading, or -1 before/after the pass.
+      const a = across(p, ACT.analysis);
+      setPass(a <= 0 || a >= 1 ? -1 : Math.min(PASSES.length - 1, Math.floor(a * PASSES.length)));
+    });
+    return stop;
+  }, [scrollYProgress]);
+
+  /* The profile itself only ever settles — one small move, at the start, so
+     it arrives rather than being there. After that it is fixed, on purpose. */
+  const cardY = useTransform(scrollYProgress, [0, ACT.settle[1]], [26, 0]);
+  const cardScale = useTransform(scrollYProgress, [0, ACT.settle[1]], [0.965, 1]);
+
+  const analysing = act === 1;
+  const target = pass >= 0 ? regions[PASSES[pass].at] : undefined;
+
+  return (
+    <section
+      ref={section}
+      id="experience"
+      aria-label={t.film.heading}
+      /* Tall enough to have somewhere to scroll through, short enough that a
+         reader who is not interested is not trapped in it. */
+      className="relative h-[420svh]"
+    >
+      <div
+        ref={stage}
+        className="sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden px-4"
+      >
+        {/*
+          Narrow on purpose.
+
+          At `max-w-5xl` the two columns were a metre apart on a laptop: a
+          300px card marooned on the left, four short words lost in a
+          thousand-pixel column on the right, and the pair sitting in the top
+          two thirds of the screen. Wide is not the same as spacious. Held to
+          the width the content actually needs, the profile and its reading sit
+          close enough to be read as one thing — which is the point, because
+          the reading is *of* the profile.
+        */}
+        <div className="mx-auto w-full max-w-[54rem]">
+          <Caption act={act} />
+
+          <div /*
+              `grid-cols-1` is load-bearing, not tidiness.
+
+              With only the `lg:` template set, a grid below that breakpoint
+              has no explicit columns and sizes its single implicit column to
+              its widest item. The gaze selector is four pills wide, so the
+              column resolved to 560px inside a 358px phone — and the profile,
+              centred in that column, sat a hundred pixels to the right and
+              ran off the screen. `min-w-0` on the children is the other half:
+              a grid item's default `min-width: auto` refuses to shrink below
+              its content, which is what lets a scrollable strip push a column
+              wider than the page.
+            */
+            className="mt-4 grid grid-cols-1 items-center gap-5 sm:mt-6 lg:grid-cols-[272px_minmax(0,1fr)] lg:gap-9">
+            {/* ── the profile, placed once ─────────────────────────── */}
+            <motion.div
+              style={reduced ? undefined : { y: cardY, scale: cardScale }}
+              className="relative mx-auto w-full min-w-0 max-w-[250px] lg:max-w-[272px]"
+            >
+              <ProfileCard onRegions={setRegions} />
+              <Reticle on={analysing} box={target} />
+            </motion.div>
+
+            {/* ── everything Blink says about it ───────────────────── */}
+            {/*
+              Everything Blink says, in a box that never changes size.
+
+              The profile being placed once and never moving again is the
+              claim this whole section makes, and on a stacked layout it was
+              not true: as the verdict arrived the column grew, the
+              vertically-centred stack rebalanced, and the profile crept about
+              fifty pixels up the screen. Invisible frame to frame, obvious as
+              a drift, and it quietly contradicted the argument.
+
+              So nothing here mounts late. Every part is present from the
+              start and arrives by becoming visible in place, which means the
+              column is its full height on the first frame and the profile has
+              nowhere to drift to. The findings sit on top of the rest rather
+              than above them, for the same reason.
+            */}
+            <div className="relative flex min-w-0 flex-col justify-center">
+              <AnimatePresence>
+                {act === 1 && (
+                  <motion.div
+                    key="findings"
+                    className="absolute inset-x-0 top-0"
+                    exit={{ opacity: 0 }}
+                    transition={SPRING.base}
+                  >
+                    <Findings pass={pass} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <motion.div
+                animate={{ opacity: act >= 2 ? 1 : 0, y: act >= 2 ? 0 : 12 }}
+                transition={SPRING.base}
+                style={{ pointerEvents: act >= 2 ? "auto" : "none" }}
+                aria-hidden={act < 2}
+              >
+                <GazePicker value={gaze} onChange={setGaze} />
+                <motion.div
+                  animate={{ opacity: act >= 3 ? 1 : 0 }}
+                  transition={SPRING.base}
+                >
+                  <Readings gaze={gaze} />
+                </motion.div>
+                <motion.div
+                  animate={{ opacity: act >= 4 ? 1 : 0 }}
+                  transition={SPRING.base}
+                >
+                  <Verdict revealScore={act >= 5} />
+                </motion.div>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   The caption — one line, saying what is happening
+   ───────────────────────────────────────────────────────────────────── */
+
+function Caption({ act }: { act: number }) {
+  const t = useT();
+  const lines = [
+    t.experience.actProfile,
+    t.experience.actAnalysis,
+    t.experience.actGaze,
+    t.experience.actGaze,
+    t.experience.actNiche,
+    t.experience.actScore,
+  ];
+  return (
+    <div className="text-center lg:text-left">
+      <p className="t-label text-blink-sky/60">{t.experience.eyebrow}</p>
+      <div className="mt-2 h-[2.2em] overflow-hidden">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.h2
+            key={lines[act]}
+            className="t-heading text-white"
+            initial={{ y: "0.9em", opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: "-0.9em", opacity: 0 }}
+            transition={SPRING.base}
+          >
+            {lines[act]}
+          </motion.h2>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   The analysis pass
+   ───────────────────────────────────────────────────────────────────── */
+
+/**
+ * A reticle that reads one region at a time.
+ *
+ * Deliberately not a bar sweeping the whole card. A sweep says "processing";
+ * landing on the portrait, then the bio, then the grid says "reading this,
+ * now this" — which is the difference between a spinner and something that
+ * appears to understand what it is looking at.
+ *
+ * It travels between regions rather than reappearing at each: same object,
+ * moving, so the reader follows it.
+ */
+function Reticle({ on, box }: { on: boolean; box?: DOMRect }) {
+  const reduced = useReducedMotion();
+  if (!on || !box) return null;
+
+  return (
+    <motion.div
+      aria-hidden
+      className="pointer-events-none absolute rounded-[10px]"
+      initial={false}
+      animate={{ x: box.x - 5, y: box.y - 5, width: box.width + 10, height: box.height + 10 }}
+      transition={reduced ? { duration: 0 } : SPRING.morph}
+      style={{ left: 0, top: 0, boxShadow: "0 0 0 1.5px hsl(var(--blink-sky) / 0.9), 0 0 26px hsl(var(--blink-sky) / 0.28)" }}
+    >
+      {/* Corner ticks — the part that reads as an instrument rather than a
+          selection rectangle. */}
+      {[
+        "left-0 top-0 border-l-2 border-t-2 rounded-tl-[10px]",
+        "right-0 top-0 border-r-2 border-t-2 rounded-tr-[10px]",
+        "left-0 bottom-0 border-l-2 border-b-2 rounded-bl-[10px]",
+        "right-0 bottom-0 border-r-2 border-b-2 rounded-br-[10px]",
+      ].map((c) => (
+        <span key={c} className={`absolute h-3.5 w-3.5 border-blink-sky ${c}`} />
+      ))}
+    </motion.div>
+  );
+}
+
+/** What the pass has found so far. Each finding stays once it lands. */
+function Findings({ pass }: { pass: number }) {
+  return (
+    <ul className="space-y-2">
+      {PASSES.map((p, i) => (
+        <AnimatePresence key={p.at}>
+          {i <= pass && (
+            <motion.li
+              layout
+              initial={{ opacity: 0, x: -14, filter: "blur(6px)" }}
+              animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0 }}
+              transition={SPRING.base}
+              className="elev-1 flex items-baseline gap-3 rounded-[var(--r-md)] px-3.5 py-2.5"
+            >
+              <span className="t-label shrink-0 text-blink-sky/70">{p.label}</span>
+              <span className="t-caption text-white/[var(--ink-2)]">{p.found}</span>
+            </motion.li>
+          )}
+        </AnimatePresence>
+      ))}
+    </ul>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Who's looking
+   ───────────────────────────────────────────────────────────────────── */
+
+function GazePicker({ value, onChange }: { value: Gaze; onChange: (g: Gaze) => void }) {
+  const t = useT();
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={SPRING.base}
+    >
+      <p className="t-label mb-1.5 text-white/[var(--ink-3)] lg:mb-2">{t.experience.whosLooking}</p>
+      <div
+        role="tablist"
+        aria-label={t.experience.whosLooking}
+        className="glass-inset inline-flex max-w-full gap-1 overflow-x-auto rounded-[var(--r-pill)] p-1 scrollbar-none"
+      >
+        {GAZES.map((g) => {
+          const on = g.id === value.id;
+          return (
+            <motion.button
+              key={g.id}
+              role="tab"
+              aria-selected={on}
+              type="button"
+              onClick={() => onChange(g)}
+              className="focus-ring relative shrink-0 rounded-[var(--r-pill)] px-3 py-2 text-[0.78rem] font-semibold"
+              style={{ color: on ? "hsl(var(--surface-0))" : "hsl(0 0% 100% / var(--ink-2))" }}
+              {...press}
+            >
+              {/* One object sliding between segments — not a background
+                  switching on in one place and off in another. */}
+              {on && (
+                <motion.span
+                  layoutId="gaze-indicator"
+                  className="absolute inset-0 rounded-[var(--r-pill)] bg-blink-sky"
+                  transition={SPRING.snap}
+                />
+              )}
+              <span className="relative whitespace-nowrap">
+                <span aria-hidden>{g.emoji}</span> {g.short}
+              </span>
+            </motion.button>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
+/**
+ * What that gaze walks away with.
+ *
+ * `layoutId` on the word itself is the mechanism: a reading shared by two
+ * gazes travels to its new rank rather than being destroyed and rebuilt
+ * somewhere else. Watching "Confident" slide from first to third is the
+ * feature — the profile has not changed, so the words have not changed; their
+ * *order of importance* has.
+ */
+function Readings({ gaze }: { gaze: Gaze }) {
+  return (
+    <div className="mt-4 lg:mt-5">
+      <ul className="space-y-1 lg:space-y-1.5">
+        {gaze.reads.map((word, i) => (
+          <motion.li
+            key={word}
+            layout
+            layoutId={`read-${word}`}
+            transition={SPRING.morph}
+            initial={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-3"
+          >
+            <span className="t-numeric w-4 text-[0.68rem] text-white/[var(--ink-4)]">
+              {i + 1}
+            </span>
+            <motion.span
+              layout
+              className="rounded-[var(--r-pill)] px-3 py-1 font-bold sm:px-3.5 sm:py-1.5"
+              animate={{
+                fontSize: i === 0 ? "1.02rem" : "0.86rem",
+                backgroundColor:
+                  i === 0 ? "hsl(var(--blink-sky) / 0.16)" : "hsl(0 0% 100% / 0.05)",
+                color:
+                  i === 0 ? "hsl(var(--blink-sky))" : "hsl(0 0% 100% / var(--ink-2))",
+              }}
+              transition={SPRING.morph}
+            >
+              {word}
+            </motion.span>
+          </motion.li>
+        ))}
+      </ul>
+
+      <AnimatePresence mode="wait">
+        <motion.p
+          key={gaze.id}
+          className="t-caption mt-2 text-white/[var(--ink-3)] lg:mt-3"
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={SPRING.base}
+        >
+          {gaze.summary}
+        </motion.p>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Niche, then score
+   ───────────────────────────────────────────────────────────────────── */
+
+/**
+ * The niche first, the score second, in that order and never together.
+ *
+ * A number on its own invites "8.7 out of what?". Naming the niche before it
+ * appears answers the question before it is asked, which is the only reason
+ * the two are in the same box.
+ */
+function Verdict({ revealScore }: { revealScore: boolean }) {
+  const t = useT();
+  return (
+    <motion.div
+      className="surface-raised mt-4 inline-flex items-center gap-4 self-start p-3.5 pr-4 sm:gap-5 sm:p-4 sm:pr-5 lg:mt-6"
+    >
+      <div className="min-w-0">
+        <p className="t-label text-white/[var(--ink-3)]">{t.experience.measuredAs}</p>
+        <p className="t-heading mt-0.5 whitespace-nowrap text-white">{NICHE.label}</p>
+      </div>
+      {/* The score arrives inside a box that already has room for it — its
+          own scale and opacity, not the layout's. */}
+      <motion.div
+        animate={{ opacity: revealScore ? 1 : 0, scale: revealScore ? 1 : 0.92 }}
+        transition={SPRING.drop}
+        className="text-right"
+        aria-hidden={!revealScore}
+      >
+        {revealScore ? <Counting to={SCORE} /> : <span className="t-numeric block text-[2rem] font-extrabold leading-none sm:text-[2.4rem]">&nbsp;</span>}
+        <p className="t-label text-white/[var(--ink-4)]">{t.experience.outOfTen}</p>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/**
+ * A score arriving at a value.
+ *
+ * It counts because a number that simply appears is an assertion, and a number
+ * that resolves is a measurement — the same reason a scale settles rather than
+ * jumping. It stops on the value and stays there; it does not tick, spin or
+ * celebrate.
+ *
+ * Tabular figures, so the width does not jitter on the way.
+ */
+function Counting({ to }: { to: number }) {
+  const reduced = useReducedMotion();
+  const [n, setN] = useState(reduced ? to : Math.max(0, to - 0.9));
+
+  useEffect(() => {
+    if (reduced) return;
+    let raf = 0;
+    const started = performance.now();
+    const from = Math.max(0, to - 0.9);
+    const tick = (now: number) => {
+      const k = Math.min(1, (now - started) / 900);
+      // Decelerating: most of the distance early, then a slow settle onto the
+      // value, which is what "precise" reads as.
+      setN(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [to, reduced]);
+
+  return (
+    <span className="t-numeric block text-[2rem] font-extrabold leading-none tracking-[-0.04em] text-white sm:text-[2.4rem]">
+      {n.toFixed(1)}
+    </span>
+  );
+}

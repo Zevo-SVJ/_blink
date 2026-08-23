@@ -40,6 +40,7 @@
 
 import { categoryLabel } from "@/lib/categories";
 import type { ProfileStats } from "@/lib/ranking";
+import { scoreOutOfTen } from "@/lib/ranking";
 
 export type ClimbPathId =
   | "identity"
@@ -132,7 +133,7 @@ export function getClimbPaths(
         ? `${signal} is already your strongest signal. Signals compound: the clearer a profile is about one thing, the higher every other axis reads, because nothing is fighting for the interpretation.`
         : "Coherence is a fifth of the score, and it is the axis that lifts the others. A profile that is unmistakably about one thing reads as deliberate rather than accumulated.",
       notNeeded: "Nothing about your profile as it stands. No new bio, no new picture, no new aesthetic.",
-      impact: "Typically +25-70",
+      impact: "Typically +0.3 to +0.7",
       priority: !housekeepingNeeded,
       redesign: false,
     },
@@ -145,7 +146,7 @@ export function getClimbPaths(
         "Add to the grid in the treatment you already use — Reels count. Depth, not variety: five more posts that look like they belong together do more than five that each try something new.",
       why: "A grid that stops early reads as abandoned rather than curated. Volume in one direction is what turns a consistent look into a body of work, which is what lifts Visual Identity and Aesthetic together.",
       notNeeded: "A new look. This path is explicitly about more of the same.",
-      impact: "Typically +20-60",
+      impact: "Typically +0.2 to +0.6",
       priority: false,
       redesign: false,
     },
@@ -210,7 +211,7 @@ export function getClimbPaths(
         "If someone landing cold can't tell what the account is about, the fastest fixes are the name field, the first line of the bio, and highlight covers in your existing palette. Take any one of them, or none.",
       why: "Clarity is a tenth of the score and the axis most often left on the table. But deliberate opacity is a valid strategy — if being hard to read is the point, this path is not for you.",
       notNeeded: "Your profile picture, your aesthetic, or how you already present yourself.",
-      impact: "Typically +10-30",
+      impact: "Typically +0.1 to +0.3",
       priority: false,
       redesign: true,
     },
@@ -231,13 +232,13 @@ export function climbHeadline(stats: ProfileStats, rank: number | null): string 
     return "Analyze your own profile to get a score and a position.";
   }
   if (rank === null) {
-    return `You're at ${stats.score}. Turn on leaderboard visibility to take a position.`;
+    return `You're at ${scoreOutOfTen(stats.score)}. Turn on leaderboard visibility to take a position.`;
   }
   if (stats.momentum.direction === "up") {
-    return `You're at ${stats.score}, rank #${rank}, and climbing.`;
+    return `You're at ${scoreOutOfTen(stats.score)}, rank #${rank}, and climbing.`;
   }
   if (stats.momentum.direction === "down") {
-    return `You're at ${stats.score}, rank #${rank}. Momentum has turned negative.`;
+    return `You're at ${scoreOutOfTen(stats.score)}, rank #${rank}. Momentum has turned negative.`;
   }
-  return `You're at ${stats.score}, rank #${rank}.`;
+  return `You're at ${scoreOutOfTen(stats.score)}, rank #${rank}.`;
 }

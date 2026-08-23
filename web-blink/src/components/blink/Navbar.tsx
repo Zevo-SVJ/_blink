@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 
 import { AuthModal } from "@/components/blink/AuthModal";
+import { TopBar } from "@/components/nav/chrome";
 import { CTAButton } from "@/components/blink/CTAButton";
 import { LanguageToggle } from "@/components/blink/LanguageToggle";
 import { BRAND } from "@/lib/brand";
@@ -43,21 +44,16 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
 
   return (
     <>
-      <header
-        className={cn(
-          "fixed inset-x-0 top-0 z-50 transition-all duration-300",
-          scrolled
-            ? "bg-white/[0.03] shadow-[0_1px_0_rgba(175,224,249,0.06)] backdrop-blur-xl"
-            : "bg-transparent",
-        )}
-      >
+      {/* Transparent over the hero, a real material once the reader has
+          moved: the same bar the app uses, sharing its glass. */}
+      <TopBar solid={scrolled}>
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6 sm:py-4">
           {/* Was `href="#"`, which scrolled to the top and left `#` in the URL.
               The wordmark is the way home from every route the navbar appears
               on, so it navigates like one. */}
           <Link
             to="/"
-            className="inline-flex min-h-[44px] items-center text-lg font-bold tracking-tight text-white"
+            className="focus-ring inline-flex min-h-[44px] items-center rounded-[var(--r-sm)] text-lg font-bold tracking-tight text-white"
           >
             {BRAND.name}
           </Link>
@@ -67,7 +63,7 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
               <a
                 key={link.href}
                 href={link.href}
-                className="text-sm font-medium text-white/60 transition-colors hover:text-white"
+                className="focus-ring inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[var(--r-sm)] px-1 text-sm font-medium text-white/60 transition-colors hover:text-white"
               >
                 {t.nav[link.key]}
               </a>
@@ -86,7 +82,7 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
             <button
               type="button"
               onClick={() => (user ? navigate("/app") : setSignInOpen(true))}
-              className="min-h-[44px] rounded-full px-3 text-sm font-semibold text-white/65 transition-colors hover:text-white sm:px-4"
+              className="focus-ring min-h-[44px] rounded-[var(--r-pill)] px-3 text-sm font-semibold text-white/65 transition-colors hover:text-white sm:px-4"
             >
               {user ? t.nav.openBlink : t.nav.logIn}
             </button>
@@ -101,7 +97,7 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-white/80 transition-colors hover:text-white md:hidden"
+              className="focus-ring flex h-11 w-11 items-center justify-center rounded-[var(--r-md)] text-white/80 transition-colors hover:text-white md:hidden"
               aria-label={t.nav.openMenu}
             >
               <Menu className="h-6 w-6" />
@@ -109,7 +105,7 @@ export function Navbar({ onCTA }: { onCTA: () => void }) {
           </div>
 
         </nav>
-      </header>
+      </TopBar>
 
       <AuthModal
         open={signInOpen}
@@ -194,7 +190,7 @@ function MobileMenu({
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
         transition={{ type: "spring", stiffness: 360, damping: 36 }}
-        className="fixed right-0 top-0 z-[61] flex h-full w-[78%] max-w-xs flex-col border-l border-white/8 bg-blink-navy-2/95 p-6 shadow-2xl backdrop-blur-xl md:hidden"
+        className="glass-panel fixed right-0 top-0 z-[61] flex h-full w-[78%] max-w-xs flex-col rounded-none border-y-0 border-r-0 p-6 md:hidden"
       >
         <div className="flex items-center justify-between">
           <span className="text-lg font-bold tracking-tight text-white">
@@ -205,7 +201,7 @@ function MobileMenu({
             <button
               type="button"
               onClick={onClose}
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-white/60 transition-colors hover:text-white"
+              className="focus-ring flex h-11 w-11 items-center justify-center rounded-[var(--r-md)] text-white/60 transition-colors hover:text-white"
               aria-label={t.nav.closeMenu}
             >
               <X className="h-5 w-5" />
@@ -225,7 +221,7 @@ function MobileMenu({
                 <button
                   type="button"
                   onClick={item.action}
-                  className="block w-full rounded-xl px-4 py-3.5 text-left text-base font-semibold text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+                  className="focus-ring block min-h-[48px] w-full rounded-[var(--r-md)] px-4 py-3 text-left text-base font-semibold text-white/70 transition-colors hover:bg-white/5 hover:text-white"
                 >
                   {item.label}
                 </button>
@@ -233,7 +229,7 @@ function MobileMenu({
                 <a
                   href={item.href}
                   onClick={onClose}
-                  className="block rounded-xl px-4 py-3.5 text-base font-semibold text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+                  className="focus-ring block min-h-[48px] rounded-[var(--r-md)] px-4 py-3 text-base font-semibold text-white/70 transition-colors hover:bg-white/5 hover:text-white"
                 >
                   {item.label}
                 </a>

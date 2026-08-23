@@ -24,6 +24,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 import { makeEvent, nextDelay, type ActivityEvent } from "@/lib/activity";
+import { useT } from "@/lib/i18n";
 
 /** How long a notification stays before it leaves on its own. */
 const VISIBLE_MS = 4200;
@@ -33,6 +34,11 @@ const INITIAL_QUIET_MS = 5200;
 
 export function ActivityToasts() {
   const reduceMotion = useReducedMotion();
+  const t = useT();
+  /* Read through a ref so switching language does not tear down the schedule
+     and start the quiet period again. */
+  const actions = useRef(t.activity.actions);
+  actions.current = t.activity.actions;
   const [event, setEvent] = useState<(ActivityEvent & { id: number }) | null>(null);
   const timers = useRef<number[]>([]);
 
@@ -55,7 +61,7 @@ export function ActivityToasts() {
           return;
         }
         id += 1;
-        setEvent({ ...makeEvent(), id });
+        setEvent({ ...makeEvent(actions.current), id });
         const hide = window.setTimeout(() => setEvent(null), VISIBLE_MS);
         timers.current.push(hide);
         schedule(nextDelay());
@@ -95,7 +101,15 @@ export function ActivityToasts() {
     */
     <div
       aria-live="off"
-      className="pointer-events-none fixed inset-x-0 top-[4.25rem] z-30 grid justify-items-center px-4"
+      /*
+        Bottom, not under the navbar.
+
+        At the top it crossed whatever section heading happened to be on
+        screen — a passing detail is allowed to be seen, not to sit on top of
+        the page's own words. Down here it is in the corner a notification
+        belongs in, and it clears the safe area on a phone.
+      */
+      className="pointer-events-none fixed inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 grid justify-items-center px-4 sm:inset-x-auto sm:left-6 sm:bottom-6 sm:justify-items-start"
     >
       <AnimatePresence>
         {event && (
@@ -108,7 +122,7 @@ export function ActivityToasts() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 420, damping: 34 }}
-            className="flex max-w-[calc(100vw-2rem)] [grid-area:1/1] items-center gap-2.5 rounded-full bg-blink-navy-2/85 py-2 pl-2.5 pr-3.5 shadow-[0_12px_34px_-16px_rgba(0,0,0,0.9)] ring-1 ring-white/[0.09] backdrop-blur-xl"
+            className="glass-chrome flex max-w-[calc(100vw-2rem)] [grid-area:1/1] items-center gap-2.5 rounded-[var(--r-pill)] py-2 pl-2.5 pr-3.5"
           >
             <span
               aria-hidden
@@ -117,13 +131,13 @@ export function ActivityToasts() {
               <span className="absolute inset-0 animate-ping rounded-full bg-blink-sky/70" />
             </span>
 
-            <p className="truncate text-[0.78rem] font-medium text-white/75">
+            <p className="t-caption truncate font-medium text-white/75">
               <span className="font-bold text-white">@{event.handle}</span>{" "}
               {event.action}
             </p>
 
             {/* Not a live feed. Small, muted, but never absent. */}
-            <span className="shrink-0 rounded-full bg-white/[0.07] px-1.5 py-0.5 text-[0.55rem] font-bold uppercase tracking-[0.1em] text-white/35">
+            <span className="t-label shrink-0 rounded-[var(--r-pill)] bg-white/[0.07] px-1.5 py-0.5 text-[0.55rem] text-white/35">
               sample
             </span>
           </motion.div>

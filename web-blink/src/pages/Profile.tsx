@@ -115,7 +115,7 @@ export default function Profile() {
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-white/[0.06] px-3.5 text-xs font-bold text-white/80 ring-1 ring-white/10 transition-colors hover:bg-white/[0.11]"
+              className="focus-ring inline-flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-pill)] bg-white/[0.06] px-3.5 text-xs font-bold text-white/80 ring-1 ring-white/10 transition-colors hover:bg-white/[0.11]"
             >
               <Pencil className="h-3.5 w-3.5" />
               Edit
@@ -126,7 +126,7 @@ export default function Profile() {
               type="button"
               onClick={() => navigate("/settings")}
               aria-label={t.profilePage.settings}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.06] text-white/70 ring-1 ring-white/10 transition-colors hover:bg-white/[0.11] hover:text-white"
+              className="focus-ring inline-flex h-11 w-11 items-center justify-center rounded-[var(--r-pill)] bg-white/[0.06] text-white/70 ring-1 ring-white/10 transition-colors hover:bg-white/[0.11] hover:text-white"
             >
               <SettingsIcon className="h-4 w-4" />
             </button>

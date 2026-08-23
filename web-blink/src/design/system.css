@@ -1,0 +1,298 @@
+/*
+  The Blink design system.
+
+  One place for the decisions every surface shares: surfaces, ink, lines,
+  radius, elevation, materials and the motion constants. The landing and the
+  app both consume these, which is the point — the landing being premium while
+  the app looks like a dashboard is the failure this file exists to prevent.
+
+  ## How to use it
+
+  Reach for a *role*, not a value. `--surface-2` rather than a navy literal,
+  `--ink-2` rather than `white/55`. When a role is missing, add it here; the
+  moment a component invents its own value the system stops being one.
+
+  ## The two vocabularies
+
+  Content is Blink: solid surfaces, the sky accent, real weight. Chrome is
+  glass: navigation, selectors, floating controls, temporary feedback. Glass is
+  a material for things that sit *above* the content and need to show what they
+  are covering — never the content itself. An interface made entirely of glass
+  reads as a demo of glass.
+*/
+
+@layer base {
+  :root {
+    /* ── surfaces ────────────────────────────────────────────────────
+       A ramp, not a palette. Each step is a plane closer to the reader,
+       and nothing in the product should invent a step between them. */
+    --surface-0: 220 84% 7%;    /* the page itself */
+    --surface-1: 220 62% 11%;   /* a raised region */
+    --surface-2: 218 48% 15%;   /* a card */
+    --surface-3: 216 42% 19%;   /* a popover, a menu */
+
+    /* ── ink ─────────────────────────────────────────────────────────
+       Four weights. More than four and the hierarchy stops being read as
+       hierarchy; fewer and secondary text has nowhere to go. Expressed as
+       alpha on white so they hold up over any surface in the ramp. */
+    --ink-1: 1;      /* headings, numbers, anything that must be read first */
+    --ink-2: 0.68;   /* body */
+    --ink-3: 0.46;   /* secondary, captions */
+    --ink-4: 0.28;   /* hints, disabled, decoration that must still be seen */
+
+    /* ── lines ───────────────────────────────────────────────────────
+       Hairlines carry most of the structure in a dark interface, so they
+       are tokens rather than one-off `white/10`s. */
+    --line-1: 0.07;  /* a card's own edge */
+    --line-2: 0.12;  /* a division that matters */
+    --line-3: 0.2;   /* a focused or selected edge */
+
+    /* ── radius ──────────────────────────────────────────────────────
+       Geometric, so nested corners stay concentric: a control inside a
+       card inside a sheet reads as one object rather than three. */
+    --r-xs: 0.5rem;
+    --r-sm: 0.75rem;
+    --r-md: 1rem;
+    --r-lg: 1.5rem;
+    --r-xl: 2rem;
+    --r-2xl: 2.75rem;
+    --r-pill: 999px;
+
+    /* ── elevation ───────────────────────────────────────────────────
+       On a dark interface, height is carried by *light*, not by shadow.
+
+       These started as shadow alone — a tight contact shadow and a long
+       soft one per step — and rendered as three identical cards: a shadow
+       darker than an already near-black page has almost nothing to darken.
+       What actually reads as "closer to the reader" is the plane getting
+       lighter and its top edge catching more light, with the shadow only
+       separating it from what is behind.
+
+       So each step is three things at once, and they are applied together
+       by `.elev-1/2/3` below. Using the shadow on its own is what produced
+       the flat version.
+
+       The rim goes on top: a real edge is lit from above, and the
+       highlight is what makes a rectangle read as a surface with a
+       thickness rather than as a filled shape. */
+    --e-1: inset 0 1px 0 hsl(0 0% 100% / 0.05),
+           0 1px 2px hsl(220 90% 2% / 0.5),
+           0 3px 8px -2px hsl(220 90% 2% / 0.45);
+    --e-2: inset 0 1px 0 hsl(0 0% 100% / 0.08),
+           0 2px 4px hsl(220 90% 2% / 0.55),
+           0 14px 30px -8px hsl(220 90% 2% / 0.65);
+    --e-3: inset 0 1px 0 hsl(0 0% 100% / 0.13),
+           0 6px 12px hsl(220 90% 2% / 0.6),
+           0 34px 70px -18px hsl(220 90% 2% / 0.8);
+    --e-glow: inset 0 1px 0 hsl(0 0% 100% / 0.14),
+              0 12px 44px -10px hsl(var(--blink-sky-bright) / 0.45);
+
+    /* ── type ────────────────────────────────────────────────────────
+       Tracking tightens as size grows, which is the whole reason this is
+       a scale and not a set of font sizes: 14px at -0.04em is unreadable
+       and 56px at 0 is loose. */
+    --t-display: clamp(2.25rem, 1.2rem + 5.2vw, 4rem);
+    --t-title: clamp(1.65rem, 1.1rem + 2.6vw, 2.5rem);
+    --t-heading: clamp(1.25rem, 1rem + 1.1vw, 1.6rem);
+    --t-body-lg: 1.0625rem;
+    --t-body: 0.9375rem;
+    --t-caption: 0.8125rem;
+    --t-micro: 0.6875rem;
+
+    --track-display: -0.035em;
+    --track-title: -0.028em;
+    --track-heading: -0.02em;
+    --track-body: -0.006em;
+    --track-micro: 0.14em;
+
+    /* ── motion ──────────────────────────────────────────────────────
+       Durations for CSS. Springs live in `motion.ts`, because a spring is
+       not a duration and pretending otherwise is how interfaces end up
+       with everything easing at 300ms.
+
+       Short, because a transition is there to explain a change, and an
+       explanation that outlasts the reader's attention is decoration. */
+    --d-instant: 90ms;
+    --d-quick: 160ms;
+    --d-base: 240ms;
+    --d-slow: 420ms;
+
+    /* Decelerating. Things arrive quickly and settle; nothing in the
+       product accelerates away from the reader except when it is leaving. */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --ease-io: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+}
+
+@layer components {
+  /* ── elevation ───────────────────────────────────────────────────
+     Height, as one decision.
+
+     Surface *and* shadow, because on dark they are the same fact: a plane
+     that is higher is lighter and catches more edge light, and separating
+     the two is how an elevation scale ends up with three steps nobody can
+     tell apart. Reach for these rather than for `--e-*` directly. */
+  .elev-1 {
+    background: hsl(var(--surface-1));
+    border: 1px solid hsl(0 0% 100% / var(--line-1));
+    box-shadow: var(--e-1);
+  }
+
+  .elev-2 {
+    background: hsl(var(--surface-2));
+    border: 1px solid hsl(0 0% 100% / var(--line-2));
+    box-shadow: var(--e-2);
+  }
+
+  .elev-3 {
+    background: hsl(var(--surface-3));
+    border: 1px solid hsl(0 0% 100% / var(--line-2));
+    box-shadow: var(--e-3);
+  }
+
+  /* ── content surfaces ────────────────────────────────────────────
+     Solid. Content is Blink, and Blink is not made of glass. */
+  .surface {
+    background: hsl(var(--surface-2));
+    border: 1px solid hsl(0 0% 100% / var(--line-1));
+    border-radius: var(--r-lg);
+    box-shadow: var(--e-1);
+  }
+
+  .surface-raised {
+    background: linear-gradient(
+      168deg,
+      hsl(var(--surface-3)),
+      hsl(var(--surface-1))
+    );
+    border: 1px solid hsl(0 0% 100% / var(--line-2));
+    border-radius: var(--r-lg);
+    box-shadow: var(--e-2);
+  }
+
+  /* ── glass ───────────────────────────────────────────────────────
+     Three weights, for three jobs, and no more. Each one is a real
+     material: it blurs what is behind it, it is lit from above by a
+     hairline, and it sits on a shadow.
+
+     `saturate` is what stops backdrop blur turning everything behind it
+     grey — the blur averages colour away and the saturation puts it back,
+     which is most of the difference between glass and frosting. */
+  .glass-chrome {
+    background: hsl(var(--surface-1) / 0.62);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid hsl(0 0% 100% / var(--line-2));
+    box-shadow: var(--e-2), inset 0 1px 0 hsl(0 0% 100% / 0.09);
+  }
+
+  .glass-panel {
+    background: hsl(var(--surface-2) / 0.78);
+    backdrop-filter: blur(32px) saturate(160%);
+    -webkit-backdrop-filter: blur(32px) saturate(160%);
+    border: 1px solid hsl(0 0% 100% / var(--line-2));
+    box-shadow: var(--e-3), inset 0 1px 0 hsl(0 0% 100% / 0.08);
+  }
+
+  /* For a control *inside* something else: a segment in a selector, a
+     chip in a bar. Recessed rather than raised, so it reads as carved
+     into its parent instead of floating on it. */
+  .glass-inset {
+    background: hsl(0 0% 100% / 0.05);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid hsl(0 0% 100% / var(--line-1));
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.05);
+  }
+
+  /*
+    Where backdrop blur is unavailable, glass has to stop pretending.
+
+    Firefox behind a flag, older WebKit, and any browser where the user has
+    disabled it: `backdrop-filter` silently does nothing and a 62%
+    translucent panel becomes a smear of the content behind it. Falling back
+    to a solid surface is legible; a transparent one is not.
+  */
+  @supports not (backdrop-filter: blur(1px)) {
+    .glass-chrome {
+      background: hsl(var(--surface-1) / 0.97);
+    }
+    .glass-panel {
+      background: hsl(var(--surface-2) / 0.98);
+    }
+    .glass-inset {
+      background: hsl(0 0% 100% / 0.09);
+    }
+  }
+
+  /* ── focus ───────────────────────────────────────────────────────
+     One ring, everywhere, and it never depends on colour alone: the
+     offset gap is what makes it visible against both a card and the
+     page. */
+  .focus-ring:focus-visible {
+    outline: 2px solid hsl(var(--blink-sky));
+    outline-offset: 2px;
+  }
+
+  /* ── type roles ──────────────────────────────────────────────────
+     Size and tracking travel together or neither is worth having. */
+  .t-display {
+    font-size: var(--t-display);
+    line-height: 1.02;
+    letter-spacing: var(--track-display);
+    font-weight: 800;
+  }
+
+  .t-title {
+    font-size: var(--t-title);
+    line-height: 1.08;
+    letter-spacing: var(--track-title);
+    font-weight: 800;
+  }
+
+  .t-heading {
+    font-size: var(--t-heading);
+    line-height: 1.2;
+    letter-spacing: var(--track-heading);
+    font-weight: 700;
+  }
+
+  .t-body {
+    font-size: var(--t-body);
+    line-height: 1.6;
+    letter-spacing: var(--track-body);
+  }
+
+  .t-caption {
+    font-size: var(--t-caption);
+    line-height: 1.5;
+    letter-spacing: var(--track-body);
+  }
+
+  /* The smallest voice: a provenance mark, a unit, an aside. Sentence
+     case — it is `t-label` that shouts, and having both means neither has
+     to compromise. */
+  .t-micro {
+    font-size: var(--t-micro);
+    line-height: 1.45;
+    letter-spacing: var(--track-body);
+  }
+
+  /* Small, spaced, upper — the label voice. Tracking *opens* here, which
+     is the opposite of the display sizes and the reason both exist. */
+  .t-label {
+    font-size: var(--t-micro);
+    line-height: 1.4;
+    letter-spacing: var(--track-micro);
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  /* Figures that change while you watch them — a score counting, a rank
+     moving. Tabular, so the width never jitters between values. */
+  .t-numeric {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" on, "ss01" on;
+  }
+}

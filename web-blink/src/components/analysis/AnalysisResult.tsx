@@ -43,7 +43,7 @@ import { useState, type ReactNode } from "react";
 import { PerceptionCard, LENS_TINT } from "@/components/blink/PerceptionCard";
 import { PerceptionReveal } from "@/components/analysis/PerceptionReveal";
 import { buildRead } from "@/lib/perception-read";
-import { ScoreRing } from "@/components/blink/ScoreRing";
+import { ScoreVerdict } from "@/components/app/ScoreVerdict";
 import type { AnalysisResult as Analysis, Perspective } from "@/lib/analysis";
 import { useI18n, useT } from "@/lib/i18n";
 import type { Messages } from "@/lib/messages";
@@ -167,6 +167,8 @@ function Verdict({
   voice: Voice;
   revealStage: number;
 }) {
+  const t = useT();
+
   return (
     <div className="flex flex-col items-center text-center">
       <OwnershipBanner voice={voice} handle={result.handle} />
@@ -176,9 +178,13 @@ function Verdict({
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 28 }}
-          className="mt-6"
+          className="mt-6 w-full max-w-[15rem]"
         >
-          <ScoreRing value={result.overallScore} size={158} light />
+          <ScoreVerdict
+            value={result.overallScore}
+            label={t.analysis.blinkScore}
+            playKey={result.handle}
+          />
         </motion.div>
       )}
 

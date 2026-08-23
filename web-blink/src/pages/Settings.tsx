@@ -135,7 +135,7 @@ export default function Settings() {
                     });
                   }
                 }}
-                className="text-sm font-semibold text-blink-sky transition-colors hover:text-blink-sky-bright"
+                className="focus-ring inline-flex min-h-[44px] items-center rounded-[var(--r-sm)] text-sm font-semibold text-blink-sky transition-colors hover:text-blink-sky-bright"
               >
                 {t.settings.changePassword}
               </button>

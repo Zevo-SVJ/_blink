@@ -31,7 +31,7 @@ import { AuthModal } from "@/components/blink/AuthModal";
 import { CTAButton } from "@/components/blink/CTAButton";
 import { PageBackground } from "@/components/blink/PageBackground";
 import { useImmersive } from "@/components/app/AppChrome";
-import { ScoreRing } from "@/components/blink/ScoreRing";
+import { ScoreVerdict } from "@/components/app/ScoreVerdict";
 import { useAuth } from "@/hooks/useAuth";
 import {
   AnalysisError,
@@ -1568,9 +1568,13 @@ function LockedResult({
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: "spring", stiffness: 300, damping: 28 }}
-        className="mt-6"
+        className="mt-6 w-full max-w-[15rem]"
       >
-        <ScoreRing value={result.overallScore} size={170} light />
+        <ScoreVerdict
+          value={result.overallScore}
+          label={t.analysis.blinkScore}
+          playKey={result.handle}
+        />
       </motion.div>
 
       <motion.p

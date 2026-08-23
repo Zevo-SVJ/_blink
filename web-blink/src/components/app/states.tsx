@@ -38,7 +38,7 @@ export function LoadingState({ label }: { label?: string }) {
 
   return (
     <div
-      className="flex items-center gap-3 rounded-2xl bg-white/[0.035] p-5 ring-1 ring-white/[0.07]"
+      className="surface flex items-center gap-3 p-5"
       role="status"
     >
       <Spinner />
@@ -103,7 +103,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl bg-white/[0.035] p-8 text-center ring-1 ring-white/[0.07]">
+    <div className="surface p-8 text-center">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.06]">
         <Icon className="h-6 w-6 text-white/40" />
       </div>

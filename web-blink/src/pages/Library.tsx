@@ -20,7 +20,7 @@ import {
 import { categoryLabel } from "@/lib/categories";
 import { useI18n, useT } from "@/lib/i18n";
 import { getVoice } from "@/lib/ownership";
-import { computeBlinkScore, getTier } from "@/lib/ranking";
+import { computeBlinkScore, getTier, scoreOutOfTen } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "own" | "other";
@@ -140,7 +140,7 @@ function FilterTabs({
   ];
 
   return (
-    <div className="flex gap-1 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-1">
+    <div className="glass-inset flex gap-1 rounded-[var(--r-md)] p-1">
       {tabs.map((tab) => {
         const active = filter === tab.id;
         return (
@@ -149,14 +149,14 @@ function FilterTabs({
             type="button"
             onClick={() => onChange(tab.id)}
             className={cn(
-              "relative flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:text-sm",
+              "focus-ring relative min-h-[44px] flex-1 rounded-[var(--r-sm)] px-3 text-xs font-semibold transition-colors sm:text-sm",
               active ? "text-blink-navy" : "text-white/55 hover:text-white",
             )}
           >
             {active && (
               <motion.span
                 layoutId="library-tab"
-                className="absolute inset-0 rounded-xl bg-blink-sky"
+                className="absolute inset-0 rounded-[var(--r-sm)] bg-blink-sky"
                 transition={{ type: "spring", stiffness: 420, damping: 36 }}
               />
             )}
@@ -229,7 +229,9 @@ function AnalysisRow({
           </p>
         </div>
 
-        <span className="shrink-0 text-lg font-extrabold tabular-nums text-white">{score}</span>
+        <span className="t-numeric shrink-0 text-lg font-extrabold text-white">
+          {scoreOutOfTen(score)}
+        </span>
       </button>
 
       <button
@@ -237,7 +239,7 @@ function AnalysisRow({
         onClick={onDelete}
         disabled={deleting}
         aria-label={`Delete analysis of ${handle ?? "this profile"}`}
-        className="mr-2 shrink-0 rounded-xl p-2 text-white/25 transition-colors hover:bg-white/[0.06] hover:text-red-400 disabled:opacity-40"
+        className="focus-ring mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--r-md)] text-white/25 transition-colors hover:bg-white/[0.06] hover:text-red-400 disabled:opacity-40"
       >
         <Trash2 className="h-4 w-4" />
       </button>

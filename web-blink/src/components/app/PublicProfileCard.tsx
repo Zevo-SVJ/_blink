@@ -31,7 +31,7 @@ import { buildBadges, buildStatusBadges } from "@/lib/badges";
 import { categoryLabel } from "@/lib/categories";
 import { countryName, flagEmoji } from "@/lib/countries";
 import type { LeaderboardEntry } from "@/lib/leaderboard";
-import { MAX_SCORE, getTier, tierLabel } from "@/lib/ranking";
+import { MAX_SCORE, getTier, scoreOutOfTen, tierLabel } from "@/lib/ranking";
 import { isClaimed, VerifiedMark } from "@/components/app/VerifiedMark";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -150,9 +150,10 @@ export function PublicProfileCard({
           {t.analysis.blinkScore}
         </p>
         <div className="mt-1 flex items-baseline gap-3">
-          <span className="text-[3.25rem] font-extrabold leading-[0.9] tabular-nums tracking-tight text-white">
-            {view.score}
+          <span className="t-numeric text-[3.25rem] font-extrabold leading-[0.9] tracking-tight text-white">
+            {scoreOutOfTen(view.score)}
           </span>
+          <span className="t-numeric text-sm font-bold text-white/35">/ 10</span>
           <span className="text-sm font-bold uppercase tracking-[0.12em] text-blink-sky">
             {tierLabel(tier, t)}
           </span>

@@ -71,6 +71,17 @@ const en = {
   },
 
   /**
+   * The two halves of the problem, delivered over the opening eye.
+   *
+   * They are one sentence broken in two on purpose: the first is the part
+   * every reader already agrees with, the second is the turn.
+   */
+  problem: {
+    knows: "You know your profile.",
+    doesnt: "You don't know the impression it gives.",
+  },
+
+  /**
    * The film.
    *
    * Section chrome only. The words inside the picture live in
@@ -78,6 +89,19 @@ const en = {
    * out in a document — and because they are baked into a rendered file, not
    * read from here at runtime.
    */
+  experience: {
+    eyebrow: "What Blink does",
+    actProfile: "A profile. Nothing else.",
+    actAnalysis: "Blink reads it.",
+    actGaze: "Who's looking?",
+    actNiche: "Measured against a niche.",
+    actScore: "That's the score.",
+    whosLooking: "Who's looking",
+    measuredAs: "Measured as",
+    outOfTen: "out of 10",
+    sample: "A sample profile, so you can see the whole thing before you upload anything.",
+  },
+
   film: {
     eyebrow: "In twenty seconds",
     heading: "This is what Blink does.",
@@ -87,20 +111,54 @@ const en = {
 
   howItWorks: {
     eyebrow: "How it works",
-    heading: "One screenshot becomes a perception.",
+    heading: "Four steps. One screenshot.",
     subtitle:
-    "Blink reads your profile the way a person would, then shows you what each kind of person walks away with.",
+    "The same capture carries all the way through — it is never swapped for something else.",
     cta: "See mine",
-    stepScreenshot: "Your screenshot",
-    stepReads: "Blink reads it",
-    stepPerceptions: "Six perceptions",
-    /** The demo cards. Sample output, so it is labelled as such. */
+    /** The demo output. Sample output, so it is labelled as such. */
     sample: "Example result",
     signals: {
       visualIdentity: "Visual identity",
       aesthetic: "Aesthetic",
       confidence: "Confidence",
     },
+    /** What the read marks on the capture. */
+    regions: {
+      photo: "Photo",
+      bio: "Bio",
+      grid: "Grid",
+    },
+    /**
+     * The four steps. `label` names the step in the selector, `title` and
+     * `body` say what happens in it.
+     */
+    steps: {
+      capture: {
+        label: "Capture",
+        title: "Screenshot the profile.",
+        body: "Yours, or anyone's. One image is the whole input — no login, no Instagram connection.",
+      },
+      upload: {
+        label: "Upload",
+        title: "Drop it into Blink.",
+        body: "It goes straight to the analysis. Nothing is posted anywhere.",
+      },
+      read: {
+        label: "Read",
+        title: "Blink reads what a person would.",
+        body: "Photo, bio, grid — the three things anyone judges in the first three seconds.",
+      },
+      score: {
+        label: "Score",
+        title: "You get a score out of ten.",
+        body: "How well the profile fits the niche it is read against — not how likeable you are.",
+      },
+    },
+    /** Step four's card. */
+    outOfTen: "/ 10",
+    measuredAgainst: "Measured against",
+    exampleNiche: "Photography",
+    progress: "Step",
   },
 
   /**
@@ -140,6 +198,30 @@ const en = {
     },
   },
 
+  /**
+   * The landing's activity ticker.
+   *
+   * Illustrative, and marked as such wherever it is shown — see
+   * `lib/activity.ts`. These lived in that file as English literals, so the
+   * French landing announced that someone "got a Magnetic verdict".
+   */
+  activity: {
+    actions: [
+      "scanned a profile",
+      "just got read by a stranger",
+      "checked how their crush sees them",
+      "climbed into the top 100",
+      "ran their first Blink",
+      "compared two profiles",
+      "moved up 12 places",
+      "unlocked a new category",
+      "re-scanned after a redesign",
+      "found out they read as a Larp",
+      "sent their result to a friend",
+      "got a Magnetic verdict",
+    ],
+  },
+
   leaderboardSection: {
     eyebrow: "Where it goes",
     heading: "There's a leaderboard.",
@@ -152,6 +234,11 @@ const en = {
     captionLarp: "Larp — one of Blink's categories.",
     captionBadges: "Rank high enough and it becomes status.",
     illustrative: "Illustration — not live standings",
+    /* The board's own chrome. It was English literals in the component, so the
+       French page showed a row labelled "You" under a header saying "Global". */
+    you: "You",
+    global: "Global",
+    thisWeek: "This week",
   },
 
   testimonials: {
@@ -385,7 +472,7 @@ const en = {
     rank: "Rank",
     best: "Best",
     streak: "Streak",
-    toNextTier: "{points} points to {tier}. A higher rank means a more optimized profile.",
+    toNextTier: "{points} to go before {tier}. A higher score means a profile that reads more clearly.",
     viewFullProfile: "View full profile",
   },
 
@@ -675,6 +762,24 @@ const fr: Messages = {
     "Blink analyse ta présence Instagram et révèle la première impression que tu donnes.",
   },
 
+  problem: {
+    knows: "Tu connais ton profil.",
+    doesnt: "Tu ne connais pas l'impression qu'il donne.",
+  },
+
+  experience: {
+    eyebrow: "Ce que fait Blink",
+    actProfile: "Un profil. Rien d'autre.",
+    actAnalysis: "Blink le lit.",
+    actGaze: "Qui regarde ?",
+    actNiche: "Mesuré pour une niche.",
+    actScore: "Voilà le score.",
+    whosLooking: "Qui regarde",
+    measuredAs: "Mesuré comme",
+    outOfTen: "sur 10",
+    sample: "Un profil d'exemple, pour tout voir avant d'envoyer quoi que ce soit.",
+  },
+
   film: {
     eyebrow: "En vingt secondes",
     heading: "Voilà ce que fait Blink.",
@@ -684,19 +789,47 @@ const fr: Messages = {
 
   howItWorks: {
     eyebrow: "Comment ça marche",
-    heading: "Une capture devient une perception.",
+    heading: "Quatre étapes. Une capture.",
     subtitle:
-    "Blink lit ton profil comme le ferait quelqu'un, puis te montre ce que chaque type de personne en retient.",
+    "La même capture va jusqu'au bout — elle n'est jamais remplacée par autre chose.",
     cta: "Voir la mienne",
-    stepScreenshot: "Ta capture",
-    stepReads: "Blink la lit",
-    stepPerceptions: "Six perceptions",
     sample: "Exemple de résultat",
     signals: {
       visualIdentity: "Identité visuelle",
       aesthetic: "Esthétique",
       confidence: "Assurance",
     },
+    regions: {
+      photo: "Photo",
+      bio: "Bio",
+      grid: "Grille",
+    },
+    steps: {
+      capture: {
+        label: "Capture",
+        title: "Fais une capture du profil.",
+        body: "Le tien, ou celui de n'importe qui. Une image suffit — sans connexion, sans lier Instagram.",
+      },
+      upload: {
+        label: "Envoi",
+        title: "Dépose-la dans Blink.",
+        body: "Elle part directement à l'analyse. Rien n'est publié nulle part.",
+      },
+      read: {
+        label: "Lecture",
+        title: "Blink lit ce qu'une personne lirait.",
+        body: "Photo, bio, grille — les trois choses que tout le monde juge en trois secondes.",
+      },
+      score: {
+        label: "Score",
+        title: "Tu obtiens une note sur dix.",
+        body: "À quel point le profil colle à la niche sur laquelle il est lu — pas à quel point tu es sympathique.",
+      },
+    },
+    outOfTen: "/ 10",
+    measuredAgainst: "Mesuré sur",
+    exampleNiche: "Photographie",
+    progress: "Étape",
   },
 
   perceptions: {
@@ -732,6 +865,23 @@ const fr: Messages = {
     },
   },
 
+  activity: {
+    actions: [
+      "a scanné un profil",
+      "vient d'être lu par un inconnu",
+      "a vu comment son crush le voit",
+      "est entré dans le top 100",
+      "a lancé son premier Blink",
+      "a comparé deux profils",
+      "a gagné 12 places",
+      "a débloqué une nouvelle catégorie",
+      "a rescanné après un relooking",
+      "a découvert qu'il se lit comme un Larp",
+      "a envoyé son résultat à un ami",
+      "a obtenu un verdict Magnétique",
+    ],
+  },
+
   leaderboardSection: {
     eyebrow: "La suite",
     heading: "Il y a un classement.",
@@ -744,6 +894,9 @@ const fr: Messages = {
     captionLarp: "Larp — une des catégories de Blink.",
     captionBadges: "Monte assez haut et ça devient un statut.",
     illustrative: "Illustration — classement non réel",
+    you: "Toi",
+    global: "Global",
+    thisWeek: "Cette semaine",
   },
 
   testimonials: {
@@ -968,7 +1121,7 @@ const fr: Messages = {
     rank: "Rang",
     best: "Record",
     streak: "Série",
-    toNextTier: "{points} points avant {tier}. Un meilleur rang veut dire un profil mieux optimisé.",
+    toNextTier: "{points} avant {tier}. Un score plus haut veut dire un profil qui se lit plus clairement.",
     viewFullProfile: "Voir le profil complet",
   },
 

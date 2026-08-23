@@ -1,3 +1,8 @@
+/* The design system: surfaces, ink, lines, radius, elevation, materials,
+   type roles and the motion constants. Everything else consumes these.
+   First, because `@import` has to precede every other statement. */
+@import "./design/system.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
