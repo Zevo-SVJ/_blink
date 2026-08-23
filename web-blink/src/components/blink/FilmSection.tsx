@@ -131,16 +131,27 @@ export function FilmSection() {
     confusing as it sounds.
   */
   useEffect(() => {
-    if (wanted) video.current?.load();
+    const el = video.current;
+    /*
+      Only if it has not already started.
+
+      `load()` on an element that is mid-playback resets it: readyState drops
+      back to 0 and the film stops. Now that the viewport observer is what
+      starts playback, its `play()` can easily win the race and be undone a
+      moment later by this — which is exactly as intermittent as it sounds.
+      There is nothing to ask for if the browser already went and got it.
+    */
+    if (wanted && el && el.readyState === 0) el.load();
   }, [wanted]);
 
   /*
-    Play only while it is on screen.
+    Play only while it is on screen — and only if motion is wanted.
 
-    `autoPlay` alone starts the film behind the fold, so by the time the reader
-    arrives the hook has already gone past — and a hook nobody sees is the one
-    thing this film cannot afford. A 40% threshold means it starts when the
-    frame is properly in view rather than when one pixel of it is.
+    This is the only thing that starts the film. The `autoPlay` attribute
+    starts it behind the fold, so by the time the reader arrives the hook has
+    already gone past — and a hook nobody sees is the one thing this film
+    cannot afford. A 40% threshold means it starts when the frame is properly
+    in view rather than when one pixel of it is.
   */
   useEffect(() => {
     const el = video.current;
@@ -154,19 +165,93 @@ export function FilmSection() {
       you are watching it with the sound on. The first interaction with the
       controls hands ownership over for good.
     */
+    /*
+      Somebody who has asked their system for less motion has asked for this
+      too. The poster still shows, and the controls still work: the film is
+      available, it just does not start itself. That is the difference between
+      honouring the preference and hiding the content.
+    */
+    const still =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    if (still) return;
+
     let owned = false;
+    /*
+      Our own pauses are not the viewer taking over.
+
+      `pause()` fires a `pause` event exactly like the button does, so the
+      first time this observer paused the film for being off screen it handed
+      ownership to a viewer who had not touched anything — and then refused to
+      ever start it again. Whether that bit landed depended on which way the
+      very first intersection callback happened to go, which is why it only
+      showed up on a page without prerendered markup.
+
+      The event alone cannot say who caused it, so the test is intent: a pause
+      that arrives while this code wanted the film playing is the viewer's.
+      Volume and scrubbing have no such ambiguity — nothing here touches them.
+    */
+    let want = false;
+    const claimPause = () => {
+      if (want) owned = true;
+    };
+    /*
+      React sets `muted` as a property after mount, and that fires
+      `volumechange` — so on any page where the attribute was not already in
+      the markup, the film handed ownership to a viewer who had not arrived
+      yet, on the very first frame, and then never played. The element ships
+      muted at volume 1 and nothing here ever changes that, so anything else
+      is the viewer.
+    */
+    const claimVolume = () => {
+      if (!el.muted || el.volume !== 1) owned = true;
+    };
     const claim = () => {
       owned = true;
     };
-    el.addEventListener("pause", claim);
-    el.addEventListener("volumechange", claim);
+    el.addEventListener("pause", claimPause);
+    el.addEventListener("volumechange", claimVolume);
     el.addEventListener("seeking", claim);
+
+    /*
+      Visibility is remembered, and the decision is re-made when the file
+      arrives.
+
+      The section loads its video lazily, so the first time the frame scrolls
+      into view there is very often nothing decoded yet: `play()` on a video at
+      `readyState 0` rejects, and an IntersectionObserver does not fire again
+      for an element that never stopped being visible. The film then sat on its
+      poster forever. Asking again on `canplay` is what closes that gap.
+    */
+    let visible = false;
+    const sync = () => {
+      if (owned) return;
+      if (!visible) {
+        want = false;
+        el.pause();
+        return;
+      }
+      /*
+        Being in view is the strongest possible signal that the file is
+        wanted, so it also opens the preload gate above. Those two gates are
+        driven by separate observers and the load one can lose: it waits for
+        `window.load`, and on a dev server that can arrive well after the
+        reader is already looking at the frame. When it did, `preload` stayed
+        "none", nothing was ever fetched, and the one intersection callback
+        this observer gets had nothing to play.
+      */
+      setWanted(true);
+      want = true;
+      void el.play().catch(() => {});
+    };
+
+    el.addEventListener("canplay", sync);
+    el.addEventListener("loadeddata", sync);
 
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (owned) return;
-        if (entry.isIntersecting) void el.play().catch(() => {});
-        else el.pause();
+        visible = entry.isIntersecting;
+        sync();
       },
       { threshold: 0.4 },
     );
@@ -174,8 +259,10 @@ export function FilmSection() {
 
     return () => {
       io.disconnect();
-      el.removeEventListener("pause", claim);
-      el.removeEventListener("volumechange", claim);
+      el.removeEventListener("canplay", sync);
+      el.removeEventListener("loadeddata", sync);
+      el.removeEventListener("pause", claimPause);
+      el.removeEventListener("volumechange", claimVolume);
       el.removeEventListener("seeking", claim);
     };
   }, [wanted]);
@@ -213,7 +300,13 @@ export function FilmSection() {
             muted
             playsInline
             loop
-            autoPlay
+            // No `autoPlay` attribute. The observer above owns playback
+            // entirely: the attribute starts the film the moment it can,
+            // which is behind the fold, and — the reason it had to go — the
+            // browser honours it before any of our code runs, so a viewer who
+            // asked their system for less motion got the film playing anyway.
+            // If there is no IntersectionObserver the film simply waits; the
+            // controls are right there.
             preload={wanted ? "auto" : "none"}
             poster={poster}
             // The viewer's own controls: play, pause, scrub, volume,

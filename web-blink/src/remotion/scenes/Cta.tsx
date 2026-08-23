@@ -1,29 +1,26 @@
 /**
- * Scene 6 — the product, and the ask. 10.0s to 12.0s.
+ * 22–25s — the app, and the ask.
  *
- * Somebody who has never heard of Blink has to finish this knowing what it
- * does, and claims do not achieve that — watching it be used does. So the last
- * two seconds are the actual interaction: a handle typed into a field, a
- * button pressed, and then the line.
+ * Everything before this has been metaphor. The last three seconds are the
+ * literal thing: a field, a handle typed into it, a button pressed. Somebody
+ * who has followed the objects still needs to be told what to *do*, and the
+ * only honest way to show that is to show the product.
  *
- * The typing is real frame work rather than a dissolve between empty and full:
- * a character every two frames, a caret on a two-thirds duty cycle, and a key
- * click per character in the cue sheet. The button has a genuine press state —
- * down to 0.95 and back — because a button that lights up without moving does
- * not read as having been pushed.
+ * The typing is nervous on purpose — a character every two frames with the
+ * caret blinking on its own cycle, not a dissolve between empty and full.
  */
 
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
-import { lids, CX, W, H, irisCentre, irisRadius, PUPIL_RATIO } from "@/components/blink/eye-geometry";
+import { lids, CX, irisCentre, irisRadius, PUPIL_RATIO } from "@/components/blink/eye-geometry";
 import { Camera } from "../motion/Camera";
-import { Crash, Label } from "../motion/Kinetic";
+import { Crash, fitBlock } from "../motion/Kinetic";
 import { springAt } from "../motion/springs";
 import type { FilmCopy } from "../copy";
 import { a, C, FONT, T, WIDTH } from "../theme";
-import { at, KEY_EVERY, PRESS, SLOGAN, TYPE_FROM } from "../timeline";
+import { APP_IN, CTA_BUTTON, KEY_EVERY, PRESS, SLOGAN, TYPE_FROM, at } from "../timeline";
 
-/** The eye, cropped to itself so it works as a small mark. */
+/** The eye, cropped to itself so it works as a mark beside a line of type. */
 function Mark({ width }: { width: number }) {
   return (
     <svg viewBox="400 430 600 290" style={{ width }} fill="none">
@@ -38,22 +35,28 @@ export function Cta({ copy }: { copy: FilmCopy }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const cardIn = springAt({ frame, fps, start: at("cta"), preset: "crash" });
+  const arrive = springAt({ frame, fps, start: APP_IN, preset: "crash" });
   const typed = Math.max(
     0,
     Math.min(copy.typed.length, Math.floor((frame - TYPE_FROM) / KEY_EVERY)),
   );
-  const caretOn = Math.floor(frame / 7) % 3 !== 2;
   const done = typed >= copy.typed.length;
+  const caretOn = Math.floor(frame / 7) % 3 !== 2;
 
-  /* Down then back: 0.95 over three frames, released over five. */
+  /* Down and back. A button that lights up without moving has not been
+     pushed. */
   const press = interpolate(frame, [PRESS, PRESS + 3, PRESS + 8], [1, 0.95, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  /* The card gets out of the way for the slogan rather than cross-fading
-     under it. */
+  /* One size for the three slogan lines, and the ask arriving under them. */
+  const sloganSize = fitBlock(copy.slogan, T.big, WIDTH - 104);
+  const ask = springAt({ frame, fps, start: CTA_BUTTON, preset: "slam" });
+  /* Never a still last frame: the button keeps breathing after it lands. */
+  const breathe = Math.sin((frame - CTA_BUTTON) / 6.5) * 0.5 + 0.5;
+
+  /* The card leaves the frame rather than dissolving under the slogan. */
   const clear = interpolate(frame, [SLOGAN - 4, SLOGAN + 6], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -64,55 +67,63 @@ export function Cta({ copy }: { copy: FilmCopy }) {
     <AbsoluteFill style={{ background: C.bg }}>
       <AbsoluteFill
         style={{
-          background: `radial-gradient(70% 46% at 50% 46%, ${a(C.bright, 0.19)}, transparent 74%)`,
+          background: `radial-gradient(70% 46% at 50% 46%, ${a(C.bright, 0.2)}, transparent 74%)`,
         }}
       />
 
-      <Camera drift={0.045} driftOver={60} shake={{ at: PRESS, amount: 9, decay: 3 }}>
-        {/* The product. */}
+      <Camera
+        drift={0.045}
+        driftOver={90}
+        /* Settles at 1.14, not 1. The panel is 920px in a 1920-tall frame, so
+           at rest it filled less than a quarter of the height and the product
+           — the one literal thing in the film — read as a small card floating
+           in a lot of nothing. Not more than that: at 1.14 the 920px card
+           reaches past both edges of the frame and loses its corners. The
+           rest of the height comes from the card itself. */
+        zoom={[1.55, 1.04]}
+        over={[APP_IN, APP_IN + 14]}
+        shake={{ at: PRESS, amount: 10, decay: 3 }}
+      >
         <AbsoluteFill
           style={{
             alignItems: "center",
             justifyContent: "center",
-            /* All the way out of frame. At 420px it was still on screen and
-               the opacity was doing the work, which is the one thing this
-               film is not allowed to do. */
             transform: `translateY(${-clear * 1500}px) scale(${1 - clear * 0.2})`,
           }}
         >
           <div
             style={{
-              width: 900,
+              width: 920,
               borderRadius: 52,
               background: `linear-gradient(170deg, ${C.bgLift}, ${C.navy})`,
-              border: "2px solid rgba(255,255,255,0.11)",
-              padding: 52,
-              boxShadow: "0 60px 150px rgba(0,0,0,0.6)",
-              transform: `scale(${0.86 + cardIn * 0.14})`,
-              opacity: Math.min(1, cardIn * 4),
+              border: `2px solid ${a(C.white, 0.11)}`,
+              padding: 62,
+              boxShadow: `0 60px 150px ${a("hsl(0 0% 0%)", 0.6)}`,
+              transform: `scale(${0.88 + arrive * 0.12})`,
+              opacity: Math.min(1, (frame - APP_IN) / 3),
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 32 }}>
-              <Mark width={108} />
+            <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 38 }}>
+              <Mark width={106} />
               <div
                 style={{
                   fontFamily: FONT,
-                  fontSize: 42,
+                  fontSize: 40,
                   fontWeight: 800,
                   letterSpacing: "-0.02em",
                   color: C.white,
                 }}
               >
-                {copy.brand}
+                {copy.appTitle}
               </div>
             </div>
 
             <div
               style={{
-                height: 126,
-                borderRadius: 28,
-                background: "rgba(255,255,255,0.07)",
-                border: `3px solid ${typed > 0 ? `${a(C.sky, 0.67)}` : "rgba(255,255,255,0.13)"}`,
+                height: 142,
+                borderRadius: 30,
+                background: a(C.white, 0.07),
+                border: `3px solid ${typed > 0 ? a(C.sky, 0.7) : a(C.white, 0.13)}`,
                 display: "flex",
                 alignItems: "center",
                 padding: "0 34px",
@@ -137,12 +148,12 @@ export function Cta({ copy }: { copy: FilmCopy }) {
 
             <div
               style={{
-                marginTop: 28,
-                height: 118,
-                borderRadius: 28,
+                marginTop: 32,
+                height: 136,
+                borderRadius: 30,
                 background: done
                   ? `linear-gradient(100deg, ${C.sky}, ${C.white})`
-                  : "rgba(255,255,255,0.07)",
+                  : a(C.white, 0.07),
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -151,6 +162,7 @@ export function Cta({ copy }: { copy: FilmCopy }) {
                 fontWeight: 800,
                 color: done ? C.navy : C.faint,
                 transform: `scale(${press})`,
+                boxShadow: done ? `0 24px 70px ${a(C.bright, 0.35)}` : undefined,
               }}
             >
               {copy.button}
@@ -158,41 +170,96 @@ export function Cta({ copy }: { copy: FilmCopy }) {
           </div>
         </AbsoluteFill>
 
-        {/* The ask. */}
         {frame >= SLOGAN && (
           <AbsoluteFill
-            style={{ alignItems: "center", justifyContent: "center", padding: "0 52px" }}
+            style={{
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0 52px",
+              gap: 8,
+              /* Lifted, so the ask below it has somewhere to be. */
+              transform: "translateY(-120px)",
+            }}
           >
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-              {copy.slogan.map((line, i) => {
-                const start = SLOGAN + i * 4;
-                if (frame < start) return null;
-                return (
-                  <Crash
-                    key={line}
-                    start={start}
-                    from={2.4}
-                    size={T.big}
-                    column={WIDTH - 104}
-                    color={i === 2 ? C.sky : C.white}
-                  >
-                    {line}
-                  </Crash>
-                );
-              })}
-            </div>
+            {copy.slogan.map((line, i) => {
+              const start = SLOGAN + i * 4;
+              if (frame < start) return null;
+              return (
+                <Crash
+                  key={line}
+                  start={start}
+                  from={2.4}
+                  size={sloganSize}
+                  fit={false}
+                  color={i === copy.slogan.length - 1 ? C.sky : C.white}
+                >
+                  {line}
+                </Crash>
+              );
+            })}
           </AbsoluteFill>
         )}
       </Camera>
 
-      {frame >= SLOGAN + 8 && (
+      {/* The ask.
+
+          The film used to end on the slogan with a small mark under it and
+          then hold that same frame for three quarters of a second — a logo
+          placed in the middle of the screen, which is the one ending the
+          brief rules out. This is the thing to *do*, on a button that arrives
+          on a spring and keeps breathing, with the mark reduced to a
+          signature beside it. */}
+      {frame >= CTA_BUTTON && (
         <AbsoluteFill
-          style={{ alignItems: "center", justifyContent: "flex-end", paddingBottom: 200, gap: 18 }}
+          style={{ alignItems: "center", justifyContent: "center", transform: "translateY(200px)" }}
         >
-          <Mark width={132} />
-          <Label start={SLOGAN + 8} color={C.sky} size={38}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 22,
+              padding: "30px 62px",
+              borderRadius: 999,
+              background: `linear-gradient(100deg, ${C.sky}, ${C.white})`,
+              boxShadow: `0 26px 90px ${a(C.bright, 0.42 + breathe * 0.16)}`,
+              transform: `scale(${(0.72 + ask * 0.28) * (1 + breathe * 0.022)})`,
+              opacity: Math.min(1, (frame - CTA_BUTTON) / 3),
+            }}
+          >
+            <Mark width={78} />
+            <div
+              style={{
+                fontFamily: FONT,
+                fontSize: 52,
+                fontWeight: 800,
+                letterSpacing: "-0.01em",
+                color: C.navy,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {copy.cta}
+            </div>
+          </div>
+        </AbsoluteFill>
+      )}
+
+      {frame >= CTA_BUTTON + 6 && (
+        <AbsoluteFill
+          style={{ alignItems: "center", justifyContent: "flex-end", paddingBottom: 118 }}
+        >
+          <div
+            style={{
+              fontFamily: FONT,
+              fontSize: 36,
+              fontWeight: 800,
+              letterSpacing: "0.34em",
+              textTransform: "uppercase",
+              color: a(C.sky, 0.72),
+              opacity: Math.min(1, (frame - CTA_BUTTON - 6) / 4),
+            }}
+          >
             {copy.brand}
-          </Label>
+          </div>
         </AbsoluteFill>
       )}
     </AbsoluteFill>

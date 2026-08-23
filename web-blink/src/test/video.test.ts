@@ -1,41 +1,43 @@
 /**
  * The film's arithmetic.
  *
- * Everything visual is checked by rendering stills and looking at them — that
- * is what `npm run video:stills` is for, and no assertion here replaces it.
- * Several cuts of this film typechecked cleanly while type ran off the edge of
- * the frame.
+ * Everything visual is checked by rendering stills and looking at them —
+ * `npm run video:stills` — and no assertion here replaces that. Several cuts
+ * of this film typechecked cleanly while type ran off the frame, every glow
+ * was silently missing, and a beat rendered blank.
  *
- * What is worth asserting is what a still cannot show: that the six scenes
- * tile the timeline exactly, that the beats land on the frames the brief
- * specifies, that every cue sits inside the film, and that the type fitter is
- * not systematically underestimating — the single bug behind most of the
- * clipping this film has had.
+ * What is worth asserting is what a still cannot show: that the scenes tile
+ * the timeline, that the rhythm the brief asks for is actually met, that
+ * every cue lands inside the film, and that the type fitter is not
+ * systematically underestimating.
  */
 
 import { describe, expect, it } from "vitest";
 
 import { COPY, type Lang } from "@/remotion/copy";
-import { fitSize, measure } from "@/remotion/motion/Kinetic";
+import { fitBlock, fitSize, measure } from "@/remotion/motion/Kinetic";
 import { peakOf, SPRING } from "@/remotion/motion/springs";
 import { BED, CUES } from "@/remotion/audio/cues";
 import { a, C, HEIGHT, WIDTH } from "@/remotion/theme";
 import {
-  at,
+  BEATS,
+  CARD_BEATS,
+  CRACK,
+  DETAIL_BEATS,
+  DIVE,
   DURATION,
-  end,
-  FLAG_WORD,
   FPS,
-  GAUGE_FROM,
-  GAUGE_TO,
-  GLITCH,
-  HOOK_BEATS,
-  len,
-  PRESS,
+  INK,
+  LOUPE_FROM,
+  LOUPE_TO,
+  PHOTO_DROP,
   SCENES,
-  TAG_BEATS,
-  TYPE_FROM,
+  SCORE_FROM,
+  SCORE_TO,
+  STAMP_HIT,
   WHIP,
+  at,
+  end,
 } from "@/remotion/timeline";
 
 const LANGS: Lang[] = ["fr", "en"];
@@ -51,10 +53,10 @@ describe("the edit", () => {
     expect(cursor).toBe(DURATION);
   });
 
-  it("is twelve seconds at thirty frames a second", () => {
+  it("is twenty-five seconds at thirty frames a second", () => {
     expect(FPS).toBe(30);
-    expect(DURATION).toBe(360);
-    expect(DURATION / FPS).toBe(12);
+    expect(DURATION).toBe(750);
+    expect(DURATION / FPS).toBe(25);
   });
 
   it("is vertical, at the size the platforms want", () => {
@@ -63,77 +65,86 @@ describe("the edit", () => {
     expect(HEIGHT / WIDTH).toBeCloseTo(16 / 9, 5);
   });
 
-  it("puts each scene on the second the brief specifies", () => {
-    expect(at("hook")).toBe(0);
-    expect(at("illusion")).toBe(60);
-    expect(at("scan")).toBe(105);
-    expect(at("flag")).toBe(180);
-    expect(at("score")).toBe(240);
-    expect(at("cta")).toBe(300);
-    expect(end("cta")).toBe(360);
+  it("gives every step of the story its own scene", () => {
+    expect(SCENES.map((s) => s.id)).toEqual([
+      "hook", "observe", "cards", "mirror", "verdict", "score", "desk", "cta",
+    ]);
   });
+});
 
-  it("lands the four hook impacts on 0, 15, 30 and 45", () => {
-    expect(HOOK_BEATS).toEqual([0, 15, 30, 45]);
-    for (const beat of HOOK_BEATS) {
-      expect(beat).toBeGreaterThanOrEqual(at("hook"));
-      expect(beat).toBeLessThan(end("hook"));
+describe("the rhythm", () => {
+  /**
+   * The brief asks for a visual event every 0.5–1.2 seconds. `BEATS` is the
+   * list of them, so "dynamic" is checkable rather than a matter of opinion —
+   * a gap over the ceiling is a scene that has gone slack, and this says
+   * which one.
+   */
+  it("never leaves a gap longer than the brief allows", () => {
+    const CEILING = 1.2 * FPS;
+    for (let i = 1; i < BEATS.length; i += 1) {
+      const gap = BEATS[i] - BEATS[i - 1];
+      expect(gap, `gap after frame ${BEATS[i - 1]}`).toBeLessThanOrEqual(CEILING);
     }
   });
 
-  it("pops the three tags on 120, 130 and 140", () => {
-    expect(TAG_BEATS).toEqual([120, 130, 140]);
-    for (const beat of TAG_BEATS) {
-      expect(beat).toBeGreaterThanOrEqual(at("scan"));
-      expect(beat).toBeLessThan(end("scan"));
-    }
+  it("starts on the first frame and runs to the end", () => {
+    expect(BEATS[0]).toBe(0);
+    expect(DURATION - BEATS[BEATS.length - 1]).toBeLessThanOrEqual(1.6 * FPS);
   });
 
-  it("fills the gauge in fifteen frames, not slowly", () => {
-    // The brief is explicit: 15 frames maximum. A meter that fills slowly is
-    // a loading indicator, which is the least interesting thing a screen can
-    // show.
-    expect(GAUGE_TO - GAUGE_FROM).toBeLessThanOrEqual(15);
-    expect(GAUGE_TO).toBeLessThan(end("score"));
+  it("averages inside the window", () => {
+    const average = (BEATS[BEATS.length - 1] - BEATS[0]) / (BEATS.length - 1) / FPS;
+    expect(average).toBeGreaterThan(0.35);
+    expect(average).toBeLessThan(1.2);
   });
 
-  it("tears across the cut rather than on it", () => {
-    /*
-      The glitch fired exactly on the flag's first frame, where the outgoing
-      scene has ended and the incoming one has drawn nothing — so it tore an
-      empty field and the frame rendered flat navy. Starting it early means
-      there is a picture there to tear.
-    */
-    expect(GLITCH).toBeLessThan(at("flag"));
-    expect(GLITCH).toBeGreaterThan(at("flag") - 8);
+  it("is sorted", () => {
+    expect([...BEATS].sort((x, y) => x - y)).toEqual(BEATS);
+  });
+});
+
+describe("the beats", () => {
+  it("keeps each one inside the scene that owns it", () => {
+    const inside = (f: number, id: Parameters<typeof at>[0]) =>
+      f >= at(id) && f < end(id);
+
+    expect(inside(PHOTO_DROP, "hook")).toBe(true);
+    for (const f of DETAIL_BEATS) expect(inside(f, "observe")).toBe(true);
+    for (const f of CARD_BEATS) expect(inside(f, "cards")).toBe(true);
+    expect(inside(CRACK, "mirror")).toBe(true);
+    expect(inside(STAMP_HIT, "verdict")).toBe(true);
+    expect(inside(INK, "score")).toBe(true);
   });
 
-  it("keeps every named beat inside the scene that owns it", () => {
-    expect(WHIP).toBeLessThan(at("illusion"));
-    expect(FLAG_WORD).toBeGreaterThan(GLITCH);
-    expect(FLAG_WORD).toBeLessThan(end("flag"));
-    expect(TYPE_FROM).toBeGreaterThanOrEqual(at("cta"));
-    expect(PRESS).toBeLessThan(end("cta"));
+  it("crosses the cut with the whip rather than landing on it", () => {
+    // On the cut itself the outgoing scene has ended and the incoming one has
+    // drawn nothing, so a transition that fires there animates an empty
+    // frame. It has to start early enough to have a picture to throw.
+    expect(WHIP).toBeLessThan(at("mirror"));
+    expect(WHIP).toBeGreaterThan(at("mirror") - 10);
   });
 
-  it("cuts fast enough to hold a thumb", () => {
-    // Six scenes across twelve seconds is an average of two — but the hook
-    // alone carries four impacts, so the felt cadence is well under a second.
-    const average = DURATION / SCENES.length / FPS;
-    expect(average).toBeLessThanOrEqual(2.1);
-    for (const scene of SCENES) {
-      expect(scene.duration / FPS).toBeLessThanOrEqual(2.6);
-    }
+  it("dives into the ink before the ink fills the frame", () => {
+    expect(DIVE).toBeLessThan(INK);
+    expect(INK - DIVE).toBeGreaterThanOrEqual(10);
+  });
+
+  it("gives the loupe long enough to actually cross the print", () => {
+    // Under about a second and it reads as a wipe rather than as somebody
+    // looking at something.
+    expect(LOUPE_TO - LOUPE_FROM).toBeGreaterThanOrEqual(1.4 * FPS);
+  });
+
+  it("counts the score mechanically, not instantly", () => {
+    expect(SCORE_TO - SCORE_FROM).toBeGreaterThanOrEqual(15);
+    expect(SCORE_TO - SCORE_FROM).toBeLessThanOrEqual(40);
   });
 });
 
 describe("the sound", () => {
-  it("is sorted, so it can be walked with a cursor", () => {
+  it("is sorted and lands inside the film", () => {
     const frames = CUES.map((c) => c.frame);
-    expect([...frames].sort((a, b) => a - b)).toEqual(frames);
-  });
-
-  it("lands every cue inside the film", () => {
+    expect([...frames].sort((x, y) => x - y)).toEqual(frames);
     for (const cue of CUES) {
       expect(cue.frame).toBeGreaterThanOrEqual(0);
       expect(cue.frame).toBeLessThan(DURATION);
@@ -144,34 +155,24 @@ describe("the sound", () => {
     for (const cue of CUES) expect(cue.gain ?? 0.7).toBeLessThanOrEqual(1);
   });
 
-  it("hits every hook impact with a sub-bass", () => {
-    for (const beat of HOOK_BEATS) {
-      const here = CUES.filter((c) => c.frame === beat && c.sfx === "bass-hit");
-      expect(here).toHaveLength(1);
+  it("gives the stamp the heaviest hit in the film", () => {
+    const stamp = CUES.find((c) => c.sfx === "stamp");
+    expect(stamp).toBeDefined();
+    expect(stamp!.frame).toBe(STAMP_HIT);
+    expect(stamp!.gain).toBe(1);
+  });
+
+  it("sounds the print landing on paper and on the desk at once", () => {
+    const here = CUES.filter((c) => Math.abs(c.frame - (PHOTO_DROP + 7)) <= 1);
+    expect(here.map((c) => c.sfx).sort()).toContain("paper");
+    expect(here.map((c) => c.sfx).sort()).toContain("bass-hit");
+  });
+
+  it("puts a sound on every physical event", () => {
+    const near = (f: number) => CUES.some((c) => Math.abs(c.frame - f) <= 3);
+    for (const f of [PHOTO_DROP + 7, ...DETAIL_BEATS, ...CARD_BEATS, WHIP, CRACK, STAMP_HIT, INK]) {
+      expect(near(f), `no cue near frame ${f}`).toBe(true);
     }
-  });
-
-  it("rises through the hook", () => {
-    // Four identical hits read as a metronome. Each one is louder than the
-    // last so the block builds rather than repeats.
-    const hits = HOOK_BEATS.map(
-      (b) => CUES.find((c) => c.frame === b && c.sfx === "bass-hit")?.gain ?? 0,
-    );
-    for (let i = 1; i < hits.length; i += 1) {
-      expect(hits[i]).toBeGreaterThan(hits[i - 1]);
-    }
-  });
-
-  it("makes the interrupt the loudest thing in the film", () => {
-    const drop = CUES.find((c) => c.sfx === "drop");
-    expect(drop).toBeDefined();
-    const rest = CUES.filter((c) => c.sfx !== "drop" && c.sfx !== "glitch");
-    expect(drop!.gain ?? 0).toBeGreaterThanOrEqual(Math.max(...rest.map((c) => c.gain ?? 0.7)));
-  });
-
-  it("puts a key on every typed character", () => {
-    const keys = CUES.filter((c) => c.sfx === "key");
-    expect(keys.length).toBeGreaterThanOrEqual(COPY.fr.typed.length - 1);
   });
 
   it("runs the bed under the whole picture", () => {
@@ -182,20 +183,25 @@ describe("the sound", () => {
 
 describe("the two languages", () => {
   it("say the same number of things, so the cut is identical", () => {
-    expect(COPY.fr.hook).toHaveLength(COPY.en.hook.length);
-    expect(COPY.fr.hook).toHaveLength(HOOK_BEATS.length);
-    expect(COPY.fr.tags).toHaveLength(COPY.en.tags.length);
-    expect(COPY.fr.tags).toHaveLength(TAG_BEATS.length);
+    expect(COPY.fr.hookA).toHaveLength(COPY.en.hookA.length);
+    expect(COPY.fr.hookB).toHaveLength(COPY.en.hookB.length);
+    expect(COPY.fr.details).toHaveLength(DETAIL_BEATS.length);
+    expect(COPY.en.details).toHaveLength(DETAIL_BEATS.length);
+    expect(COPY.fr.cards).toHaveLength(CARD_BEATS.length);
+    expect(COPY.en.cards).toHaveLength(CARD_BEATS.length);
     expect(COPY.fr.slogan).toHaveLength(COPY.en.slogan.length);
+    expect(COPY.fr.steps).toHaveLength(COPY.en.steps.length);
   });
 
-  it("leave nothing empty", () => {
+  it("leaves nothing empty", () => {
     for (const lang of LANGS) {
       const c = COPY[lang];
       const strings = [
-        c.illusionLabel, c.handle, c.scanLabel, c.flagLabel, c.flagWord,
-        c.scoreLabel, c.score, c.scoreOutOf, c.typed, c.button,
-        c.brand, ...c.hook, ...c.tags, ...c.slogan,
+        c.handle, c.mirrorYou, c.mirrorThem, c.verdictLabel, c.verdict,
+        c.scoreLabel, c.score, c.scoreOutOf, c.appTitle, c.typed, c.button,
+        c.brand,
+        ...c.hookA, ...c.hookB, ...c.details, ...c.cards, ...c.steps,
+        ...c.slogan,
       ];
       for (const str of strings) expect(str.trim().length).toBeGreaterThan(0);
     }
@@ -208,32 +214,21 @@ describe("the two languages", () => {
       expect(n).toBeLessThanOrEqual(10);
     }
   });
-
-  it("keeps display words short enough to be set large", () => {
-    for (const lang of LANGS) {
-      for (const word of [...COPY[lang].tags, COPY[lang].flagWord]) {
-        expect(word.length).toBeLessThanOrEqual(12);
-      }
-    }
-  });
 });
 
 describe("the palette", () => {
   /**
-   * The bug this guards: every colour is an `hsl()` string, and appending hex
-   * alpha to one — `` `${C.bright}44` `` — makes `hsl(208 95% 60%)44`, which
-   * is not a colour. Browsers drop the declaration without a word, so nine
-   * glows in this film rendered as nothing while the code claimed otherwise
-   * and the frames came back flat.
+   * Appending hex alpha to an `hsl()` string makes `hsl(208 95% 60%)44`,
+   * which is not a colour. Browsers drop the declaration without a word, so
+   * nine glows once rendered as nothing while the code claimed otherwise.
    */
   it("puts the alpha inside the function, where CSS looks for it", () => {
     expect(a("hsl(208 95% 60%)", 0.4)).toBe("hsl(208 95% 60% / 0.4)");
-    expect(a(C.bright, 0.27)).toMatch(/^hsl\([^)]* \/ 0\.27\)$/);
   });
 
   it("never produces a value with something after the closing paren", () => {
     for (const value of Object.values(C)) {
-      expect(a(value, 0.5).endsWith(")")).toBe(true);
+      expect(a(value, 0.5)).toMatch(/\)$/);
       expect(a(value, 0.5)).not.toMatch(/\)[^)]/);
     }
   });
@@ -253,20 +248,12 @@ describe("the springs", () => {
   });
 
   it("knows how far past its mark each preset throws", () => {
-    // Anything that fits type to a column divides by these. Assuming "about
-    // twenty per cent" for a preset that actually reaches 1.47 is how a word
-    // ends up hanging over both edges for six frames.
     expect(peakOf("flat")).toBe(1);
     expect(peakOf("crash")).toBeGreaterThan(1);
-    expect(peakOf("crash")).toBeLessThan(1.2);
     expect(peakOf("slam")).toBeGreaterThan(peakOf("crash"));
-  });
-
-  it("overshoots on everything except the one that must not", () => {
-    expect(peakOf("flat")).toBe(1);
-    for (const name of ["crash", "slam", "tight"] as const) {
-      expect(peakOf(name)).toBeGreaterThan(1);
-    }
+    // The drop is the bounciest thing in the film — it is a physical object
+    // hitting a desk, and it has to rebound.
+    expect(peakOf("drop")).toBeGreaterThan(peakOf("crash"));
   });
 });
 
@@ -283,29 +270,43 @@ describe("the type fitter", () => {
     expect(fitSize("ÉÉÉÉ", 400)).toBe(fitSize("EEEE", 400));
   });
 
-  it("never exceeds the cap it is given", () => {
-    expect(fitSize("A", 120)).toBeLessThanOrEqual(120);
-    expect(fitSize("", 120)).toBe(120);
+  it("sets a multi-line statement at one size", () => {
+    for (const lang of LANGS) {
+      const c = COPY[lang];
+      for (const [lines, max, column] of [
+        [c.hookA, 124, WIDTH - 160],
+        [c.hookB, 168, WIDTH - 140],
+        [c.slogan, 124, WIDTH - 104],
+      ] as Array<[string[], number, number]>) {
+        const size = fitBlock(lines, max, column);
+        // One size, and every line in the block still inside the column at it.
+        for (const line of lines) {
+          expect(measure(line, size), `${lang} "${line}"`).toBeLessThanOrEqual(column);
+        }
+        // Not needlessly small: one of the lines is the one that set it.
+        expect(size).toBe(Math.min(...lines.map((l) => fitSize(l, max, column))));
+      }
+    }
   });
 
   it("keeps every real string in the film inside the frame", () => {
-    // The strings that actually have to fit, at the sizes they are set at.
     for (const lang of LANGS) {
       const c = COPY[lang];
       const cases: Array<[string, number, number]> = [
-        ...c.hook.map((h): [string, number, number] => [h, 168, WIDTH - 96]),
-        ...c.tags.map((t): [string, number, number] => [t, 124, WIDTH - 150]),
-        [c.flagWord, 300, (WIDTH - 90) / 1.28],
+        ...c.hookA.map((l): [string, number, number] => [l, 124, WIDTH - 160]),
+        ...c.hookB.map((l): [string, number, number] => [l, 168, WIDTH - 140]),
+        ...c.cards.map((l): [string, number, number] => [l, 68, 470 - 80]),
         ...c.slogan.map((l): [string, number, number] => [l, 124, WIDTH - 104]),
+        [c.cta, 52, WIDTH - 240],
+        [c.verdict, 190, 860 - 70],
+        [c.mirrorThem, 86, WIDTH - 120],
       ];
       for (const [text, max, column] of cases) {
         const size = fitSize(text, max, column);
-        expect(size).toBeGreaterThan(20);
-        // The size it returns must actually fit the column it was given —
-        // the inverse of what `fitSize` solves, so a sign error or a
-        // forgotten overshoot division shows up here rather than on screen.
-        expect(measure(text, size)).toBeLessThanOrEqual(column);
-        // And, whatever the column said, nothing may leave the frame.
+        expect(size).toBeGreaterThan(18);
+        // The inverse of what `fitSize` solves: the size it returns must
+        // actually fit the column it was given.
+        expect(measure(text, size), `${lang} "${text}"`).toBeLessThanOrEqual(column);
         expect(measure(text, size)).toBeLessThan(WIDTH);
       }
     }

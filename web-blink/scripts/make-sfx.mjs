@@ -283,17 +283,101 @@ console.log("Writing the kit to public/sfx …");
   write("drop", s);
 }
 
+/* Photo print landing on a desk. Broadband slap with almost no tail — paper
+   has no resonance, and giving it any makes it sound like a drum. */
+{
+  const s = buf(0.3);
+  noise(s, { from: 2600, to: 260, q: 0.6, gain: 0.9, decay: 0.09, attack: 0.001 });
+  sine(s, { freq: 150, to: 58, gain: 0.42, decay: 0.13, curve: 0.7 });
+  noise(s, { from: 5200, to: 1800, q: 1.1, gain: 0.28, decay: 0.04, attack: 0.001 });
+  write("paper", s);
+}
+
+/* A card being pulled free. Lighter, brighter and rising — the opposite
+   envelope to something landing. */
+{
+  const s = buf(0.2);
+  noise(s, { from: 900, to: 4200, q: 0.9, gain: 0.75, decay: 0.08, attack: 0.004 });
+  tri(s, { freq: 700, to: 1400, gain: 0.14, decay: 0.05 });
+  write("card", s, 0.8);
+}
+
+/* Glass sliding over a surface. The pitch barely moves and the filter is
+   narrow: what makes something read as glass rather than as wind is that it
+   has a *note* in it. */
+{
+  const s = buf(0.85);
+  noise(s, { from: 2400, to: 3100, q: 6.5, gain: 0.7, decay: 0.7, attack: 0.12 });
+  noise(s, { from: 5400, to: 6200, q: 9, gain: 0.22, decay: 0.6, attack: 0.2 });
+  write("glass", s, 0.55);
+}
+
+/* A single crack. Three fractures a few milliseconds apart, and a long thin
+   ring — the ring is the whole difference between glass and a snapped twig. */
+{
+  const s = buf(1.1);
+  const fracture = (at, gain) => {
+    const b = buf(1.1);
+    noise(b, { from: 6000, to: 1200, q: 0.8, gain, decay: 0.045, attack: 0.0005 });
+    tri(b, { freq: 3600, to: 900, gain: gain * 0.4, decay: 0.03 });
+    const off = Math.round(RATE * at);
+    for (let i = 0; i < b.length - off; i += 1) s[i + off] += b[i];
+  };
+  fracture(0, 0.9);
+  fracture(0.028, 0.55);
+  fracture(0.062, 0.35);
+  // The ring. High, quiet, and long.
+  sine(s, { freq: 4180, gain: 0.1, decay: 0.75, attack: 0.002 });
+  sine(s, { freq: 6270, gain: 0.06, decay: 0.55, attack: 0.002 });
+  write("crack", s);
+}
+
+/* The stamp. The heaviest, most mechanical sound in the kit: a wooden knock
+   over a low thud, with the rubber compressing between them. */
+{
+  const s = buf(0.8);
+  // The rubber meeting paper.
+  noise(s, { from: 1800, to: 180, q: 0.5, gain: 0.85, decay: 0.06, attack: 0.0008 });
+  // The wooden body bottoming out.
+  tri(s, { freq: 260, to: 90, gain: 0.6, decay: 0.11 });
+  sine(s, { freq: 110, to: 38, gain: 0.95, decay: 0.42, curve: 0.7 });
+  // A hint of the handle rattling after.
+  const rattle = buf(0.8);
+  tri(rattle, { freq: 420, to: 300, gain: 0.12, decay: 0.05 });
+  const off = Math.round(RATE * 0.075);
+  for (let i = 0; i < rattle.length - off; i += 1) s[i + off] += rattle[i];
+  write("stamp", s);
+}
+
+/* A slide projector advancing. Two mechanical events — the carriage and the
+   slide dropping — over the hum of a fan. */
+{
+  const s = buf(0.75);
+  // Fan.
+  noise(s, { from: 180, to: 220, q: 2.2, gain: 0.16, decay: 0.7, attack: 0.05 });
+  const clack = (at, gain, freq) => {
+    const b = buf(0.75);
+    tri(b, { freq, to: freq * 0.4, gain, decay: 0.028 });
+    noise(b, { from: 2600, to: 700, q: 1.4, gain: gain * 0.6, decay: 0.035, attack: 0.001 });
+    const off = Math.round(RATE * at);
+    for (let i = 0; i < b.length - off; i += 1) s[i + off] += b[i];
+  };
+  clack(0.02, 0.7, 1500);
+  clack(0.15, 0.55, 900);
+  write("projector", s, 0.85);
+}
+
 console.log("done.");
 
 /* ── compress ──────────────────────────────────────────────────────────
    The kit is written as WAV because that is what is easy to synthesise
    correctly, then encoded to MP3 because that is what is sane to commit —
    the bed alone is four megabytes as PCM and a hundred and sixty kilobytes
-   encoded, for a bed nobody will A/B against the original.
+   encoded.
 
-   Remotion ships a full ffmpeg with its compositor. The one on this machine's
-   PATH is Playwright's, which is built `--disable-everything` and cannot read
-   a WAV at all, so the path matters.
+   Remotion ships a full ffmpeg with its compositor. The one on this
+   machine's PATH is Playwright's, built `--disable-everything`, which cannot
+   read a WAV at all — so the path matters.
 */
 import { execFileSync } from "node:child_process";
 
@@ -311,6 +395,7 @@ if (fs.existsSync(FFMPEG)) {
   fs.mkdirSync(dest, { recursive: true });
 
   let total = 0;
+  let count = 0;
   for (const file of fs.readdirSync(OUT).filter((f) => f.endsWith(".wav"))) {
     const name = path.basename(file, ".wav");
     const to = path.join(dest, `${name}.mp3`);
@@ -327,12 +412,13 @@ if (fs.existsSync(FFMPEG)) {
       { env: { ...process.env, LD_LIBRARY_PATH: COMPOSITOR } },
     );
     total += fs.statSync(to).size;
+    count += 1;
   }
 
-  // The WAVs were scratch. Leaving them in `public/` would ship five
+  // The WAVs were scratch. Leaving them in `public/` would ship six
   // megabytes of source audio to every visitor of the landing page.
   fs.rmSync(OUT, { recursive: true, force: true });
-  console.log(`  src/remotion/audio — ${(total / 1024).toFixed(0)} KB total`);
+  console.log(`  src/remotion/audio — ${count} files, ${(total / 1024).toFixed(0)} KB`);
 } else {
   console.warn("\nNo Remotion compositor found; leaving WAVs in public/sfx.");
 }

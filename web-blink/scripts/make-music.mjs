@@ -22,8 +22,8 @@ import path from "node:path";
 
 const RATE = 48000;
 const FPS = 30;
-/* 630 frames = 21s, plus a little tail so the last chime is not cut off. */
-const FRAMES = 630;
+/* 750 frames = 25s, plus a little tail so the last chime is not cut off. */
+const FRAMES = 750;
 const SECONDS = FRAMES / FPS + 0.6;
 
 /* 120 bpm at 30fps is exactly 15 frames a beat and 60 a bar, so every bar
@@ -46,26 +46,34 @@ const rand = () => {
 
 const at = (sec) => Math.floor(sec * RATE);
 
-/** Where the arrangement changes, in seconds, derived from the edit. */
-const ANALYSIS = 90 / FPS;
-const TAGS = 214 / FPS;
-const INTERRUPT = 322 / FPS;
-const FLAG = 348 / FPS;
-const SCORE = 376 / FPS;
-const CTA = 454 / FPS;
-const OUTRO = 582 / FPS;
+/**
+ * Where the arrangement changes, in seconds, derived from the edit.
+ *
+ * These mirror `src/remotion/timeline.ts`. The bed is written *against* the
+ * cut rather than laid under it: it thins out where the picture goes quiet
+ * and stops dead under the two moments that need silence to land.
+ */
+const OBSERVE = 90 / FPS;
+const CARDS = 180 / FPS;
+const MIRROR = 270 / FPS;
+const CRACK = 320 / FPS;
+const STAMP = 360 / FPS;
+const SCORE = 450 / FPS;
+const DESK = 540 / FPS;
+const CTA = 660 / FPS;
 
 /** Level of the bed at a moment — this is the arrangement. */
 function bedLevel(t) {
-  if (t < 0.2) return t / 0.2;               // in
-  if (t < ANALYSIS) return 0.7;              // hook: restrained
-  if (t < TAGS) return 0.85;                 // analysis: building
-  if (t < INTERRUPT) return 1;               // perceptions: full
-  if (t < FLAG) return 0.06;                 // the interrupt: everything stops
-  if (t < SCORE) return 0.3;                 // the flag: sparse
-  if (t < CTA) return 1;                     // score: back, full
-  if (t < OUTRO) return 0.9;                 // cta: under the UI sounds
-  return Math.max(0, 0.85 * (1 - (t - OUTRO) / (SECONDS - OUTRO)));
+  if (t < 0.2) return t / 0.2;          // in
+  if (t < OBSERVE) return 0.75;         // hook: restrained, so the impacts hit
+  if (t < CARDS) return 0.55;           // observation: quiet, the loupe leads
+  if (t < MIRROR) return 0.9;           // the cards: building
+  if (t < CRACK) return 1;              // the mirror: full
+  if (t < STAMP) return 0.08;           // the crack: everything stops
+  if (t < SCORE) return 0.45;           // the verdict: sparse under the stamp
+  if (t < DESK) return 0.95;            // the score: back
+  if (t < CTA) return 1;                // the desk: the widest moment
+  return Math.max(0, 0.95 * (1 - Math.pow((t - CTA) / (SECONDS - CTA), 2)));
 }
 
 /* ── the pulse ─────────────────────────────────────────────────────────

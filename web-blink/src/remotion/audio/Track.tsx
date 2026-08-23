@@ -17,6 +17,12 @@ import { Audio, Sequence } from "remotion";
 import { BED, CUES, type SfxName } from "./cues";
 
 import bassHit from "./bass-hit.mp3";
+import card from "./card.mp3";
+import crack from "./crack.mp3";
+import glass from "./glass.mp3";
+import paper from "./paper.mp3";
+import projector from "./projector.mp3";
+import stamp from "./stamp.mp3";
 import drop from "./drop.mp3";
 import glitch from "./glitch.mp3";
 import bed from "./bed.mp3";
@@ -39,6 +45,12 @@ const FILES: Record<SfxName, string> = {
   "bass-hit": bassHit,
   drop,
   glitch,
+  paper,
+  card,
+  glass,
+  crack,
+  stamp,
+  projector,
   whoosh,
   "whoosh-short": whooshShort,
   pop,

@@ -1,51 +1,55 @@
 /**
  * Sound, written against the picture.
  *
- * Every cue sits on a frame where something visibly happens, and every frame
- * number is imported from `timeline.ts` rather than typed here — so moving a
- * beat moves its sound, and the mix cannot drift out of sync with the cut.
+ * There is no voice-over, so the sound is carrying a share of the story
+ * rather than decorating it: the weight of the print landing, the glass
+ * dragging across paper, the fracture, the stamp bottoming out. Those are the
+ * beats a viewer feels even with the phone half-muted.
  *
- * Levels are a mix, not a list. The bed sits at about a third of full scale;
- * the loudest thing in the film is the interrupt, at roughly four times a tag
- * landing, because that ratio is what makes it an interrupt rather than a
- * louder tag.
+ * Every frame number is imported from `timeline.ts` rather than typed here,
+ * so moving a beat moves its sound and the mix cannot drift out of sync with
+ * the cut. If a cue is not on a frame where something visibly happens, it is
+ * noise and it does not belong.
  */
 
 import {
-  at,
+  APP_IN,
+  CARD_BEATS,
+  CRACK,
+  DETAIL_BEATS,
+  DIVE,
   DURATION,
-  FLAG_WORD,
-  GAUGE_FROM,
-  GAUGE_TO,
-  GLITCH,
-  HOOK_BEATS,
+  FRAGMENT,
+  HOOK_A,
+  HOOK_B,
+  INK,
   KEY_EVERY,
+  LABEL_BEATS,
+  LOUPE_FROM,
+  LOUPE_IN,
+  MIRROR_IN,
+  PHOTO_DROP,
   PRESS,
-  PROFILE_IN,
-  SCAN_FROM,
+  PROJECT,
+  PULL_FROM,
+  SCORE_FROM,
+  SCORE_TO,
   SLOGAN,
-  TAG_BEATS,
+  CTA_BUTTON,
+  STAMP_HIT,
+  STAMP_LIFT,
+  STAMP_UP,
+  TRUTH,
   TYPE_FROM,
   WHIP,
+  at,
 } from "../timeline";
 
 export type SfxName =
-  | "impact"
-  | "bass-hit"
-  | "drop"
-  | "glitch"
-  | "whoosh"
-  | "whoosh-short"
-  | "pop"
-  | "click"
-  | "key"
-  | "blip"
-  | "scan"
-  | "riser"
-  | "confirm"
-  | "chime"
-  | "land"
-  | "lock";
+  | "impact" | "bass-hit" | "drop" | "glitch"
+  | "whoosh" | "whoosh-short" | "pop" | "click" | "key" | "blip"
+  | "scan" | "riser" | "confirm" | "chime" | "land" | "lock"
+  | "paper" | "card" | "glass" | "crack" | "stamp" | "projector";
 
 export interface Cue {
   frame: number;
@@ -54,67 +58,85 @@ export interface Cue {
 }
 
 const LIST: Cue[] = [
-  /* ── 1 · hook ────────────────────────────────────────────────────
-     Four sub-bass hits, one per text impact, rising. The fourth is the
-     loudest because it is the one that has to be remembered. */
-  ...HOOK_BEATS.map((f, i) => ({
-    frame: f,
-    sfx: "bass-hit" as SfxName,
-    gain: 0.72 + i * 0.09,
-  })),
+  /* ── 1 · the print lands ─────────────────────────────────────────── */
+  // Paper and weight together: the slap of the print and the thud of the
+  // desk taking it. Neither alone sounds like something heavy landing.
+  { frame: PHOTO_DROP + 7, sfx: "paper", gain: 1 },
+  { frame: PHOTO_DROP + 7, sfx: "bass-hit", gain: 0.72 },
+  // The rebound, a third of the level.
+  { frame: PHOTO_DROP + 13, sfx: "paper", gain: 0.3 },
 
-  /* ── 2 · the illusion ────────────────────────────────────────────
-     The whip carries the cut; the profile arrives on a UI pop. */
-  { frame: WHIP, sfx: "whoosh", gain: 1 },
-  { frame: PROFILE_IN, sfx: "pop", gain: 0.75 },
-  { frame: PROFILE_IN + 2, sfx: "land", gain: 0.5 },
+  { frame: HOOK_A, sfx: "impact", gain: 0.68 },
+  { frame: HOOK_A + 10, sfx: "impact", gain: 0.78 },
+  { frame: HOOK_A + 20, sfx: "impact", gain: 0.88 },
+  // The interrupt: a riser that stops dead into the heaviest hit so far.
+  { frame: HOOK_B - 10, sfx: "riser", gain: 0.6 },
+  { frame: HOOK_B, sfx: "bass-hit", gain: 1 },
+  { frame: HOOK_B, sfx: "impact", gain: 0.82 },
+  { frame: HOOK_B + 8, sfx: "impact", gain: 0.88 },
+  { frame: HOOK_B + 16, sfx: "impact", gain: 0.95 },
 
-  /* ── 3 · the scan ────────────────────────────────────────────────
-     The eye lands hard, the scanner runs under it, and a burst of small
-     metallic clicks fires as the tags arrive. */
-  { frame: at("scan"), sfx: "whoosh-short", gain: 0.8 },
-  { frame: at("scan") + 1, sfx: "impact", gain: 0.85 },
-  { frame: SCAN_FROM, sfx: "scan", gain: 0.55 },
-  ...[0, 1, 2, 3, 4, 5].map((i) => ({
-    frame: SCAN_FROM + 2 + i * 4,
-    sfx: "blip" as SfxName,
-    gain: 0.3,
-  })),
-  ...TAG_BEATS.flatMap((f): Cue[] => [
-    { frame: f, sfx: "pop", gain: 0.8 },
-    { frame: f + 1, sfx: "click", gain: 0.55 },
-    { frame: f + 3, sfx: "click", gain: 0.35 },
+  /* ── 2 · the loupe ───────────────────────────────────────────────── */
+  { frame: LOUPE_IN, sfx: "whoosh-short", gain: 0.6 },
+  // Glass dragging, under the whole pass.
+  { frame: LOUPE_FROM, sfx: "glass", gain: 0.7 },
+  { frame: LOUPE_FROM + 26, sfx: "glass", gain: 0.5 },
+  // Each thing it finds.
+  ...DETAIL_BEATS.flatMap((f): Cue[] => [
+    { frame: f, sfx: "blip", gain: 0.5 },
+    { frame: f + 1, sfx: "pop", gain: 0.42 },
   ]),
 
-  /* ── 4 · the interrupt ───────────────────────────────────────────
-     A riser that stops dead on the tear, the tear itself, then the
-     heaviest sound in the film under the word. */
-  { frame: GLITCH - 12, sfx: "riser", gain: 0.75 },
-  { frame: GLITCH, sfx: "glitch", gain: 1 },
-  { frame: GLITCH + 1, sfx: "drop", gain: 1 },
-  { frame: FLAG_WORD, sfx: "impact", gain: 0.9 },
+  /* ── 3 · the cards ───────────────────────────────────────────────── */
+  { frame: FRAGMENT, sfx: "paper", gain: 0.5 },
+  ...CARD_BEATS.flatMap((f, i): Cue[] => [
+    { frame: f, sfx: "card", gain: 0.75 + i * 0.05 },
+    { frame: f + 2, sfx: "click", gain: 0.34 },
+  ]),
 
-  /* ── 5 · the score ───────────────────────────────────────────────
-     A riser across the fifteen frames the gauge takes, and a chime on the
-     frame it completes. */
-  { frame: at("score"), sfx: "whoosh-short", gain: 0.6 },
-  { frame: GAUGE_FROM - 4, sfx: "riser", gain: 0.7 },
-  { frame: GAUGE_TO, sfx: "confirm", gain: 0.95 },
-  { frame: GAUGE_TO + 1, sfx: "impact", gain: 0.6 },
+  /* ── 4 · the mirror ──────────────────────────────────────────────── */
+  { frame: WHIP, sfx: "whoosh", gain: 1 },
+  { frame: MIRROR_IN, sfx: "land", gain: 0.6 },
+  // Tension into the fracture, then the fracture, then what it uncovers.
+  { frame: CRACK - 14, sfx: "riser", gain: 0.68 },
+  { frame: CRACK, sfx: "crack", gain: 1 },
+  { frame: CRACK + 1, sfx: "drop", gain: 0.72 },
+  { frame: TRUTH, sfx: "impact", gain: 0.8 },
 
-  /* ── 6 · the product ─────────────────────────────────────────────
-     One key per typed character, then the press, then the last sound in
-     the film. */
-  { frame: at("cta"), sfx: "whoosh-short", gain: 0.6 },
+  /* ── 5 · the stamp ───────────────────────────────────────────────── */
+  { frame: STAMP_LIFT, sfx: "whoosh-short", gain: 0.45 },
+  // The single heaviest sound in the film.
+  { frame: STAMP_HIT, sfx: "stamp", gain: 1 },
+  { frame: STAMP_HIT, sfx: "bass-hit", gain: 0.85 },
+  { frame: STAMP_UP, sfx: "paper", gain: 0.4 },
+
+  /* ── 6 · into the ink ────────────────────────────────────────────── */
+  { frame: DIVE, sfx: "riser", gain: 0.8 },
+  { frame: INK, sfx: "whoosh", gain: 0.9 },
+  // The machine.
+  { frame: PROJECT, sfx: "projector", gain: 0.9 },
+  { frame: SCORE_FROM, sfx: "scan", gain: 0.35 },
+  { frame: SCORE_TO, sfx: "confirm", gain: 0.95 },
+  { frame: SCORE_TO + 1, sfx: "impact", gain: 0.55 },
+
+  /* ── 7 · the desk ────────────────────────────────────────────────── */
+  { frame: PULL_FROM, sfx: "whoosh", gain: 0.55 },
+  ...LABEL_BEATS.map((f) => ({ frame: f, sfx: "pop" as SfxName, gain: 0.5 })),
+
+  /* ── 8 · the app ─────────────────────────────────────────────────── */
+  { frame: APP_IN, sfx: "whoosh-short", gain: 0.62 },
   ...Array.from({ length: 11 }, (_, i) => ({
     frame: TYPE_FROM + i * KEY_EVERY,
     sfx: "key" as SfxName,
     gain: 0.42,
   })),
   { frame: PRESS, sfx: "click", gain: 0.9 },
-  { frame: PRESS + 2, sfx: "whoosh-short", gain: 0.55 },
-  { frame: SLOGAN, sfx: "impact", gain: 0.8 },
-  { frame: SLOGAN + 2, sfx: "chime", gain: 0.85 },
+  { frame: PRESS + 2, sfx: "whoosh-short", gain: 0.5 },
+  { frame: SLOGAN, sfx: "impact", gain: 0.78 },
+  { frame: SLOGAN + 4, sfx: "impact", gain: 0.7 },
+  { frame: SLOGAN + 8, sfx: "impact", gain: 0.66 },
+  { frame: CTA_BUTTON, sfx: "pop", gain: 0.7 },
+  { frame: CTA_BUTTON + 1, sfx: "chime", gain: 0.9 },
 ];
 
 export const CUES: Cue[] = [...LIST]
