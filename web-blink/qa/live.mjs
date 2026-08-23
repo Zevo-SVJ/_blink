@@ -1,6 +1,6 @@
 import { chromium } from "playwright";
 import fs from "node:fs";
-const OUT="/private/tmp/claude-501/-Users-salomon-Blink/f573f8cd-dc24-4031-a2ea-d701f6566d98/scratchpad/live";
+const OUT = process.env.QA_OUT ?? "qa/shots/live";
 fs.rmSync(OUT,{recursive:true,force:true}); fs.mkdirSync(OUT,{recursive:true});
 const b=await chromium.launch();
 const ctx=await b.newContext({viewport:{width:390,height:844}});

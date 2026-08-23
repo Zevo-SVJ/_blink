@@ -271,6 +271,8 @@ const en = {
     "It measures how well a profile reads — so a small account can sit above a famous one.",
     cta: "See where I'd rank",
     captionBoard: "Ranked on how a profile reads. Not on followers.",
+    // The count under each demonstration row: "1.2M followers".
+    followers: "followers",
     captionClimb: "Improve something real, and you move.",
     captionCategories: "You're ranked inside a category, too.",
     captionLarp: "Larp — one of Blink's categories.",
@@ -380,6 +382,9 @@ const en = {
     resendVerification: "Resend verification email",
     backToSignIn: "Back to sign in",
     resent: "Verification email sent again. Check your inbox.",
+    // Shown after the form is submitted. `{email}` is the address typed in.
+    verificationSent: "We sent a verification link to {email}. Check your inbox to continue.",
+    resetSent: "If an account exists for {email}, we've sent a password reset link.",
     haveAccount: "Already have an account?",
     noAccount: "Don't have an account?",
     createOne: "Create one",
@@ -1121,6 +1126,7 @@ const fr: Messages = {
     "Il mesure la lisibilité d'un profil — un petit compte peut donc passer devant un compte connu.",
     cta: "Voir où je me situerais",
     captionBoard: "Classé sur la lecture du profil. Pas sur les abonnés.",
+    followers: "abonnés",
     captionClimb: "Améliore quelque chose de réel, et tu montes.",
     captionCategories: "Tu es aussi classé dans une catégorie.",
     captionLarp: "Larp — une des catégories de Blink.",
@@ -1223,6 +1229,10 @@ const fr: Messages = {
     resendVerification: "Renvoyer l'e-mail de vérification",
     backToSignIn: "Retour à la connexion",
     resent: "E-mail de vérification renvoyé. Vérifie ta boîte de réception.",
+    verificationSent:
+      "On a envoyé un lien de vérification à {email}. Vérifie ta boîte de réception pour continuer.",
+    resetSent:
+      "Si un compte existe pour {email}, on a envoyé un lien de réinitialisation.",
     haveAccount: "Tu as déjà un compte ?",
     noAccount: "Pas encore de compte ?",
     createOne: "En créer un",

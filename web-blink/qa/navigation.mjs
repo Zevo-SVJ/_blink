@@ -67,7 +67,20 @@ for (const [device, viewport] of [
   //    rather than nowhere. This is the case a shared link produces.
   await page.goto(`${BASE}/analyze`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(600);
-  const back = page.getByRole("button", { name: /Back|Retour|Home|Accueil/ }).first();
+  /*
+    A cold `/analyze` while signed out puts the sign-in gate on top, and the
+    flow's own back button stays in the DOM underneath it. Clicking that one
+    times out against the overlay — correctly, because a modal is supposed to
+    block the page behind it. The way out of this screen is the gate's own
+    dismiss, so that is what "back" means here.
+  */
+  const gate = page.getByRole("button", { name: /close|fermer/i }).first();
+  const back = (await gate.count())
+    ? gate
+    : page
+        .getByRole("button", { name: /Back|Retour|Home|Accueil/ })
+        .locator("visible=true")
+        .first();
   if (await back.count()) {
     await back.click();
     await page.waitForTimeout(600);
@@ -83,7 +96,14 @@ for (const [device, viewport] of [
   await page.waitForTimeout(400);
   await page.goto(`${BASE}/analyze`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(600);
-  const back2 = page.getByRole("button", { name: /Back|Retour|Home|Accueil/ }).first();
+  // Same as step 3: signed out, the gate is what covers this screen.
+  const gate2 = page.getByRole("button", { name: /close|fermer/i }).first();
+  const back2 = (await gate2.count())
+    ? gate2
+    : page
+        .getByRole("button", { name: /Back|Retour|Home|Accueil/ })
+        .locator("visible=true")
+        .first();
   if (await back2.count()) {
     await back2.click();
     await page.waitForTimeout(600);

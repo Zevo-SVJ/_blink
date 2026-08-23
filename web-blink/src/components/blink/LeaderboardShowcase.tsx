@@ -318,7 +318,11 @@ function Caption({ id, text }: { id: string; text: string }) {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -5 }}
         transition={{ duration: 0.22 }}
-        className="t-body text-balance font-medium text-white/60"
+        /* Centred on a phone, where it sits under a centred heading and a
+           centred board; left on desktop, where the whole column is. It had
+           no alignment at all, so the mobile caption was the one left-aligned
+           thing on an otherwise centred section. */
+        className="t-body text-balance text-center font-medium text-white/60 lg:text-left"
       >
         {text}
       </motion.p>
@@ -529,7 +533,9 @@ function BoardRow({
           <span className="block h-2 w-14 rounded-full bg-white/[0.14]" />
         )}
         <span className="mt-1 flex items-center gap-1.5 text-[0.62rem] font-semibold">
-          <span className="text-white/30">{row.followers} followers</span>
+          <span className="text-white/30">
+            {row.followers} {t.leaderboardSection.followers}
+          </span>
           <AnimatePresence>
             {showCategory && (
               <motion.span

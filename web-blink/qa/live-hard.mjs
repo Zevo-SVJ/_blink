@@ -5,7 +5,7 @@
 import { chromium } from "playwright";
 import fs from "node:fs";
 const URL = process.env.URL ?? "https://blink-ig.rork.app/";
-const OUT = "/private/tmp/claude-501/-Users-salomon-Blink/f573f8cd-dc24-4031-a2ea-d701f6566d98/scratchpad/livehard";
+const OUT = process.env.QA_OUT ?? "qa/shots/livehard";
 fs.rmSync(OUT, { recursive: true, force: true }); fs.mkdirSync(OUT, { recursive: true });
 const problems = []; const bad = s => { problems.push(s); console.log("  ✗ " + s); };
 const ok = s => console.log("  ✓ " + s);

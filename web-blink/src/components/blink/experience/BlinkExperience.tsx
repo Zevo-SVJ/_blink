@@ -187,7 +187,19 @@ export function BlinkExperience() {
           close enough to be read as one thing — which is the point, because
           the reading is *of* the profile.
         */}
-        <div className="mx-auto w-full max-w-[54rem]">
+        {/*
+          Fitted to the height it has, not to the height it wants.
+
+          The composition is one pinned stage, so anything past the top or
+          bottom edge is content nobody can scroll to. It is 772px tall, which
+          a 740px phone cannot hold and a 667px one is nowhere near. Shaving
+          gaps to suit the shortest screen would cost every screen; scaling
+          the whole thing keeps the proportions the section was designed at
+          and simply renders them smaller where there is less room. The
+          ranges do not overlap, so the two steps cannot fight over which
+          applies.
+        */}
+        <div className="mx-auto w-full max-w-[54rem] [@media(max-height:600px)]:scale-[0.70] [@media(max-height:700px)_and_(min-height:601px)]:scale-[0.85] [@media(max-height:800px)_and_(min-height:701px)]:scale-[0.93]">
           <Caption act={act} />
 
           <div /*
@@ -436,7 +448,11 @@ function GazePicker({ value, onChange }: { value: Gaze; onChange: (g: Gaze) => v
               aria-selected={on}
               type="button"
               onClick={() => onChange(g)}
-              className="focus-ring relative shrink-0 rounded-[var(--r-pill)] px-3 py-2 text-[0.78rem] font-semibold"
+              /* `px-2.5`, not `px-3`: four English tabs came to 558px inside
+                 a 556px column on a laptop, so "Someone professional" was
+                 clipped by two pixels of nothing. 44px of height is the
+                 touch minimum this control was missing. */
+              className="focus-ring relative inline-flex min-h-[44px] shrink-0 items-center rounded-[var(--r-pill)] px-2.5 text-[0.78rem] font-semibold"
               style={{ color: on ? "hsl(var(--surface-0))" : "hsl(0 0% 100% / var(--ink-2))" }}
               {...press}
             >

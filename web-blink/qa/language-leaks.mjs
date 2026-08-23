@@ -83,6 +83,16 @@ const ENGLISH_MARKERS = [
   "share your",
   "save image",
   /*
+    The demonstration leaderboard's follower counts.
+
+    `{row.followers} followers` was assembled in JSX, so no dictionary held it
+    and the French board read "1.2M followers" under a heading that had just
+    promised the ranking is not about abonnés. Nine characters, so the
+    dictionary comparison's twelve-character floor could never have caught it
+    either.
+  */
+  "followers",
+  /*
     The activity ticker.
 
     Its twelve lines lived as English literals inside `lib/activity.ts`, so the
@@ -170,6 +180,26 @@ for (const [lang, foreign, name] of [
     */
     let text = await page.evaluate(() => document.body.innerText);
     if (route === "/") {
+      /*
+        Then walk down it.
+
+        Sampling only at scroll 0 sees the hero and nothing else: the sections
+        below are scroll-driven, and their content — the demonstration board's
+        rows, the analysis pass, the readings — does not exist in the document
+        until their sequence has been reached. "1.2M followers" sat on the
+        French board for exactly that reason, invisible to a check that never
+        scrolled. Each stop pauses long enough for the sequence at that offset
+        to produce something.
+      */
+      const height = await page.evaluate(() => document.body.scrollHeight);
+      for (let y = 0; y < height; y += 500) {
+        await page.evaluate((v) => window.scrollTo(0, v), y);
+        await page.waitForTimeout(500);
+        text += "\n" + (await page.evaluate(() => document.body.innerText));
+      }
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(400);
+
       for (let i = 0; i < 20; i++) {
         await page.waitForTimeout(1000);
         text += "\n" + (await page.evaluate(() => document.body.innerText));

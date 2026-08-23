@@ -37,6 +37,21 @@ export function AuthModal({
   const [password, setPassword] = useState("");
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
+  /*
+    Escape closes, like every other sheet in the app — `AddSomeoneSheet`,
+    `ShareSheet` and the profile editor all do, and this one did not. It is
+    the dialog a first-time visitor is most likely to meet, and it was the
+    only one a keyboard could not dismiss.
+  */
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   useEffect(() => {
     if (open) {
       setMode(initialMode);
@@ -57,7 +72,7 @@ export function AuthModal({
         const { needsVerification } = await signUp(email, password);
         if (needsVerification) {
           setMode("verify");
-          setInfoMessage(`We sent a verification link to ${email}. Check your inbox to continue.`);
+          setInfoMessage(t.auth.verificationSent.replace("{email}", email));
         } else {
           onSuccess?.();
         }
@@ -66,7 +81,7 @@ export function AuthModal({
         onSuccess?.();
       } else if (mode === "forgot") {
         await resetPassword(email);
-        setInfoMessage(`If an account exists for ${email}, we've sent a password reset link.`);
+        setInfoMessage(t.auth.resetSent.replace("{email}", email));
       }
     } catch {
       // Error is set in the auth hook

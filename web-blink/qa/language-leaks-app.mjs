@@ -59,6 +59,7 @@ const MARKERS = [
   "global board",
   "snapshot",
   "consecutive",
+  "followers",
   // The "How to climb" heading was a literal under a translated dictionary
   // key that already held the French for it.
   "how to climb",

@@ -4,11 +4,27 @@
  */
 import { chromium } from "playwright";
 import fs from "node:fs";
-const OUT="/private/tmp/claude-501/-Users-salomon-Blink/f573f8cd-dc24-4031-a2ea-d701f6566d98/scratchpad";
+const OUT = process.env.QA_OUT ?? "qa/shots";
 const problems=[]; const bad=s=>{problems.push(s);console.log("  ✗ "+s);}; const ok=s=>console.log("  ✓ "+s);
+/*
+  This harness drives a real Supabase project, not the mock backend, so it
+  needs a signed-in storage state to exist. It used to read that file
+  unconditionally and die with an ENOENT stack trace on any machine that had
+  never produced one, which reads as a broken test rather than a missing
+  prerequisite. It also wrote its screenshots to one developer's scratch
+  directory on macOS.
+*/
+const STORAGE = process.env.QA_STORAGE ?? "/tmp/qa-storage.json";
+if (!fs.existsSync(STORAGE)) {
+  console.log(`skipped: no signed-in storage state at ${STORAGE}.`);
+  console.log("  Sign in once with Playwright and save it there, or set QA_STORAGE.");
+  process.exit(0);
+}
+fs.mkdirSync(OUT, { recursive: true });
+
 const b=await chromium.launch();
 const ctx=await b.newContext({viewport:{width:390,height:844},
-  storageState:JSON.parse(fs.readFileSync("/tmp/qa-storage.json","utf8"))});
+  storageState:JSON.parse(fs.readFileSync(STORAGE,"utf8"))});
 const p=await ctx.newPage();
 const errs=[]; p.on("pageerror",e=>errs.push(String(e)));
 const posts=[]; p.on("response",r=>{ if(/rest\/v1\/analyses/.test(r.url())&&r.request().method()==="POST") posts.push(r.status()); });
