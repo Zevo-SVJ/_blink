@@ -33,12 +33,13 @@ import {
   useTransform,
   type MotionValue,
 } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { SPRING } from "@/design/motion";
 import { press } from "@/design/Motion";
+import { categoryLabel } from "@/lib/categories";
 import { useT } from "@/lib/i18n";
-import { GAZE_READS, GAZES, NICHE, PASSES, SCORE, type Gaze } from "./demo";
+import { gazes, GAZE_READS, NICHE_ID, passes, SCORE, type Gaze } from "./demo";
 import { ProfileCard, type Regions } from "./ProfileCard";
 
 /**
@@ -89,7 +90,13 @@ export function BlinkExperience() {
    * being decided.
    */
   const [revealed, setRevealed] = useState(0);
-  const [gaze, setGaze] = useState<Gaze>(GAZES[0]);
+  /* Rebuilt when the language changes, so switching it re-labels the selector
+     and the readings rather than leaving the previous language on screen. */
+  const GAZES = useMemo(() => gazes(t), [t]);
+  const PASSES = useMemo(() => passes(t), [t]);
+  const [gazeId, setGazeId] = useState<Gaze["id"]>("crush");
+  const gaze = GAZES.find((g) => g.id === gazeId) ?? GAZES[0];
+  const setGaze = (next: Gaze) => setGazeId(next.id);
   const [regions, setRegions] = useState<Regions>({});
 
   useEffect(() => {
@@ -344,6 +351,9 @@ function Reticle({ on, box }: { on: boolean; box?: DOMRect }) {
 
 /** What the pass has found so far. Each finding stays once it lands. */
 function Findings({ pass }: { pass: number }) {
+  const t = useT();
+  const PASSES = passes(t);
+
   return (
     <ul className="space-y-2">
       {PASSES.map((p, i) => (
@@ -373,6 +383,25 @@ function Findings({ pass }: { pass: number }) {
 
 function GazePicker({ value, onChange }: { value: Gaze; onChange: (g: Gaze) => void }) {
   const t = useT();
+  const rail = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+
+  const readEdges = useCallback(() => {
+    const el = rail.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setEdges({ left: el.scrollLeft > 1, right: el.scrollLeft < max - 1 });
+  }, []);
+
+  /* Measured after layout and again on resize: whether there is anything past
+     the edge depends on the width of four translated labels, which is not
+     knowable from here. */
+  useEffect(() => {
+    readEdges();
+    window.addEventListener("resize", readEdges);
+    return () => window.removeEventListener("resize", readEdges);
+  }, [readEdges, t]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
@@ -380,12 +409,25 @@ function GazePicker({ value, onChange }: { value: Gaze; onChange: (g: Gaze) => v
       transition={SPRING.base}
     >
       <p className="t-label mb-1.5 text-white/[var(--ink-3)] lg:mb-2">{t.experience.whosLooking}</p>
+      {/*
+        The scroller says when it has more to say.
+
+        Four gazes need ~470px and a phone gives the pill 358, so the fourth
+        sat entirely past the edge — and because the third happened to end
+        flush with the rounded border, the row read as complete. Nobody
+        scrolls a control that looks finished. These two masks appear only
+        while there is something in that direction, so the affordance is the
+        truth rather than permanent decoration.
+      */}
+      <div className="relative inline-block max-w-full align-top">
       <div
+        ref={rail}
         role="tablist"
         aria-label={t.experience.whosLooking}
+        onScroll={readEdges}
         className="glass-inset inline-flex max-w-full gap-1 overflow-x-auto rounded-[var(--r-pill)] p-1 scrollbar-none"
       >
-        {GAZES.map((g) => {
+        {gazes(t).map((g) => {
           const on = g.id === value.id;
           return (
             <motion.button
@@ -413,6 +455,22 @@ function GazePicker({ value, onChange }: { value: Gaze; onChange: (g: Gaze) => v
             </motion.button>
           );
         })}
+      </div>
+
+        {(["left", "right"] as const).map((side) => (
+          <motion.span
+            key={side}
+            aria-hidden
+            initial={false}
+            animate={{ opacity: edges[side] ? 1 : 0 }}
+            transition={{ duration: 0.18 }}
+            className={`pointer-events-none absolute inset-y-0 w-9 rounded-[var(--r-pill)] ${
+              side === "left"
+                ? "left-0 bg-gradient-to-r"
+                : "right-0 bg-gradient-to-l"
+            } from-[hsl(var(--surface-0))] to-transparent`}
+          />
+        ))}
       </div>
     </motion.div>
   );
@@ -512,7 +570,9 @@ function Verdict({
     >
       <div className="min-w-0">
         <p className="t-label text-white/[var(--ink-3)]">{t.experience.measuredAs}</p>
-        <p className="t-heading mt-0.5 whitespace-nowrap text-white">{NICHE.label}</p>
+        <p className="t-heading mt-0.5 whitespace-nowrap text-white">
+          {categoryLabel(NICHE_ID, t) ?? NICHE_ID}
+        </p>
       </div>
       {/* The score arrives inside a box that already has room for it — its
           own scale and opacity, not the layout's. */}

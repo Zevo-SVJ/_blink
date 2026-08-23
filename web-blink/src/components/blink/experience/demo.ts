@@ -12,6 +12,7 @@
  */
 
 import type { Perspective } from "@/lib/analysis";
+import type { Messages } from "@/lib/messages";
 
 export interface Gaze {
   id: Perspective["id"];
@@ -33,42 +34,46 @@ export interface Gaze {
  * it matter to who is looking. If every gaze had four unique words the
  * transition would be a replacement, and a replacement says nothing.
  */
-export const GAZES: Gaze[] = [
-  {
-    id: "crush",
-    emoji: "❤️",
-    short: "Your crush",
-    reads: ["Confident", "Interesting", "Mysterious", "Warm"],
-    summary: "Reads as someone with a life already in motion.",
-  },
-  {
-    id: "friends",
-    emoji: "👥",
-    short: "A friend",
-    reads: ["Warm", "Consistent", "Confident", "Funny"],
-    summary: "Recognisably you — the version they already know.",
-  },
-  {
-    id: "stranger",
-    emoji: "👤",
-    short: "A stranger",
-    reads: ["Distinctive", "Confident", "Hard to read", "Interesting"],
-    summary: "Enough to be curious about, not enough to place.",
-  },
-  {
-    id: "recruiter",
-    emoji: "💼",
-    short: "Someone professional",
-    reads: ["Credible", "Ambitious", "Polished", "Confident"],
-    summary: "Signals competence before it signals personality.",
-  },
-];
+export const GAZE_IDS = ["crush", "friends", "stranger", "recruiter"] as const;
 
-/** The subject. A plausible account, not a real one. */
+const GAZE_EMOJI: Record<(typeof GAZE_IDS)[number], string> = {
+  crush: "❤️",
+  friends: "👥",
+  stranger: "👤",
+  recruiter: "💼",
+};
+
+/**
+ * The four gazes, in the reader's language.
+ *
+ * The ids and the emoji are structure and live here — the ids are checked
+ * against `Perspective["id"]`, so the demonstration cannot name a gaze the
+ * product does not have. The words come from the dictionary: as literals in
+ * this file the French landing page ran its whole signature feature in
+ * English, offering "Your crush" and reading back "Confident".
+ */
+export function gazes(t: Messages): Gaze[] {
+  return GAZE_IDS.map((id) => {
+    const copy = t.experience.demo.gazes[id];
+    return {
+      id,
+      emoji: GAZE_EMOJI[id],
+      short: copy.short,
+      reads: [...copy.reads],
+      summary: copy.summary,
+    };
+  });
+}
+
+/**
+ * The subject. A plausible account, not a real one.
+ *
+ * The handle, the name and the numbers are the same in every language — they
+ * are a username and three counts. The bio is prose, so it is translated.
+ */
 export const SUBJECT = {
   handle: "sam.merrick",
   name: "Sam Merrick",
-  bio: ["building something small", "photos when it's worth it", "London"],
   posts: 148,
   followers: "4,102",
   following: 386,
@@ -81,14 +86,20 @@ export const SUBJECT = {
  * region is that the reader can see Blink is reading *something specific*
  * rather than running a spinner over the whole card.
  */
-export const PASSES = [
-  { at: "avatar", label: "Portrait", found: "Direct, unposed" },
-  { at: "bio", label: "Bio", found: "Understated" },
-  { at: "grid", label: "Recent posts", found: "One consistent palette" },
-] as const;
+export const PASS_AT = ["avatar", "bio", "grid"] as const;
+
+export interface Pass {
+  at: (typeof PASS_AT)[number];
+  label: string;
+  found: string;
+}
+
+export function passes(t: Messages): Pass[] {
+  return PASS_AT.map((at) => ({ at, ...t.experience.demo.passes[at] }));
+}
 
 /** The niche the score is measured against — a real category id. */
-export const NICHE = { id: "entrepreneur", label: "Entrepreneur" };
+export const NICHE_ID = "entrepreneur";
 
 export const SCORE = 8.7;
 
@@ -97,6 +108,6 @@ export const SCORE = 8.7;
  *
  * Every gaze has the same count on purpose — the claim is that the same
  * profile is re-ranked, not that some gazes see more than others — and the
- * sequence needs the number to pace their arrival.
+ * sequence needs the number to pace their arrival. Four in both languages.
  */
-export const GAZE_READS = GAZES[0].reads.length;
+export const GAZE_READS = 4;

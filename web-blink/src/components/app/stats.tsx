@@ -18,8 +18,17 @@ import { cn } from "@/lib/utils";
 // Stat tiles
 // ---------------------------------------------------------------------------
 
+/**
+ * Three across, at every width.
+ *
+ * Two columns on a phone left rank and best side by side and streak alone on
+ * a second row beside an empty cell — which reads as a missing tile rather
+ * than a deliberate layout. The three values are "#2", "#2" and "1w", and
+ * their longest label is eight characters in either language, so 95px of
+ * column is comfortable at 390.
+ */
 export function StatGrid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{children}</div>;
+  return <div className="grid grid-cols-3 gap-2.5 sm:gap-3">{children}</div>;
 }
 
 export function StatTile({
@@ -34,7 +43,7 @@ export function StatTile({
   accent?: boolean;
 }) {
   return (
-    <div className="surface p-4">
+    <div className="surface p-3 sm:p-4">
       <p className="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-white/40">
         {label}
       </p>

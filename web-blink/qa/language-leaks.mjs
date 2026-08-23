@@ -29,31 +29,14 @@
 import { chromium } from "playwright";
 import { readFileSync } from "node:fs";
 
+import { dictionaryStrings } from "./dict.mjs";
+
 const BASE = process.env.BASE ?? "http://127.0.0.1:4173";
 
 const problems = [];
 const bad = (s) => { problems.push(s); console.log("  ✗ " + s); };
 const ok = (s) => console.log("  ✓ " + s);
 
-/**
- * Pull the leaf strings out of the dictionary source.
- *
- * Reading the TypeScript rather than importing it keeps this a plain script
- * with no build step. Only strings long enough to be unambiguous are used —
- * "Blink", "FAQ" and "Instagram" are identical in both languages and would
- * otherwise report themselves.
- */
-function dictionaryStrings(source, startMarker, endMarker) {
-  const body = source.slice(source.indexOf(startMarker), source.indexOf(endMarker));
-  const out = new Set();
-  for (const m of body.matchAll(/"((?:[^"\\]|\\.){12,})"/g)) {
-    const value = m[1].replace(/\\"/g, '"').replace(/\\'/g, "'");
-    // Skip anything with a placeholder or markup — it never renders verbatim.
-    if (value.includes("{") || value.includes("<")) continue;
-    out.add(value);
-  }
-  return out;
-}
 
 const source = readFileSync(new URL("../src/lib/messages.ts", import.meta.url), "utf8");
 const enOnly = dictionaryStrings(source, "const en = {", "const fr: Messages = {");
@@ -114,6 +97,19 @@ const ENGLISH_MARKERS = [
   "scanned",
   "climbed",
   "unlocked",
+  /*
+    The interactive demonstration.
+
+    Its gazes, readings and summaries lived in `experience/demo.ts`, not in
+    the dictionary — so the comparison above was blind to them and the French
+    landing ran its whole signature feature in English, offering "Your crush"
+    and reading back "Confident". Found by looking at a screenshot.
+  */
+  "your crush",
+  "a stranger",
+  "confident",
+  "mysterious",
+  "recent posts",
 ];
 
 /**

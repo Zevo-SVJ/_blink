@@ -19,6 +19,7 @@
 
 import { readFileSync } from "node:fs";
 
+import { dictionaryStrings } from "./dict.mjs";
 import { openApp } from "./drive.mjs";
 
 const APP = process.env.APP_URL ?? "http://127.0.0.1:4173";
@@ -27,17 +28,6 @@ const problems = [];
 const bad = (s) => { problems.push(s); console.log("  ✗ " + s); };
 const ok = (s) => console.log("  ✓ " + s);
 
-/** Leaf strings from one dictionary, long enough to be unambiguous. */
-function dictionaryStrings(source, startMarker, endMarker) {
-  const body = source.slice(source.indexOf(startMarker), source.indexOf(endMarker));
-  const out = new Set();
-  for (const m of body.matchAll(/"((?:[^"\\]|\\.){12,})"/g)) {
-    const value = m[1].replace(/\\"/g, '"').replace(/\\'/g, "'");
-    if (value.includes("{") || value.includes("<")) continue;
-    out.add(value);
-  }
-  return out;
-}
 
 const source = readFileSync(new URL("../src/lib/messages.ts", import.meta.url), "utf8");
 const enOnly = dictionaryStrings(source, "const en = {", "const fr: Messages = {");
@@ -60,6 +50,21 @@ const MARKERS = [
   // Not "Blink Score": it is the name of the metric and stays in English in
   // both dictionaries, exactly like "Blink" itself.
   "your profile",
+  // Found on the French profile page by screenshot: the Edit button, the
+  // Instagram link and both badge shelves were literals in JSX, so the
+  // dictionary oracle could not see them.
+  "your instagram",
+  "view on instagram",
+  "your record",
+  "global board",
+  "snapshot",
+  "consecutive",
+  // The "How to climb" heading was a literal under a translated dictionary
+  // key that already held the French for it.
+  "how to climb",
+  "start here",
+  "status held",
+  "edit",
   "saving this",
   "visual identity",
   "approachability",
@@ -104,6 +109,49 @@ for (const route of ROUTES) {
   }
 }
 if (leaks === 0) ok(`${ROUTES.length} signed-in routes carry no English`);
+
+/*
+  Text that only exists once something is opened.
+
+  Reading `innerText` on a page at rest cannot see a sentence that lives
+  behind a tap, which is how eleven badge descriptions — every one of them a
+  literal in `badges.ts` — sat in English on the French profile page through
+  several passes of this harness. Each badge is opened in turn and the
+  revealed paragraph is held to the same oracle.
+*/
+console.log("\n=== fr, signed in: English behind a tap ===");
+await page.goto(APP + "/profile", { waitUntil: "domcontentloaded" });
+await page.waitForTimeout(2400);
+
+const shelves = page.locator("button[aria-expanded]");
+const count = await shelves.count();
+let opened = 0;
+let hidden = 0;
+for (let i = 0; i < count; i++) {
+  const badge = shelves.nth(i);
+  if (!(await badge.isVisible())) continue;
+  await badge.click();
+  await page.waitForTimeout(320);
+  opened++;
+  const revealed = await page.evaluate(() => document.body.innerText);
+  for (const phrase of enOnly) {
+    if (revealed.includes(phrase)) {
+      bad(`/profile badge ${i}: English leaked — "${phrase.slice(0, 60)}"`);
+      hidden++;
+    }
+  }
+  for (const marker of MARKERS) {
+    const re = new RegExp(`\\b${marker.replace(/ /g, "\\s+")}\\b`, "i");
+    if (re.test(revealed)) {
+      bad(`/profile badge ${i}: untranslated English — "${marker}"`);
+      hidden++;
+    }
+  }
+  await badge.click();
+  await page.waitForTimeout(180);
+}
+if (opened === 0) bad("/profile: no badges could be opened — the check proved nothing");
+else if (hidden === 0) ok(`${opened} opened badges carry no English`);
 
 await browser.close();
 console.log(problems.length ? `\nPROBLEMS (${problems.length})` : "\nPROBLEMS: none");

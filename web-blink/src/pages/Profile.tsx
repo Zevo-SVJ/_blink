@@ -126,7 +126,7 @@ export default function Profile() {
               className="focus-ring inline-flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-pill)] bg-white/[0.06] px-3.5 text-xs font-bold text-white/80 ring-1 ring-white/10 transition-colors hover:bg-white/[0.11]"
             >
               <Pencil className="h-3.5 w-3.5" />
-              Edit
+              {t.profilePage.edit}
             </button>
             {/* Settings lost its tab so the bar could carry Analyze; this is
                 now its only entry point, so it has to be here. */}

@@ -22,7 +22,7 @@
  * decision in one place and can be tested.
  */
 
-import type { Messages } from "@/lib/messages";
+import { MESSAGES, type Messages } from "@/lib/messages";
 import { deltaOutOfTen, scoreOutOfTen } from "@/lib/ranking";
 
 export type EmblemShape = "shield" | "hex" | "disc" | "chevron";
@@ -85,6 +85,19 @@ export interface StatusInput {
   movement: number | null;
 }
 
+/**
+ * The dictionary these builders read.
+ *
+ * `t` is optional because a few callers (tests, and the share-image renderer)
+ * have no React context to read a language from. Falling back to the English
+ * dictionary keeps one source for the words either way — the alternative was
+ * an English literal beside every lookup, which is exactly how eleven badge
+ * sentences stayed untranslated and shipped to the French profile page.
+ */
+function words(t?: Messages) {
+  return (t ?? MESSAGES.en).badges;
+}
+
 export function buildStatusBadges(input: StatusInput, t?: Messages): BadgeSpec[] {
   const badges: BadgeSpec[] = [];
   const { rank, categoryRank, categoryLabel, movement } = input;
@@ -92,9 +105,9 @@ export function buildStatusBadges(input: StatusInput, t?: Messages): BadgeSpec[]
   if (categoryRank === 1 && categoryLabel) {
     badges.push({
       id: "champion",
-      label: `${categoryLabel} Icon`,
+      label: `${categoryLabel} ${words(t).icon}`,
       value: "#1",
-      detail: `First in ${categoryLabel}. Held for as long as nobody in the category outscores this profile.`,
+      detail: words(t).details.champion.replace("{category}", categoryLabel),
       shape: "shield",
       icon: "champion",
       grade: "elite",
@@ -106,7 +119,7 @@ export function buildStatusBadges(input: StatusInput, t?: Messages): BadgeSpec[]
       id: "elite",
       label: t?.badges.elite ?? "Elite",
       value: `#${rank}`,
-      detail: "Top three on the global board — every category, every account size.",
+      detail: words(t).details.elite,
       shape: "hex",
       icon: "elite",
       grade: "elite",
@@ -116,7 +129,7 @@ export function buildStatusBadges(input: StatusInput, t?: Messages): BadgeSpec[]
       id: "topten",
       label: t?.badges.topten ?? "Top 10",
       value: `#${rank}`,
-      detail: "Top ten on the global board.",
+      detail: words(t).details.topten,
       shape: "hex",
       icon: "topten",
       grade: "earned",
@@ -128,7 +141,7 @@ export function buildStatusBadges(input: StatusInput, t?: Messages): BadgeSpec[]
       id: "rising",
       label: t?.badges.rising ?? "Rising",
       value: `+${movement}`,
-      detail: "Gained three or more places since the last snapshot.",
+      detail: words(t).details.rising,
       shape: "chevron",
       icon: "movement",
       grade: movement >= 5 ? "elite" : "earned",
@@ -160,7 +173,7 @@ function movementValue(movement: number | null): string {
 }
 
 export function buildBadges(input: BadgeInput, isMe: boolean, t?: Messages): BadgeSpec[] {
-  const who = isMe ? "your" : "their";
+  const who = isMe ? words(t).details.mine : words(t).details.theirs;
   const { bestRank, peakScore, movement, momentumDelta, streak, verifiedCount } = input;
 
   return [
@@ -168,7 +181,7 @@ export function buildBadges(input: BadgeInput, isMe: boolean, t?: Messages): Bad
       id: "best",
       label: t?.badges.bestRank ?? "Best rank",
       value: bestRank === null || bestRank <= 0 ? "—" : `#${bestRank}`,
-      detail: `The highest position ${who} profile has held. It never drops, even when the current rank does.`,
+      detail: words(t).details.best.replace("{whose}", who),
       shape: "shield",
       icon: "rank",
       grade: grade(bestRank !== null && bestRank > 0, bestRank !== null && bestRank <= ELITE.bestRank),
@@ -177,7 +190,7 @@ export function buildBadges(input: BadgeInput, isMe: boolean, t?: Messages): Bad
       id: "peak",
       label: t?.badges.peakScore ?? "Peak score",
       value: peakScore > 0 ? scoreOutOfTen(peakScore) : "—",
-      detail: `The highest verified Blink Score ${who} profile has reached.`,
+      detail: words(t).details.peak.replace("{whose}", who),
       shape: "hex",
       icon: "peak",
       grade: grade(peakScore > 0, peakScore >= ELITE.peakScore),
@@ -187,9 +200,7 @@ export function buildBadges(input: BadgeInput, isMe: boolean, t?: Messages): Bad
       label: t?.badges.movement ?? "Movement",
       value: movementValue(movement),
       detail:
-        movement === null
-          ? "Places moved since the last leaderboard snapshot. Nothing recorded yet."
-          : "Places moved on the global board since the last snapshot.",
+        movement === null ? words(t).details.movementNone : words(t).details.movement,
       shape: "chevron",
       /* The glyph has to agree with the number printed inside it. It was
          always the rising arrow, so a profile that had *lost* a place showed
@@ -206,8 +217,7 @@ export function buildBadges(input: BadgeInput, isMe: boolean, t?: Messages): Bad
       id: "momentum",
       label: t?.badges.momentum ?? "Momentum",
       value: deltaOutOfTen(momentumDelta),
-      detail:
-        "Points gained or lost since the previous verified analysis. Only a new screenshot moves it.",
+      detail: words(t).details.momentum,
       shape: "chevron",
       icon: "momentum",
       grade: grade(momentumDelta !== 0, momentumDelta >= ELITE.momentum),
@@ -215,8 +225,8 @@ export function buildBadges(input: BadgeInput, isMe: boolean, t?: Messages): Bad
     {
       id: "streak",
       label: t?.badges.streak ?? "Streak",
-      value: `${streak}w`,
-      detail: "Consecutive weeks with a verified analysis. Opening the app doesn't count.",
+      value: `${streak}${words(t).weeks}`,
+      detail: words(t).details.streak,
       shape: "disc",
       icon: "streak",
       grade: grade(streak > 0, streak >= ELITE.streak),
@@ -225,7 +235,7 @@ export function buildBadges(input: BadgeInput, isMe: boolean, t?: Messages): Bad
       id: "verified",
       label: t?.badges.verified ?? "Verified",
       value: String(verifiedCount),
-      detail: "Profile changes Blink has confirmed from a new screenshot.",
+      detail: words(t).details.verified,
       shape: "hex",
       icon: "verified",
       grade: grade(verifiedCount > 0, verifiedCount >= ELITE.verified),

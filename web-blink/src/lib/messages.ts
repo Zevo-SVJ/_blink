@@ -100,6 +100,48 @@ const en = {
     measuredAs: "Measured as",
     outOfTen: "out of 10",
     sample: "A sample profile, so you can see the whole thing before you upload anything.",
+    /**
+     * The demonstration's own content.
+     *
+     * It lived in `experience/demo.ts` as English literals, so the French
+     * landing page ran its whole signature feature in English: "Your crush",
+     * "Confident", "Reads as someone with a life already in motion." The
+     * gaze ids, the category id, the numbers and the handle stay in that file
+     * — they are structure, and two of them are checked against real types.
+     * These are the words.
+     */
+    demo: {
+      gazes: {
+        crush: {
+          short: "Your crush",
+          reads: ["Confident", "Interesting", "Mysterious", "Warm"],
+          summary: "Reads as someone with a life already in motion.",
+        },
+        friends: {
+          short: "A friend",
+          reads: ["Warm", "Consistent", "Confident", "Funny"],
+          summary: "Recognisably you — the version they already know.",
+        },
+        stranger: {
+          short: "A stranger",
+          reads: ["Distinctive", "Confident", "Hard to read", "Interesting"],
+          summary: "Enough to be curious about, not enough to place.",
+        },
+        recruiter: {
+          short: "Someone professional",
+          reads: ["Credible", "Ambitious", "Polished", "Confident"],
+          summary: "Signals competence before it signals personality.",
+        },
+      },
+      bio: ["building something small", "photos when it's worth it", "London"],
+      stats: { posts: "posts", followers: "followers", following: "following" },
+      passes: {
+        avatar: { label: "Portrait", found: "Direct, unposed" },
+        bio: { label: "Bio", found: "Understated" },
+        grid: { label: "Recent posts", found: "One consistent palette" },
+      },
+    },
+
   },
 
   film: {
@@ -567,6 +609,13 @@ const en = {
     checkFields: "Check the fields above.",
     global: "Global",
     verified: "Verified",
+    edit: "Edit",
+    yourInstagram: "Your Instagram",
+    viewInstagram: "View on Instagram",
+    statusMine: "Status",
+    statusTheirs: "Status held",
+    recordMine: "Your record",
+    recordTheirs: "Record",
   },
 
   onboarding: {
@@ -815,6 +864,35 @@ const en = {
     claimedProfile: "Claimed profile",
     noChange: "No change yet",
     sinceLast: "since last update",
+    /** Suffix on the streak count: "4w". */
+    weeks: "w",
+    /** Appended to a category name for its champion: "Creator Icon". */
+    icon: "Icon",
+    /**
+     * The sentence each badge shows when it is opened.
+     *
+     * These lived in `badges.ts` as literals, so a French profile opened a
+     * badge and got a paragraph of English. `{category}` is the category
+     * name; `{whose}` is filled from `mine` or `theirs` below.
+     */
+    details: {
+      champion:
+        "First in {category}. Held for as long as nobody in the category outscores this profile.",
+      elite: "Top three on the global board — every category, every account size.",
+      topten: "Top ten on the global board.",
+      rising: "Gained three or more places since the last snapshot.",
+      best:
+        "The highest position {whose} profile has held. It never drops, even when the current rank does.",
+      peak: "The highest verified Blink Score {whose} profile has reached.",
+      movement: "Places moved on the global board since the last snapshot.",
+      movementNone: "Places moved since the last leaderboard snapshot. Nothing recorded yet.",
+      momentum:
+        "Points gained or lost since the previous verified analysis. Only a new screenshot moves it.",
+      streak: "Consecutive weeks with a verified analysis. Opening the app doesn't count.",
+      verified: "Profile changes Blink has confirmed from a new screenshot.",
+      mine: "your",
+      theirs: "their",
+    },
   },
 
   legalPages: {
@@ -900,6 +978,38 @@ const fr: Messages = {
     measuredAs: "Mesuré comme",
     outOfTen: "sur 10",
     sample: "Un profil d'exemple, pour tout voir avant d'envoyer quoi que ce soit.",
+    demo: {
+      gazes: {
+        crush: {
+          short: "Ton crush",
+          reads: ["Sûr de soi", "Intrigant", "Mystérieux", "Chaleureux"],
+          summary: "Se lit comme quelqu'un dont la vie est déjà en mouvement.",
+        },
+        friends: {
+          short: "Un ami",
+          reads: ["Chaleureux", "Constant", "Sûr de soi", "Drôle"],
+          summary: "Bien toi — la version qu'ils connaissent déjà.",
+        },
+        stranger: {
+          short: "Un inconnu",
+          reads: ["Singulier", "Sûr de soi", "Difficile à cerner", "Intrigant"],
+          summary: "Assez pour intriguer, pas assez pour situer.",
+        },
+        recruiter: {
+          short: "Quelqu'un de pro",
+          reads: ["Crédible", "Ambitieux", "Soigné", "Sûr de soi"],
+          summary: "Signale la compétence avant la personnalité.",
+        },
+      },
+      bio: ["je construis un truc, doucement", "des photos quand ça vaut le coup", "Londres"],
+      stats: { posts: "posts", followers: "abonnés", following: "abonnements" },
+      passes: {
+        avatar: { label: "Portrait", found: "Direct, sans pose" },
+        bio: { label: "Bio", found: "Sobre" },
+        grid: { label: "Posts récents", found: "Une seule palette" },
+      },
+    },
+
   },
 
   film: {
@@ -1324,6 +1434,13 @@ const fr: Messages = {
     checkFields: "Vérifie les champs ci-dessus.",
     global: "Général",
     verified: "Vérifiées",
+    edit: "Modifier",
+    yourInstagram: "Ton Instagram",
+    viewInstagram: "Voir sur Instagram",
+    statusMine: "Statut",
+    statusTheirs: "Statut détenu",
+    recordMine: "Ton palmarès",
+    recordTheirs: "Palmarès",
   },
 
   onboarding: {
@@ -1552,6 +1669,26 @@ const fr: Messages = {
     claimedProfile: "Profil revendiqué",
     noChange: "Aucun changement",
     sinceLast: "depuis la dernière mise à jour",
+    weeks: " sem.",
+    icon: "Icône",
+    details: {
+      champion:
+        "Premier en {category}. Conservé tant que personne de la catégorie ne fait mieux.",
+      elite: "Top trois du classement général — toutes catégories, toutes tailles de compte.",
+      topten: "Top dix du classement général.",
+      rising: "Au moins trois places gagnées depuis le dernier relevé.",
+      best:
+        "La meilleure position que {whose} profil ait tenue. Elle ne redescend jamais, même quand le rang actuel baisse.",
+      peak: "Le meilleur Blink Score vérifié que {whose} profil ait atteint.",
+      movement: "Places gagnées ou perdues au classement général depuis le dernier relevé.",
+      movementNone: "Places gagnées ou perdues depuis le dernier relevé. Rien d'enregistré pour l'instant.",
+      momentum:
+        "Points gagnés ou perdus depuis l'analyse vérifiée précédente. Seule une nouvelle capture le fait bouger.",
+      streak: "Semaines consécutives avec une analyse vérifiée. Ouvrir l'app ne compte pas.",
+      verified: "Changements de profil que Blink a confirmés à partir d'une nouvelle capture.",
+      mine: "ton",
+      theirs: "son",
+    },
   },
 
   legalPages: {

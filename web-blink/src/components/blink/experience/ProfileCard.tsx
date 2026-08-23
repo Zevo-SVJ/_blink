@@ -18,6 +18,7 @@ import { motion } from "framer-motion";
 import { useCallback, useEffect, useRef } from "react";
 
 import { InstagramMark } from "@/components/blink/InstagramMark";
+import { useT } from "@/lib/i18n";
 import { SUBJECT } from "./demo";
 
 export type RegionName = "avatar" | "bio" | "grid";
@@ -34,6 +35,7 @@ export function ProfileCard({
   onRegions?: (r: Regions) => void;
   className?: string;
 }) {
+  const t = useT();
   const host = useRef<HTMLDivElement>(null);
   const marks = useRef<Partial<Record<RegionName, HTMLElement | null>>>({});
 
@@ -98,24 +100,36 @@ export function ProfileCard({
             <p className="text-[0.95rem] font-bold leading-tight text-white">
               {SUBJECT.handle}
             </p>
-            <div className="mt-1.5 flex gap-4">
-              {[
-                [SUBJECT.posts, "posts"],
-                [SUBJECT.followers, "followers"],
-                [SUBJECT.following, "following"],
-              ].map(([n, label]) => (
-                <span key={label as string} className="leading-tight">
-                  <span className="t-numeric text-[0.8rem] font-bold text-white">{n}</span>{" "}
-                  <span className="text-[0.68rem] text-white/[var(--ink-3)]">{label}</span>
-                </span>
-              ))}
-            </div>
           </div>
+        </div>
+
+        {/*
+          The counts get their own row, stacked, because "abonnements" is not
+          "following".
+
+          Beside the portrait there are 150px to work with on a phone, and
+          three counts written inline need 292px in French — so "386
+          abonneme" ran under the card's own `overflow-hidden` and was cut
+          mid-word. English overflowed too, just less legibly. Full width and
+          number-over-label needs 160px in both languages, which leaves real
+          slack instead of a layout that happens to fit one dictionary.
+        */}
+        <div className="mt-3 flex gap-5">
+          {[
+            [SUBJECT.posts, t.experience.demo.stats.posts],
+            [SUBJECT.followers, t.experience.demo.stats.followers],
+            [SUBJECT.following, t.experience.demo.stats.following],
+          ].map(([n, label]) => (
+            <span key={label as string} className="leading-tight">
+              <span className="t-numeric block text-[0.8rem] font-bold text-white">{n}</span>
+              <span className="block text-[0.68rem] text-white/[var(--ink-3)]">{label}</span>
+            </span>
+          ))}
         </div>
 
         <div ref={region("bio")} className="mt-3">
           <p className="text-[0.8rem] font-semibold text-white/90">{SUBJECT.name}</p>
-          {SUBJECT.bio.map((line) => (
+          {t.experience.demo.bio.map((line) => (
             <p key={line} className="text-[0.78rem] leading-snug text-white/[var(--ink-2)]">
               {line}
             </p>

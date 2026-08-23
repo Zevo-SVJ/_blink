@@ -200,15 +200,21 @@ export function PublicProfileCard({
           className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-white/[0.06] text-sm font-bold text-white ring-1 ring-white/[0.12] transition-colors hover:bg-white/[0.11]"
         >
           <Instagram className="h-4 w-4" />
-          {isMe ? "Your Instagram" : `View on Instagram`}
+          {isMe ? t.profilePage.yourInstagram : t.profilePage.viewInstagram}
         </a>
       )}
 
       {status.length > 0 && (
-        <BadgeShelf badges={status} title={isMe ? "Status" : "Status held"} />
+        <BadgeShelf
+          badges={status}
+          title={isMe ? t.profilePage.statusMine : t.profilePage.statusTheirs}
+        />
       )}
 
-      <BadgeShelf badges={badges} title={isMe ? "Your record" : "Record"} />
+      <BadgeShelf
+        badges={badges}
+        title={isMe ? t.profilePage.recordMine : t.profilePage.recordTheirs}
+      />
     </div>
   );
 }

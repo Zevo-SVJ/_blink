@@ -141,7 +141,7 @@ function StandingSummary({ data, rank }: { data: FullProfile; rank: number | nul
         <StatGrid>
           <StatTile label={t.home.rank} value={formatRank(rank)} accent />
           <StatTile label={t.home.best} value={formatRank(stats.bestRank)} />
-          <StatTile label={t.home.streak} value={`${stats.streak}w`} />
+          <StatTile label={t.home.streak} value={`${stats.streak}${t.badges.weeks}`} />
         </StatGrid>
       </div>
 

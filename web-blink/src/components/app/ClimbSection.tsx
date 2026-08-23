@@ -132,7 +132,7 @@ export function ClimbSection({
     <section>
       <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-blink-sky">
         <TrendingUp className="h-3.5 w-3.5" />
-        How to climb
+        {t.climb.title}
       </p>
       <p className="mt-2.5 text-sm leading-relaxed text-white/70">
         {climbHeadline(stats, rank, t)}
