@@ -71,6 +71,17 @@ const en = {
   },
 
   /**
+   * The two halves of the problem, delivered over the opening eye.
+   *
+   * They are one sentence broken in two on purpose: the first is the part
+   * every reader already agrees with, the second is the turn.
+   */
+  problem: {
+    knows: "You know your profile.",
+    doesnt: "You don't know the impression it gives.",
+  },
+
+  /**
    * The film.
    *
    * Section chrome only. The words inside the picture live in
@@ -686,6 +697,11 @@ const fr: Messages = {
     headlineAccent: "les autres te voient.",
     subtitle:
     "Blink analyse ta présence Instagram et révèle la première impression que tu donnes.",
+  },
+
+  problem: {
+    knows: "Tu connais ton profil.",
+    doesnt: "Tu ne connais pas l'impression qu'il donne.",
   },
 
   experience: {

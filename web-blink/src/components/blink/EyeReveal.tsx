@@ -75,6 +75,7 @@ import {
   type Plume,
   type Speck,
 } from "@/components/blink/eye-geometry";
+import { useT } from "@/lib/i18n";
 
 /*
   Unhurried at the start, even through the middle, settling at the end — the
@@ -100,6 +101,7 @@ const useSlice = (p: MotionValue<number>, a: number, b: number) =>
   useTransform(p, [a, b], [0, 1], { clamp: true });
 
 export function EyeReveal() {
+  const t = useT();
   const stage = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
 
@@ -186,6 +188,18 @@ export function EyeReveal() {
     light now sits close around the iris and stops well short of the canthi,
     so the eye reads as lit from within rather than as a lamp.
   */
+  /*
+    The two halves of the sentence, staggered against the aperture.
+
+    The first lands while the eye is still opening — it is the part the reader
+    already agrees with. The second waits until the eye is properly open,
+    because it is the turn, and a turn delivered early is just a second line.
+  */
+  const knownOpacity = useTransform(tracked, [0.12, 0.26], [0, 1], { clamp: true });
+  const knownY = useTransform(tracked, [0.12, 0.26], [14, 0], { clamp: true });
+  const unknownOpacity = useTransform(tracked, [0.42, 0.58], [0, 1], { clamp: true });
+  const unknownY = useTransform(tracked, [0.42, 0.58], [14, 0], { clamp: true });
+
   const hazeOpacity = useTransform(glow, [0, 1], [0, 0.5]);
   const hazeScale = useTransform(glow, [0, 1], [0.6, 1]);
   const lensOpacity = useTransform(lensWash, [0, 1], [0, 1]);
@@ -193,7 +207,8 @@ export function EyeReveal() {
 
   return (
     <section
-      aria-hidden
+      id="problem"
+      aria-label={t.problem.knows}
       /* Fixed, reserved height. Nothing here may resize during scroll. */
       className="relative h-[260svh]"
     >
@@ -398,6 +413,43 @@ export function EyeReveal() {
               style={{ strokeWidth: lidWidth }}
             />
           </motion.svg>
+
+          {/*
+            The problem, arriving as the eye opens.
+
+            Its own section would have said the same thing twice: the eye
+            already *is* the argument — something is looking at your profile
+            and you cannot see what it sees — and a paragraph explaining that
+            underneath it would be a caption for a picture that does not need
+            one. Tied to the same scroll instead, the sentence completes as
+            the aperture does, which is the one moment it means anything.
+
+            `aria-hidden` stays off this. The eye is decoration and is hidden
+            from assistive tech; this is the section's actual content.
+          */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-[max(10vh,4.5rem)] flex justify-center px-6">
+            {/* Wide enough that neither half wraps mid-phrase at any width the
+                eye is drawn at: at `max-w-sm` the desktop cut broke "You know
+                your / profile.", which reads as a layout accident rather than
+                as a line. */}
+            <div className="max-w-[19rem] text-balance text-center sm:max-w-xl">
+              <motion.p
+                /* `t-heading`, not `t-title`. The eye is the argument; this is
+                   the caption that lets you know you were right about it. Set
+                   at title weight it competed with the drawing above it. */
+                className="t-heading text-white"
+                style={{ opacity: knownOpacity, y: knownY }}
+              >
+                {t.problem.knows}
+              </motion.p>
+              <motion.p
+                className="t-heading mt-1.5 text-blink-sky"
+                style={{ opacity: unknownOpacity, y: unknownY }}
+              >
+                {t.problem.doesnt}
+              </motion.p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
