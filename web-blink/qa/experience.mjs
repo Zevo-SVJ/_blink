@@ -130,7 +130,12 @@ for (const [label, w, h] of WIDTHS) {
   if (shared.length) ok(`${shared.length} reading(s) carried across and re-ranked (${shared.join(", ")})`);
   else bad("no reading survived the change — this is a replacement, not a re-reading");
 
-  const selected = await page.getByRole("tab", { selected: true }).textContent();
+  /* Scoped to this section: How It Works is also a tablist, and a page-wide
+     lookup matches both and throws on the ambiguity. */
+  const selected = await page
+    .locator("#experience")
+    .getByRole("tab", { selected: true })
+    .textContent();
   if (/professional|professionnel/i.test(selected ?? "")) ok("the selector reports its state to assistive tech");
   else bad(`aria-selected is on "${selected}"`);
 

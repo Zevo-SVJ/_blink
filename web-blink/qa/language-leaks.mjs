@@ -107,10 +107,12 @@ const ENGLISH_MARKERS = [
     nothing here caught it, because the ticker only shows one line at a time
     and picks it at random. These four words appear in four different lines of
     it, which is enough that a regression is caught on almost any frame.
+
+    Not "verdict": it is a French word too, and the French line reads
+    "a obtenu un verdict Magnétique".
   */
   "scanned",
   "climbed",
-  "verdict",
   "unlocked",
 ];
 
