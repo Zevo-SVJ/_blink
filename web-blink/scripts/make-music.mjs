@@ -3,11 +3,15 @@
  *
  * ## The brief it is written to
  *
- * Never compete with the SFX or a future voice-over. That is a composition
- * constraint before it is a mixing one: the bed is a pulse and a low pad, with
- * almost nothing in the 1–4 kHz band where speech and transients live. It has
- * no melody, because a melody is something the ear follows instead of the
- * words.
+ * Never compete with the SFX. That is a composition constraint before it is a
+ * mixing one: the bed is a pulse and a low pad, with almost nothing in the
+ * 1–4 kHz band where the transients live. It has no melody, because a melody
+ * is something the ear follows instead of the picture.
+ *
+ * It does carry the body of the mix, though, because nothing else does. The
+ * effects were designed dark on purpose and the finished master measured
+ * sixteen decibels below the reference between 120 and 300 Hz — the band a
+ * small speaker actually reproduces. The pad is what fills it.
  *
  * It is also written *against the edit*: the tempo is chosen so that bars land
  * on the act boundaries, and the arrangement drops out under the interrupt and
@@ -17,6 +21,7 @@
  *   node scripts/make-music.mjs
  */
 
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -127,8 +132,15 @@ for (let i = 0; i < n; i += 1) {
   for (let v = 0; v < chord.length; v += 1) {
     const f = chord[v];
     // Cents of detune, opposite directions per channel.
-    l += Math.sin(2 * Math.PI * f * 0.9985 * t) * (0.055 / (v + 1));
-    r += Math.sin(2 * Math.PI * f * 1.0015 * t) * (0.055 / (v + 1));
+    l += Math.sin(2 * Math.PI * f * 0.9985 * t) * (0.078 / (v + 1));
+    r += Math.sin(2 * Math.PI * f * 1.0015 * t) * (0.078 / (v + 1));
+    /* A quiet octave above the lower two voices. Body, not a second chord —
+       at a third of the level it is inaudible as a separate thing and it is
+       most of what puts the pad into the range a phone can play. */
+    if (v < 2) {
+      l += Math.sin(2 * Math.PI * f * 2 * 0.999 * t) * (0.03 / (v + 1));
+      r += Math.sin(2 * Math.PI * f * 2 * 1.001 * t) * (0.03 / (v + 1));
+    }
   }
 
   // Very slow breathing, so a twenty-one second bed does not feel looped.
@@ -181,7 +193,45 @@ header.writeUInt16LE(16, 34);
 header.write("data", 36);
 header.writeUInt32LE(data.length, 40);
 
-const out = path.join(process.cwd(), "public", "sfx", "bed.wav");
-fs.mkdirSync(path.dirname(out), { recursive: true });
-fs.writeFileSync(out, Buffer.concat([header, data]));
+/*
+  Written as WAV because that is what is easy to synthesise correctly, then
+  encoded to MP3 because that is what is sane to commit — the bed is four
+  megabytes as PCM and about a hundred and sixty kilobytes encoded.
+
+  The encode used to live in `make-sfx.mjs`, which also owned the scratch
+  directory. That script now writes its five sounds straight to `public/audio/`
+  and has no encode step at all, so this one has to finish its own job or the
+  bed silently stops being rebuilt.
+
+  Remotion ships a full ffmpeg with its compositor. The one on this machine's
+  PATH is Playwright's, built `--disable-everything`, which cannot read a WAV
+  at all — so the path matters.
+*/
+const scratch = path.join(process.cwd(), "public", "sfx");
+const wav = path.join(scratch, "bed.wav");
+fs.mkdirSync(scratch, { recursive: true });
+fs.writeFileSync(wav, Buffer.concat([header, data]));
 console.log(`bed.wav  ${(data.length / 1024 / 1024).toFixed(2)} MB  (${SECONDS.toFixed(1)}s)`);
+
+const COMPOSITOR = path.join(
+  process.cwd(),
+  "node_modules",
+  "@remotion",
+  "compositor-linux-x64-gnu",
+);
+const FFMPEG = path.join(COMPOSITOR, "ffmpeg");
+
+if (fs.existsSync(FFMPEG)) {
+  const mp3 = path.join(process.cwd(), "src", "remotion", "audio", "bed.mp3");
+  execFileSync(
+    FFMPEG,
+    ["-y", "-hide_banner", "-loglevel", "error", "-i", wav, "-c:a", "libmp3lame", "-b:a", "128k", mp3],
+    { env: { ...process.env, LD_LIBRARY_PATH: COMPOSITOR } },
+  );
+  // The WAV was scratch. Leaving it in `public/` would ship four megabytes of
+  // source audio to every visitor of the landing page.
+  fs.rmSync(scratch, { recursive: true, force: true });
+  console.log(`bed.mp3  ${(fs.statSync(mp3).size / 1024).toFixed(0)} KB`);
+} else {
+  console.warn("No Remotion compositor found; leaving the WAV in public/sfx.");
+}

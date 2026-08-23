@@ -6,67 +6,47 @@
  * by anything, it is *scheduled*, and the encoder resolves it sample-accurately
  * rather than as fast as a browser happened to fire it.
  *
- * The bed sits under everything at a level chosen so that the loudest SFX is
- * roughly three times it — the brief's voice-over-SFX-over-music ordering, with
- * the voice slot still empty. Adding narration later means one more `<Audio>`
- * and lowering `BED_GAIN`; nothing about the picture or the cues moves.
+ * ## Why `staticFile` and not an import
+ *
+ * The five sounds are placeholders, written by `scripts/make-sfx.mjs` into
+ * `public/audio/`. Resolving them through `staticFile()` means replacing one
+ * with a sourced recording is a matter of dropping a file of the same name
+ * into that folder — no import to edit, no bundler involved, nothing in this
+ * file to touch.
+ *
+ * The bed is different: it is bundled, because it is the one piece of audio
+ * that is not meant to be swapped.
+ *
+ * Cues are long enough to ring into each other on purpose. A swoosh still
+ * decaying under the pop that follows it is what makes the mix continuous
+ * rather than a row of separate noises.
  */
 
-import { Audio, Sequence } from "remotion";
+import { Audio, Sequence, staticFile } from "remotion";
 
-import { BED, CUES, type SfxName } from "./cues";
+import { BED, CUES } from "./cues";
 
-import bassHit from "./bass-hit.mp3";
-import card from "./card.mp3";
-import crack from "./crack.mp3";
-import glass from "./glass.mp3";
-import paper from "./paper.mp3";
-import projector from "./projector.mp3";
-import stamp from "./stamp.mp3";
-import drop from "./drop.mp3";
-import glitch from "./glitch.mp3";
 import bed from "./bed.mp3";
-import blip from "./blip.mp3";
-import chime from "./chime.mp3";
-import click from "./click.mp3";
-import confirm from "./confirm.mp3";
-import impact from "./impact.mp3";
-import key from "./key.mp3";
-import land from "./land.mp3";
-import lock from "./lock.mp3";
-import pop from "./pop.mp3";
-import riser from "./riser.mp3";
-import scan from "./scan.mp3";
-import whoosh from "./whoosh.mp3";
-import whooshShort from "./whoosh-short.mp3";
 
-const FILES: Record<SfxName, string> = {
-  impact,
-  "bass-hit": bassHit,
-  drop,
-  glitch,
-  paper,
-  card,
-  glass,
-  crack,
-  stamp,
-  projector,
-  whoosh,
-  "whoosh-short": whooshShort,
-  pop,
-  click,
-  key,
-  blip,
-  scan,
-  riser,
-  confirm,
-  chime,
-  land,
-  lock,
-};
+/**
+ * The bed's level. Everything else is mixed against this.
+ *
+ * Raised from 0.3 after measuring the finished master against the reference:
+ * the sub matched it to within a decibel and every band above 120 Hz was
+ * between seven and forty decibels quieter. The effects are deliberately dark,
+ * so the bed is the only thing that can carry the middle of the spectrum —
+ * and the sub pulses are trimmed at source in `cues.ts` for the same reason.
+ */
+const BED_GAIN = 0.55;
 
-/** The bed's level. Everything else is mixed against this. */
-const BED_GAIN = 0.34;
+/**
+ * How long a cue is allowed to ring.
+ *
+ * Two seconds: longer than the longest sound in the kit, so nothing is cut
+ * off mid-decay. Remotion stops everything at the end of the composition
+ * regardless.
+ */
+const RING = 60;
 
 export function Track({ muted = false }: { muted?: boolean }) {
   if (muted) return null;
@@ -79,15 +59,14 @@ export function Track({ muted = false }: { muted?: boolean }) {
 
       {CUES.map((cue, i) => (
         <Sequence
-          // Two cues can share a frame — a whoosh and an impact on the same
-          // cut is a deliberate layering — so the index is part of the key.
+          // Several cues share a frame — a swoosh, a sub and a pop on the
+          // same impact is a deliberate layering — so the index is part of
+          // the key.
           key={`${cue.sfx}-${cue.frame}-${i}`}
           from={cue.frame}
-          // Long enough for the longest sound in the kit to ring out; Remotion
-          // stops it at the end of the composition regardless.
-          durationInFrames={60}
+          durationInFrames={RING}
         >
-          <Audio src={FILES[cue.sfx]} volume={cue.gain ?? 0.7} />
+          <Audio src={staticFile(`audio/${cue.sfx}.wav`)} volume={cue.gain ?? 0.4} />
         </Sequence>
       ))}
     </>

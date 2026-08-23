@@ -1,21 +1,32 @@
 /**
  * Generates the film's sound kit as WAV files.
  *
- * ## Why generated rather than downloaded
+ * ## Five sounds, used densely
  *
- * Remotion renders audio from real files, so the previous cut's Web Audio
- * synth could not be used — it only existed while a browser was playing. The
- * alternatives were a commercial SFX pack (licensing, and nothing in the repo
- * to regenerate it from) or this: a script that writes the kit, so the sounds
- * are versioned as code, tunable by changing a number, and unambiguously ours.
+ * The kit is deliberately tiny. The reference this was designed against is
+ * 8.7 seconds long and carries 23 audible events — a median of a quarter of a
+ * second apart — built from a handful of textures repeated at different
+ * pitches and levels. Density comes from how often they are placed, not from
+ * how many different sounds there are.
  *
  * ## What it is trying to sound like
  *
- * Modern product-ad sound design: short, dry, mostly transient. No sci-fi
- * sweeps, no lasers, no reverb tails. An impact is a pitched-down body with a
- * click on top; a whoosh is filtered noise with a pitch envelope; a UI click
- * is four milliseconds of nothing much. If a sound draws attention to itself
- * it is wrong — it should only make the picture feel more solid.
+ * Measured off that reference rather than guessed at: 71% of its energy sits
+ * below 250 Hz, its spectral centroid is 1.8 kHz, and only 1.5% of the energy
+ * is above 2 kHz. Its transients rise over about 20 ms — soft-knee, an order
+ * of magnitude slower than a click.
+ *
+ * So: no bright transients, no chimes, no sweeps, nothing above 4 kHz worth
+ * speaking of. Impacts are sub-bass with a slow attack. Interface sounds are
+ * bubbles, not clicks. Whooshes are cottony rather than airy. The sound should
+ * sit under the picture and be felt more than heard.
+ *
+ * ## Placeholders, on purpose
+ *
+ * These are written to `public/audio/` under the exact filenames the film
+ * asks for, so the picture can be cut and rendered against real audio today.
+ * Replacing any of them means dropping a file of the same name into that
+ * folder — no code change, no import to edit, no re-run of this script.
  *
  *   node scripts/make-sfx.mjs
  */
@@ -24,7 +35,14 @@ import fs from "node:fs";
 import path from "node:path";
 
 const RATE = 48000;
-const OUT = path.join(process.cwd(), "public", "sfx");
+/*
+  Written where the film reads them from, not to a scratch folder.
+
+  `staticFile()` resolves against `public/`, which is the whole point: anyone
+  swapping a placeholder for a sourced recording drops it in beside these and
+  re-renders. Nothing imports them by path, so nothing has to be edited.
+*/
+const OUT = path.join(process.cwd(), "public", "audio");
 
 // ── helpers ────────────────────────────────────────────────────────────
 
@@ -89,6 +107,26 @@ function noise(out, { from, to, q = 1, gain = 1, decay = 0.2, attack = 0.004 }) 
   return out;
 }
 
+/**
+ * Cascaded one-pole low-pass, in place.
+ *
+ * The band-pass above is a one-pole design and it leaks: measured, its
+ * "cottony" swoosh came back with a spectral centroid of 4.7 kHz against a
+ * reference of 1.8, which is the opposite of cottony. Two or three poles of
+ * plain low-pass after the fact is what actually removes the top.
+ */
+function lowpass(out, hz, poles = 2) {
+  const a = 1 - Math.exp((-2 * Math.PI * hz) / RATE);
+  for (let p = 0; p < poles; p += 1) {
+    let z = 0;
+    for (let i = 0; i < out.length; i += 1) {
+      z += a * (out[i] - z);
+      out[i] = z;
+    }
+  }
+  return out;
+}
+
 function write(name, samples, peak = 0.9) {
   let max = 0;
   for (const s of samples) max = Math.max(max, Math.abs(s));
@@ -125,300 +163,104 @@ function write(name, samples, peak = 0.9) {
 // ── the kit ────────────────────────────────────────────────────────────
 
 fs.mkdirSync(OUT, { recursive: true });
-console.log("Writing the kit to public/sfx …");
+console.log("Writing the kit to public/audio …");
 
-/* A word lands. Body plus click — the click is what makes it read as an
-   impact rather than a thud. */
+/*
+  A deep sub-bass pulse.
+
+  For the hook and for every heavy reveal. The fundamental sits at 52 Hz and
+  falls to 28, which is below what a phone speaker can reproduce at all — so a
+  second body an octave up carries the shape where the sub cannot, and a
+  little second-harmonic content makes it translate rather than vanish. The
+  attack is 22 ms: a sub with a 2 ms attack is a kick drum, and this is meant
+  to be felt swelling rather than struck.
+*/
 {
-  const s = buf(0.34);
-  sine(s, { freq: 220, to: 48, gain: 0.9, decay: 0.24, curve: 0.8 });
-  tri(s, { freq: 1300, to: 380, gain: 0.2, decay: 0.045 });
-  noise(s, { from: 2600, to: 700, q: 0.9, gain: 0.18, decay: 0.05 });
-  write("impact", s);
+  const s = buf(1.7);
+  sine(s, { freq: 52, to: 28, gain: 1, decay: 1.1, attack: 0.022, curve: 0.7 });
+  sine(s, { freq: 104, to: 56, gain: 0.3, decay: 0.55, attack: 0.026, curve: 0.8 });
+  // Enough upper body to survive a laptop speaker, nowhere near enough to
+  // read as a click.
+  sine(s, { freq: 168, to: 92, gain: 0.11, decay: 0.2, attack: 0.03 });
+  write("deep_sub_bass_pulse", s);
 }
 
-/* The interrupt. Same shape, an octave down and much longer — it has to feel
-   like the floor moved, not like a louder version of the others. */
-{
-  const s = buf(0.9);
-  sine(s, { freq: 150, to: 30, gain: 1, decay: 0.62, curve: 0.7 });
-  sine(s, { freq: 74, to: 26, gain: 0.7, decay: 0.8, curve: 0.7 });
-  tri(s, { freq: 900, to: 180, gain: 0.22, decay: 0.09 });
-  noise(s, { from: 1800, to: 220, q: 0.8, gain: 0.22, decay: 0.13 });
-  write("bass-hit", s);
-}
+/*
+  A soft pop, for a word or a label arriving.
 
-/* Air moving sideways. The pitch rising through it is what makes it a whip
-   rather than a hiss. */
-{
-  const s = buf(0.3);
-  noise(s, { from: 500, to: 5200, q: 0.85, gain: 0.9, decay: 0.16, attack: 0.02 });
-  noise(s, { from: 300, to: 2400, q: 1.6, gain: 0.35, decay: 0.2, attack: 0.03 });
-  write("whoosh", s);
-}
-
-/* Shorter, tighter: for cuts that need air without a full pan. */
-{
-  const s = buf(0.18);
-  noise(s, { from: 900, to: 6000, q: 0.9, gain: 0.85, decay: 0.09, attack: 0.008 });
-  write("whoosh-short", s);
-}
-
-/* Something appears. Pitched up, not down — the opposite of an impact. */
-{
-  const s = buf(0.18);
-  sine(s, { freq: 420, to: 1150, gain: 0.8, decay: 0.1 });
-  tri(s, { freq: 1900, gain: 0.12, decay: 0.03 });
-  write("pop", s);
-}
-
-/* A control being pressed. Almost nothing — four milliseconds of body. */
-{
-  const s = buf(0.07);
-  tri(s, { freq: 2400, to: 1500, gain: 0.5, decay: 0.016 });
-  noise(s, { from: 3400, to: 1800, q: 1.4, gain: 0.3, decay: 0.02, attack: 0.001 });
-  write("click", s);
-}
-
-/* A key. Dryer and duller than a click, so a run of them reads as typing
-   rather than as a machine gun. */
-{
-  const s = buf(0.06);
-  tri(s, { freq: 1500, to: 900, gain: 0.4, decay: 0.014 });
-  noise(s, { from: 2200, to: 900, q: 1.2, gain: 0.32, decay: 0.018, attack: 0.001 });
-  write("key", s, 0.7);
-}
-
-/* One step of the scan. Tiny and pitched — a dozen of these fire in a row, so
-   any weight at all would turn the sequence into a drum fill. */
-{
-  const s = buf(0.05);
-  sine(s, { freq: 2100, to: 2600, gain: 0.5, decay: 0.02 });
-  write("blip", s, 0.55);
-}
-
-/* The scan itself, under the blips: a slow filtered sweep, barely there. */
-{
-  const s = buf(1.5);
-  noise(s, { from: 380, to: 3200, q: 3.4, gain: 0.6, decay: 1.3, attack: 0.15 });
-  write("scan", s, 0.5);
-}
-
-/* Tension before a reveal. Rising, and it must stop dead on the impact rather
-   than tailing off past it. */
-{
-  const s = buf(0.85);
-  noise(s, { from: 260, to: 3600, q: 2.2, gain: 0.55, decay: 1.1, attack: 0.3 });
-  sine(s, { freq: 110, to: 460, gain: 0.35, decay: 1.1, attack: 0.35 });
-  write("riser", s, 0.62);
-}
-
-/* A short rising figure for a value settling — two notes, not a fanfare. */
-{
-  const s = buf(0.5);
-  sine(s, { freq: 660, gain: 0.5, decay: 0.14 });
-  const b = buf(0.5);
-  sine(b, { freq: 990, gain: 0.45, decay: 0.3 });
-  const off = Math.round(RATE * 0.07);
-  for (let i = 0; i < b.length - off; i += 1) s[i + off] += b[i];
-  write("confirm", s, 0.75);
-}
-
-/* The end. A major third and a fifth, struck together and left to ring —
-   the only sound in the kit allowed a tail. */
-{
-  const s = buf(1.6);
-  sine(s, { freq: 587.33, gain: 0.4, decay: 0.9, attack: 0.004 });
-  sine(s, { freq: 739.99, gain: 0.3, decay: 1.0, attack: 0.006 });
-  sine(s, { freq: 880, gain: 0.26, decay: 1.2, attack: 0.008 });
-  sine(s, { freq: 1174.66, gain: 0.14, decay: 0.7, attack: 0.01 });
-  write("chime", s, 0.72);
-}
-
-/* A profile arriving on screen. Softer than an impact, with a little air. */
-{
-  const s = buf(0.4);
-  sine(s, { freq: 180, to: 60, gain: 0.7, decay: 0.28, curve: 0.8 });
-  noise(s, { from: 1400, to: 400, q: 1.1, gain: 0.3, decay: 0.12, attack: 0.006 });
-  write("land", s);
-}
-
-/* A reticle locking. Two clicks, three frames apart — mechanical, certain. */
-{
-  const s = buf(0.22);
-  tri(s, { freq: 2000, to: 1200, gain: 0.45, decay: 0.02 });
-  const b = buf(0.22);
-  tri(b, { freq: 1500, to: 700, gain: 0.5, decay: 0.035 });
-  noise(b, { from: 2600, to: 900, q: 1.3, gain: 0.25, decay: 0.03 });
-  const off = Math.round(RATE * 0.055);
-  for (let i = 0; i < b.length - off; i += 1) s[i + off] += b[i];
-  write("lock", s, 0.8);
-}
-
-/* The pattern interrupt. Not a "glitch" in the music-production sense — a
-   short burst of broadband noise with a hard gate, so it reads as the picture
-   tearing rather than as a sound effect being played. */
+  A bubble is a fast downward pitch bend with no edge on it. The 20 ms attack
+  is doing most of the work — the same shape at 2 ms is a UI blip, which is
+  the sound this kit exists to avoid.
+*/
 {
   const s = buf(0.26);
-  noise(s, { from: 900, to: 240, q: 0.5, gain: 0.9, decay: 0.1, attack: 0.001 });
-  noise(s, { from: 4200, to: 6000, q: 0.7, gain: 0.4, decay: 0.05, attack: 0.001 });
-  tri(s, { freq: 130, to: 44, gain: 0.5, decay: 0.16 });
-  // Gate it into three fragments — a continuous burst sounds like static.
+  sine(s, { freq: 640, to: 250, gain: 0.85, decay: 0.11, attack: 0.019, curve: 0.9 });
+  sine(s, { freq: 320, to: 150, gain: 0.4, decay: 0.14, attack: 0.022 });
+  /* An upper voice, quiet and with the same slow attack as everything else.
+
+     Without it the finished mix measured 16 dB below the reference between 800
+     Hz and 2 kHz and 28 dB below it above that — which is not "dark", it is
+     hollow, and on a phone speaker (which reproduces almost nothing under 200
+     Hz) it would have been close to inaudible. This is the band a small
+     speaker actually has. */
+  sine(s, { freq: 1500, to: 720, gain: 0.17, decay: 0.05, attack: 0.018 });
+  // A breath of body underneath so it has somewhere to sit in the mix.
+  sine(s, { freq: 120, to: 78, gain: 0.22, decay: 0.16, attack: 0.02 });
+  write("ui_soft_pop_bubble", s, 0.8);
+}
+
+/*
+  A soft air swoosh, for whips and transitions.
+
+  Filtered downward rather than the usual bright rush: the band starts at
+  900 Hz and lands at 220, so it reads as air moving past rather than as a
+  transition effect. A 60 ms attack keeps it from having a front edge.
+*/
+{
+  const s = buf(0.72);
+  noise(s, { from: 900, to: 220, q: 1.5, gain: 0.9, decay: 0.34, attack: 0.06 });
+  noise(s, { from: 420, to: 140, q: 2.4, gain: 0.5, decay: 0.42, attack: 0.09 });
+  // The pressure behind it. Below the noise, and mostly felt.
+  sine(s, { freq: 90, to: 46, gain: 0.35, decay: 0.36, attack: 0.05 });
+  lowpass(s, 2400, 2);
+  write("soft_air_swoosh", s, 0.72);
+}
+
+/*
+  A muffled click, for typing.
+
+  Ninety milliseconds, everything above 800 Hz filtered away, and a 6 ms
+  attack — present enough to be a keystroke, blunt enough that thirty of them
+  in a row do not become a machine gun.
+*/
+{
+  const s = buf(0.1);
+  noise(s, { from: 1600, to: 380, q: 1.1, gain: 0.55, decay: 0.028, attack: 0.006 });
+  tri(s, { freq: 180, to: 96, gain: 0.75, decay: 0.045, attack: 0.005 });
+  lowpass(s, 2600, 2);
+  write("asmr_muffled_clicks", s, 0.6);
+}
+
+/*
+  Glass sliding on paper, for the loupe crossing the print.
+
+  Sustained rather than transient: a narrow band around 300–600 Hz with slow
+  movement through it, a 120 ms attack and a long tail, so it can be laid
+  under the whole pass and duck the rest of the mix rather than punctuating
+  it. The wobble is what stops it reading as a synth pad.
+*/
+{
+  const s = buf(1.25);
+  noise(s, { from: 320, to: 560, q: 3.2, gain: 0.7, decay: 0.85, attack: 0.12 });
+  noise(s, { from: 620, to: 300, q: 4.5, gain: 0.4, decay: 0.7, attack: 0.16 });
+  // Slow amplitude movement — friction is never even.
   for (let i = 0; i < s.length; i += 1) {
     const t = i / RATE;
-    const on = t < 0.03 || (t > 0.055 && t < 0.085) || (t > 0.11 && t < 0.15);
-    if (!on) s[i] *= 0.06;
+    s[i] *= 0.72 + 0.28 * Math.sin(2 * Math.PI * 3.1 * t + Math.sin(2 * Math.PI * 0.7 * t));
   }
-  write("glitch", s);
-}
-
-/* The weight under the red flag. A slow drop with a second harmonic — felt in
-   the chest rather than heard, which is what makes an observation land as a
-   verdict. */
-{
-  const s = buf(1.2);
-  sine(s, { freq: 128, to: 27, gain: 1, decay: 0.85, curve: 0.6 });
-  sine(s, { freq: 64, to: 22, gain: 0.75, decay: 1.0, curve: 0.6 });
-  tri(s, { freq: 420, to: 96, gain: 0.16, decay: 0.2 });
-  write("drop", s);
-}
-
-/* Photo print landing on a desk. Broadband slap with almost no tail — paper
-   has no resonance, and giving it any makes it sound like a drum. */
-{
-  const s = buf(0.3);
-  noise(s, { from: 2600, to: 260, q: 0.6, gain: 0.9, decay: 0.09, attack: 0.001 });
-  sine(s, { freq: 150, to: 58, gain: 0.42, decay: 0.13, curve: 0.7 });
-  noise(s, { from: 5200, to: 1800, q: 1.1, gain: 0.28, decay: 0.04, attack: 0.001 });
-  write("paper", s);
-}
-
-/* A card being pulled free. Lighter, brighter and rising — the opposite
-   envelope to something landing. */
-{
-  const s = buf(0.2);
-  noise(s, { from: 900, to: 4200, q: 0.9, gain: 0.75, decay: 0.08, attack: 0.004 });
-  tri(s, { freq: 700, to: 1400, gain: 0.14, decay: 0.05 });
-  write("card", s, 0.8);
-}
-
-/* Glass sliding over a surface. The pitch barely moves and the filter is
-   narrow: what makes something read as glass rather than as wind is that it
-   has a *note* in it. */
-{
-  const s = buf(0.85);
-  noise(s, { from: 2400, to: 3100, q: 6.5, gain: 0.7, decay: 0.7, attack: 0.12 });
-  noise(s, { from: 5400, to: 6200, q: 9, gain: 0.22, decay: 0.6, attack: 0.2 });
-  write("glass", s, 0.55);
-}
-
-/* A single crack. Three fractures a few milliseconds apart, and a long thin
-   ring — the ring is the whole difference between glass and a snapped twig. */
-{
-  const s = buf(1.1);
-  const fracture = (at, gain) => {
-    const b = buf(1.1);
-    noise(b, { from: 6000, to: 1200, q: 0.8, gain, decay: 0.045, attack: 0.0005 });
-    tri(b, { freq: 3600, to: 900, gain: gain * 0.4, decay: 0.03 });
-    const off = Math.round(RATE * at);
-    for (let i = 0; i < b.length - off; i += 1) s[i + off] += b[i];
-  };
-  fracture(0, 0.9);
-  fracture(0.028, 0.55);
-  fracture(0.062, 0.35);
-  // The ring. High, quiet, and long.
-  sine(s, { freq: 4180, gain: 0.1, decay: 0.75, attack: 0.002 });
-  sine(s, { freq: 6270, gain: 0.06, decay: 0.55, attack: 0.002 });
-  write("crack", s);
-}
-
-/* The stamp. The heaviest, most mechanical sound in the kit: a wooden knock
-   over a low thud, with the rubber compressing between them. */
-{
-  const s = buf(0.8);
-  // The rubber meeting paper.
-  noise(s, { from: 1800, to: 180, q: 0.5, gain: 0.85, decay: 0.06, attack: 0.0008 });
-  // The wooden body bottoming out.
-  tri(s, { freq: 260, to: 90, gain: 0.6, decay: 0.11 });
-  sine(s, { freq: 110, to: 38, gain: 0.95, decay: 0.42, curve: 0.7 });
-  // A hint of the handle rattling after.
-  const rattle = buf(0.8);
-  tri(rattle, { freq: 420, to: 300, gain: 0.12, decay: 0.05 });
-  const off = Math.round(RATE * 0.075);
-  for (let i = 0; i < rattle.length - off; i += 1) s[i + off] += rattle[i];
-  write("stamp", s);
-}
-
-/* A slide projector advancing. Two mechanical events — the carriage and the
-   slide dropping — over the hum of a fan. */
-{
-  const s = buf(0.75);
-  // Fan.
-  noise(s, { from: 180, to: 220, q: 2.2, gain: 0.16, decay: 0.7, attack: 0.05 });
-  const clack = (at, gain, freq) => {
-    const b = buf(0.75);
-    tri(b, { freq, to: freq * 0.4, gain, decay: 0.028 });
-    noise(b, { from: 2600, to: 700, q: 1.4, gain: gain * 0.6, decay: 0.035, attack: 0.001 });
-    const off = Math.round(RATE * at);
-    for (let i = 0; i < b.length - off; i += 1) s[i + off] += b[i];
-  };
-  clack(0.02, 0.7, 1500);
-  clack(0.15, 0.55, 900);
-  write("projector", s, 0.85);
+  sine(s, { freq: 78, to: 58, gain: 0.18, decay: 0.8, attack: 0.14 });
+  lowpass(s, 1700, 2);
+  write("glass_slide_friction", s, 0.62);
 }
 
 console.log("done.");
-
-/* ── compress ──────────────────────────────────────────────────────────
-   The kit is written as WAV because that is what is easy to synthesise
-   correctly, then encoded to MP3 because that is what is sane to commit —
-   the bed alone is four megabytes as PCM and a hundred and sixty kilobytes
-   encoded.
-
-   Remotion ships a full ffmpeg with its compositor. The one on this
-   machine's PATH is Playwright's, built `--disable-everything`, which cannot
-   read a WAV at all — so the path matters.
-*/
-import { execFileSync } from "node:child_process";
-
-const COMPOSITOR = path.join(
-  process.cwd(),
-  "node_modules",
-  "@remotion",
-  "compositor-linux-x64-gnu",
-);
-const FFMPEG = path.join(COMPOSITOR, "ffmpeg");
-
-if (fs.existsSync(FFMPEG)) {
-  console.log("\nEncoding to MP3 …");
-  const dest = path.join(process.cwd(), "src", "remotion", "audio");
-  fs.mkdirSync(dest, { recursive: true });
-
-  let total = 0;
-  let count = 0;
-  for (const file of fs.readdirSync(OUT).filter((f) => f.endsWith(".wav"))) {
-    const name = path.basename(file, ".wav");
-    const to = path.join(dest, `${name}.mp3`);
-    execFileSync(
-      FFMPEG,
-      [
-        "-y", "-hide_banner", "-loglevel", "error",
-        "-i", path.join(OUT, file),
-        "-c:a", "libmp3lame",
-        // The bed is the only thing long enough for the bitrate to matter.
-        "-b:a", name === "bed" ? "128k" : "192k",
-        to,
-      ],
-      { env: { ...process.env, LD_LIBRARY_PATH: COMPOSITOR } },
-    );
-    total += fs.statSync(to).size;
-    count += 1;
-  }
-
-  // The WAVs were scratch. Leaving them in `public/` would ship six
-  // megabytes of source audio to every visitor of the landing page.
-  fs.rmSync(OUT, { recursive: true, force: true });
-  console.log(`  src/remotion/audio — ${count} files, ${(total / 1024).toFixed(0)} KB`);
-} else {
-  console.warn("\nNo Remotion compositor found; leaving WAVs in public/sfx.");
-}

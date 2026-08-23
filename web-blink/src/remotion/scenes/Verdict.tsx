@@ -19,7 +19,15 @@ import { Label } from "../motion/Kinetic";
 import { springAt } from "../motion/springs";
 import type { FilmCopy } from "../copy";
 import { a, C, HEIGHT, WIDTH } from "../theme";
-import { STAMP_HIT, STAMP_LIFT, STAMP_UP, at, end } from "../timeline";
+import {
+  SHEET_LIFT,
+  STAMP_HIT,
+  STAMP_LIFT,
+  STAMP_UP,
+  VERDICT_PUSH,
+  at,
+  end,
+} from "../timeline";
 
 /** Where the die meets the paper. */
 /*
@@ -30,6 +38,17 @@ import { STAMP_HIT, STAMP_LIFT, STAMP_UP, at, end } from "../timeline";
   nothing separated them.
 */
 const PAPER_TOP = 1210;
+
+/**
+ * How far in the camera has travelled by the time the scene hands over.
+ *
+ * `ScoreScene` picks the dive up from exactly this number, so the two scenes
+ * are one move and the cut between them lands mid-travel.
+ */
+export const PUSH_TO = 1.35;
+
+/** And how far it has tipped by then, for the same reason. */
+export const TIP_TO = -9;
 
 export function Verdict({ copy }: { copy: FilmCopy }) {
   const frame = useCurrentFrame();
@@ -60,6 +79,12 @@ export function Verdict({ copy }: { copy: FilmCopy }) {
   const height = 250 + lift * 260 - fall * 715 + away * 820;
   const press = frame >= STAMP_HIT && frame < STAMP_UP ? 1 : 0;
 
+  const tip = interpolate(frame, [SHEET_LIFT, end("verdict")], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: (t) => 1 - Math.pow(1 - t, 3),
+  });
+
   /* The ink transfers on the hit and stays. */
   const ink = interpolate(frame, [STAMP_HIT, STAMP_HIT + 3], [0, 1], {
     extrapolateLeft: "clamp",
@@ -68,15 +93,29 @@ export function Verdict({ copy }: { copy: FilmCopy }) {
 
   return (
     <Desk light={[0.48, 0.52]} spread={0.6}>
+      {/* The camera starts closing on the mark before this scene is over.
+
+          The dive into the ink used to begin from rest at the top of the next
+          scene, so the verdict held a still frame for a second and a half —
+          the longest dead spot in the film — and then the match cut announced
+          itself by starting to move. Begun here it is one continuous push
+          across the seam. */}
       <Camera
         drift={0.04}
         driftOver={90}
+        zoom={[1, PUSH_TO]}
+        over={[VERDICT_PUSH, end("verdict")]}
+        origin={[WIDTH / 2, PAPER_TOP - 30]}
         shake={{ at: STAMP_HIT, amount: 56, decay: 6 }}
       >
         {/* The sheet being stamped. */}
         <AbsoluteFill style={{ alignItems: "center", justifyContent: "flex-start", paddingTop: PAPER_TOP - 260 }}>
           <div
             style={{
+              /* And tips toward the lens, so the last second of the scene is
+                 the sheet moving rather than the camera moving over it. */
+              transform: `perspective(1600px) rotateX(${tip * TIP_TO}deg) translateY(${-tip * 34}px)`,
+              transformOrigin: "50% 100%",
               width: 980,
               height: 460,
               background: `linear-gradient(166deg, ${C.paper}, ${C.paperEdge})`,

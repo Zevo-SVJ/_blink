@@ -30,14 +30,20 @@ import {
   INK,
   LOUPE_FROM,
   LOUPE_TO,
+  OVERLAP,
   PHOTO_DROP,
   SCENES,
   SCORE_FROM,
   SCORE_TO,
+  SEAM,
+  SHEET_LIFT,
   STAMP_HIT,
+  STAMP_UP,
+  VERDICT_PUSH,
   WHIP,
   at,
   end,
+  mounts,
 } from "@/remotion/timeline";
 
 const LANGS: Lang[] = ["fr", "en"];
@@ -80,11 +86,24 @@ describe("the rhythm", () => {
    * which one.
    */
   it("never leaves a gap longer than the brief allows", () => {
-    const CEILING = 1.2 * FPS;
+    // Was 1.2s. The cut now overlaps its scenes and its springs settle inside
+    // nine frames, so anything approaching a second is a scene that has been
+    // left to finish before the next one starts — the exact fault this pass
+    // existed to remove.
+    const CEILING = 0.8 * FPS;
     for (let i = 1; i < BEATS.length; i += 1) {
       const gap = BEATS[i] - BEATS[i - 1];
       expect(gap, `gap after frame ${BEATS[i - 1]}`).toBeLessThanOrEqual(CEILING);
     }
+  });
+
+  it("keeps the typical gap near the reference's", () => {
+    // The recording the sound was designed against carries an audible event
+    // every 0.25s at the median. The picture does not have to match that, but
+    // half a second between typical events is the outer edge of "dynamic".
+    const gaps = BEATS.slice(1).map((f, i) => f - BEATS[i]).sort((x, y) => x - y);
+    const median = gaps[gaps.length >> 1] / FPS;
+    expect(median).toBeLessThanOrEqual(0.5);
   });
 
   it("starts on the first frame and runs to the end", () => {
@@ -94,8 +113,8 @@ describe("the rhythm", () => {
 
   it("averages inside the window", () => {
     const average = (BEATS[BEATS.length - 1] - BEATS[0]) / (BEATS.length - 1) / FPS;
-    expect(average).toBeGreaterThan(0.35);
-    expect(average).toBeLessThan(1.2);
+    expect(average).toBeGreaterThan(0.2);
+    expect(average).toBeLessThan(0.6);
   });
 
   it("is sorted", () => {
@@ -121,7 +140,33 @@ describe("the beats", () => {
     // drawn nothing, so a transition that fires there animates an empty
     // frame. It has to start early enough to have a picture to throw.
     expect(WHIP).toBeLessThan(at("mirror"));
-    expect(WHIP).toBeGreaterThan(at("mirror") - 10);
+    expect(WHIP).toBe(mounts("mirror"));
+  });
+
+  it("overlaps every scene that is not deliberately a cut", () => {
+    for (const scene of SCENES) {
+      if (SEAM[scene.id] === "cut") {
+        // A scene entering on a cut must not be drawn over the one before it:
+        // its background is opaque and it would simply erase the end of it.
+        expect(mounts(scene.id), scene.id).toBe(scene.from);
+      } else {
+        expect(scene.from - mounts(scene.id), scene.id).toBe(OVERLAP);
+      }
+    }
+  });
+
+  it("carries the match cut and the pull-back on the picture, not a whip", () => {
+    // Both are continuous camera moves. A transition over either would be a
+    // transition fighting the shot.
+    expect(SEAM.score).toBe("cut");
+    expect(SEAM.desk).toBe("cut");
+  });
+
+  it("starts the push into the ink before the scene that ends on it", () => {
+    expect(VERDICT_PUSH).toBeGreaterThan(STAMP_UP);
+    expect(VERDICT_PUSH).toBeLessThan(end("verdict"));
+    expect(SHEET_LIFT).toBeGreaterThan(VERDICT_PUSH);
+    expect(DIVE).toBeGreaterThanOrEqual(at("score"));
   });
 
   it("dives into the ink before the ink fills the frame", () => {
@@ -156,23 +201,59 @@ describe("the sound", () => {
   });
 
   it("gives the stamp the heaviest hit in the film", () => {
-    const stamp = CUES.find((c) => c.sfx === "stamp");
-    expect(stamp).toBeDefined();
-    expect(stamp!.frame).toBe(STAMP_HIT);
-    expect(stamp!.gain).toBe(1);
+    const heaviest = Math.max(
+      ...CUES.filter((c) => c.sfx === "deep_sub_bass_pulse").map((c) => c.gain ?? 0),
+    );
+    const hit = CUES.find(
+      (c) => c.frame === STAMP_HIT && c.sfx === "deep_sub_bass_pulse",
+    );
+    expect(hit).toBeDefined();
+    expect(hit!.gain).toBe(heaviest);
   });
 
-  it("sounds the print landing on paper and on the desk at once", () => {
-    const here = CUES.filter((c) => Math.abs(c.frame - (PHOTO_DROP + 7)) <= 1);
-    expect(here.map((c) => c.sfx).sort()).toContain("paper");
-    expect(here.map((c) => c.sfx).sort()).toContain("bass-hit");
+  it("layers the print landing rather than firing one sound at it", () => {
+    // Density is the point: a swoosh into a sub into a pop, overlapping, is
+    // what makes an impact feel like an object rather than like a sample.
+    const here = CUES.filter((c) => c.frame <= PHOTO_DROP + 9);
+    expect(new Set(here.map((c) => c.sfx)).size).toBeGreaterThanOrEqual(3);
   });
 
   it("puts a sound on every physical event", () => {
     const near = (f: number) => CUES.some((c) => Math.abs(c.frame - f) <= 3);
-    for (const f of [PHOTO_DROP + 7, ...DETAIL_BEATS, ...CARD_BEATS, WHIP, CRACK, STAMP_HIT, INK]) {
+    for (const f of [PHOTO_DROP, ...DETAIL_BEATS, ...CARD_BEATS, WHIP, CRACK, STAMP_HIT, INK]) {
       expect(near(f), `no cue near frame ${f}`).toBe(true);
     }
+  });
+
+  it("sounds every seam before the picture arrives", () => {
+    for (const scene of SCENES) {
+      if (SEAM[scene.id] === "cut") continue;
+      const swoosh = CUES.find(
+        (c) => c.sfx === "soft_air_swoosh" && Math.abs(c.frame - mounts(scene.id)) <= 3,
+      );
+      expect(swoosh, `no swoosh on the ${scene.id} seam`).toBeDefined();
+    }
+  });
+
+  it("keeps the mix as dense as the picture", () => {
+    // The reference is a median quarter-second apart. Sound can be denser
+    // than picture — it is what fills the space between visual beats.
+    const frames = CUES.map((c) => c.frame);
+    const gaps = frames.slice(1).map((f, i) => f - frames[i]).sort((x, y) => x - y);
+    expect(gaps[gaps.length >> 1] / FPS).toBeLessThanOrEqual(0.25);
+    expect(gaps[gaps.length - 1] / FPS, "longest silence").toBeLessThanOrEqual(0.8);
+  });
+
+  it("uses only the five files the film ships", () => {
+    const kit = new Set(CUES.map((c) => c.sfx));
+    expect([...kit].sort()).toEqual([
+      "asmr_muffled_clicks",
+      "deep_sub_bass_pulse",
+      "glass_slide_friction",
+      "soft_air_swoosh",
+      "ui_soft_pop_bubble",
+    ].filter((n) => kit.has(n as never)));
+    expect(kit.size).toBeLessThanOrEqual(5);
   });
 
   it("runs the bed under the whole picture", () => {
@@ -243,8 +324,15 @@ describe("the palette", () => {
 
 describe("the springs", () => {
   it("uses the brief's numbers for the default", () => {
-    expect(SPRING.crash.stiffness).toBe(300);
-    expect(SPRING.crash.damping).toBe(20);
+    // Nervier than the original 300/20: the settling time is what decides
+    // whether the next beat can start before this one has finished.
+    expect(SPRING.crash.stiffness).toBeGreaterThanOrEqual(380);
+    const { stiffness, damping, mass } = SPRING.crash;
+    const zeta = damping / (2 * Math.sqrt(stiffness * mass));
+    const settle = (4 / (zeta * Math.sqrt(stiffness / mass))) * FPS;
+    expect(settle, "frames for crash to settle").toBeLessThanOrEqual(10);
+    // And still overshoots — an arrival that does not pass its mark is a fade.
+    expect(zeta).toBeLessThan(0.7);
   });
 
   it("knows how far past its mark each preset throws", () => {
