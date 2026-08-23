@@ -21,6 +21,34 @@ import type { Messages } from "@/lib/messages";
 
 export const MAX_SCORE = 1000;
 
+/**
+ * The ladder score in the unit it is written in everywhere: out of ten.
+ *
+ * `computeBlinkScore` weighs four ten-point components and then multiplies by
+ * a hundred, so the stored score has always *been* a score out of ten — it was
+ * simply displayed in hundredths. Blink says "out of ten" on the analysis, in
+ * the demo and on the landing page, and a rank of 871 next to a verdict of 8.7
+ * reads as two different measurements of two different things.
+ *
+ * This is presentation only. Nothing about how the score is computed, stored,
+ * compared or ranked changes — the same integer is still the source of truth,
+ * and dividing is exactly reversible.
+ */
+export function scoreOutOfTen(score: number): string {
+  return (score / (MAX_SCORE / 10)).toFixed(1);
+}
+
+/**
+ * A movement in the ladder, in the same unit.
+ *
+ * Signed and explicit: "+0.4" is a gain, "−0.4" a loss. A bare number would be
+ * ambiguous at exactly the moment the reader most wants to know the direction.
+ */
+export function deltaOutOfTen(delta: number): string {
+  const magnitude = (Math.abs(delta) / (MAX_SCORE / 10)).toFixed(1);
+  return `${delta < 0 ? "\u2212" : "+"}${magnitude}`;
+}
+
 /** Signals where "higher is unambiguously better optimised". */
 const CRAFT_SIGNALS = ["Visual Identity", "Aesthetic", "Confidence"];
 

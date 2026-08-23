@@ -43,6 +43,7 @@ import { CTAButton } from "@/components/blink/CTAButton";
 import { Reveal } from "@/components/blink/Reveal";
 import type { BadgeSpec } from "@/lib/badges";
 import { useT } from "@/lib/i18n";
+import { deltaOutOfTen, scoreOutOfTen } from "@/lib/ranking";
 import { useSectionMotion } from "@/lib/use-section-motion";
 import { cn } from "@/lib/utils";
 
@@ -189,24 +190,64 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
 
   return (
     <section id="leaderboard" className="relative px-4 py-20 sm:px-6 sm:py-28">
-      <div className="mx-auto max-w-3xl">
-        <Reveal className="text-center">
-          <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-blink-sky/70">
-            {t.leaderboardSection.eyebrow}
+      {/*
+        Two compositions, not one shrunk.
+
+        Below `lg` the argument runs top to bottom: claim, board, what just
+        happened. From `lg` the claim and the running commentary sit to the
+        left of the board and stay put while it moves, which is how you read a
+        demonstration someone is narrating — you do not look away from the
+        thing to read the caption. `items-center` rather than `items-start` so
+        neither column is anchored to a top edge the other does not share.
+      */}
+      <div className="mx-auto grid max-w-5xl grid-cols-1 items-center gap-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-16">
+        <div className="min-w-0">
+          <Reveal className="text-center lg:text-left">
+            <p className="t-label text-blink-sky/70">{t.leaderboardSection.eyebrow}</p>
+            <h2 className="t-title mt-3 text-balance text-white">
+              {t.leaderboardSection.heading}
+            </h2>
+            <p className="t-body mx-auto mt-3 max-w-md text-balance text-white/50 sm:mt-4 lg:mx-0">
+              {t.leaderboardSection.subtitle}
+            </p>
+          </Reveal>
+
+          {/*
+            The running commentary.
+
+            Desktop only in this position — on a phone it belongs under the
+            board, where it is next to the thing it is describing. Reserved
+            height either way, because a caption that changes length must not
+            move the board.
+          */}
+          <div className="mt-6 hidden h-12 lg:block">
+            <Caption id={STEPS[index].id} text={t.leaderboardSection[STEPS[index].caption]} />
+          </div>
+
+          <p className="t-label mt-4 hidden font-medium text-white/25 lg:block">
+            {t.leaderboardSection.illustrative}
           </p>
-          <h2 className="mt-3 text-[1.75rem] font-extrabold tracking-tight text-white sm:text-4xl">
-            {t.leaderboardSection.heading}
-          </h2>
-          <p className="mx-auto mt-3 max-w-md text-[0.95rem] leading-relaxed text-white/50 sm:mt-4 sm:text-base">
-            {t.leaderboardSection.subtitle}
-          </p>
-        </Reveal>
+
+          <Reveal delay={0.05} className="mt-8 hidden lg:flex">
+            <CTAButton label={t.leaderboardSection.cta} onClick={onCTA} />
+          </Reveal>
+        </div>
 
         {/* No frame: the rows themselves are the object. */}
-        <div ref={ref} className="mx-auto mt-10 w-full max-w-[360px] sm:mt-14">
+        <div ref={ref} className="mx-auto w-full min-w-0 max-w-[360px] lg:mx-0 lg:max-w-none">
           <BoardHeader narrowed={narrowed} showWeek={past("categories")} />
 
-          <div className="space-y-2">
+          {/*
+            The full board's worth of space, always.
+
+            The board narrows from five rows to three mid-sequence. Left to
+            flow, that is 27px of document disappearing under a reader who is
+            below it — the rows are supposed to reorder, not to take the page
+            with them. Measured at the tallest state (five rows carrying their
+            category line, 287px) and reserved, so the narrowing reads as rows
+            leaving a board rather than as a board collapsing.
+          */}
+          <div className="flex h-[18rem] flex-col justify-center gap-2">
             <AnimatePresence initial={false} mode="popLayout">
               {rows.map((row, i) => (
                 <BoardRow
@@ -223,49 +264,67 @@ export function LeaderboardShowcase({ onCTA }: { onCTA: () => void }) {
             </AnimatePresence>
           </div>
 
-          <CategoryStrip
-            shown={past("categories")}
-            selected={narrowed ? "Larp" : "All"}
-          />
+          {/*
+            The category strip and the badges both arrive mid-sequence, so both
+            get their space reserved up front. Animating `height: auto` inside
+            a section makes the section grow, the document grow, and a reader
+            parked below get shoved — the same bug that was fixed in How It
+            Works, and it is not being reintroduced here.
+          */}
+          <div className="h-[3.25rem]">
+            <CategoryStrip shown={past("categories")} selected={narrowed ? "Larp" : "All"} />
+          </div>
 
-          <StatusReveal shown={showBadges} />
+          <div className="h-[6.5rem]">
+            <StatusReveal shown={showBadges} />
+          </div>
+
+          {/* Phones: the commentary under the board it describes. */}
+          <div className="mt-2 h-12 lg:hidden">
+            <Caption id={STEPS[index].id} text={t.leaderboardSection[STEPS[index].caption]} />
+          </div>
+
+          {/* These rows are a demonstration, not standings. The scores and
+              follower counts are invented to show how the board behaves, so
+              the sequence carries a marker rather than letting a visitor read
+              it as a live leaderboard. */}
+          <p className="t-label mt-2 text-center font-medium text-white/25 lg:hidden">
+            {t.leaderboardSection.illustrative}
+          </p>
+
+          <Reveal delay={0.05} className="mt-7 flex justify-center lg:hidden">
+            <CTAButton label={t.leaderboardSection.cta} onClick={onCTA} />
+          </Reveal>
         </div>
-
-        <div className="mt-5 h-10 text-center sm:h-6">
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={STEPS[index].id}
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              transition={{ duration: 0.22 }}
-              className="text-sm font-medium text-white/60"
-            >
-              {t.leaderboardSection[STEPS[index].caption]}
-            </motion.p>
-          </AnimatePresence>
-        </div>
-
-        {/* These rows are a demonstration, not standings. The scores, handles
-            and follower counts are invented to show how the board behaves, so
-            the sequence carries a marker rather than letting a visitor read it
-            as a live leaderboard. */}
-        <p className="mt-3 text-center text-[0.65rem] font-medium uppercase tracking-[0.14em] text-white/25">
-          {t.leaderboardSection.illustrative}
-        </p>
-
-        <Reveal delay={0.05} className="mt-8 flex justify-center">
-          <CTAButton label={t.leaderboardSection.cta} onClick={onCTA} />
-        </Reveal>
       </div>
     </section>
+  );
+}
+
+/** The commentary on the beat currently playing. */
+function Caption({ id, text }: { id: string; text: string }) {
+  return (
+    <AnimatePresence mode="wait">
+      <motion.p
+        key={id}
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -5 }}
+        transition={{ duration: 0.22 }}
+        className="t-body text-balance font-medium text-white/60"
+      >
+        {text}
+      </motion.p>
+    </AnimatePresence>
   );
 }
 
 /** "Global" becomes "Larp" — the same board, narrowed. */
 function BoardHeader({ narrowed, showWeek }: { narrowed: boolean; showWeek: boolean }) {
   return (
-    <div className="flex items-center justify-between px-1 pb-2.5">
+    /* Fixed: the week label arrives mid-sequence and was worth two pixels of
+       document every time it did. */
+    <div className="mb-2 flex h-6 items-center justify-between px-1 pb-1">
       <span className="relative block h-3 min-w-[3.5rem]">
         <AnimatePresence mode="wait">
           <motion.span
@@ -306,15 +365,19 @@ function BoardHeader({ narrowed, showWeek }: { narrowed: boolean; showWeek: bool
  * It arrives as part of the same movement rather than as a caption: the pills
  * slide up, then one of them takes the accent and the board above narrows to
  * match. That ordering is what makes it read as cause and effect.
+ *
+ * Slides into space its parent has already reserved. It used to animate its
+ * own height, which grew the section and the document with it and shoved any
+ * reader parked below.
  */
 function CategoryStrip({ shown, selected }: { shown: boolean; selected: string | null }) {
   return (
     <AnimatePresence>
       {shown && (
         <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 12 }}
           transition={{ duration: 0.35, ease }}
           className="overflow-hidden"
         >
@@ -361,9 +424,9 @@ function StatusReveal({ shown }: { shown: boolean }) {
     <AnimatePresence>
       {shown && (
         <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 12 }}
           transition={{ duration: 0.3, ease }}
           className="overflow-hidden"
         >
@@ -494,13 +557,16 @@ function BoardRow({
             transition={spring}
             className="flex shrink-0 items-center gap-0.5 rounded-full bg-emerald-400/15 px-1.5 py-0.5 text-[0.62rem] font-bold text-emerald-300"
           >
-            <TrendingUp className="h-3 w-3" />2
+            <TrendingUp className="h-3 w-3" />
+            {deltaOutOfTen(IMPROVED_SCORE - INITIAL_ROWS[4].score)}
           </motion.span>
         )}
       </AnimatePresence>
 
-      {/* The score counts rather than swaps, so the climb reads as earned. */}
-      <span className="w-10 shrink-0 text-right text-sm font-extrabold tabular-nums text-white">
+      {/* The score counts rather than swaps, so the climb reads as earned.
+          Out of ten, like every other score Blink shows — the stored integer
+          is a ten-point score in hundredths and always was. */}
+      <span className="t-numeric w-11 shrink-0 text-right text-sm font-extrabold text-white">
         <AnimatePresence mode="popLayout">
           <motion.span
             key={row.score}
@@ -510,7 +576,7 @@ function BoardRow({
             transition={{ duration: 0.28, ease }}
             className="inline-block"
           >
-            {row.score}
+            {scoreOutOfTen(row.score)}
           </motion.span>
         </AnimatePresence>
       </span>
