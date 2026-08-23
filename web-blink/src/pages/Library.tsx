@@ -20,7 +20,7 @@ import {
 import { categoryLabel } from "@/lib/categories";
 import { useI18n, useT } from "@/lib/i18n";
 import { getVoice } from "@/lib/ownership";
-import { computeBlinkScore, getTier } from "@/lib/ranking";
+import { computeBlinkScore, getTier, scoreOutOfTen } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "own" | "other";
@@ -229,7 +229,9 @@ function AnalysisRow({
           </p>
         </div>
 
-        <span className="shrink-0 text-lg font-extrabold tabular-nums text-white">{score}</span>
+        <span className="t-numeric shrink-0 text-lg font-extrabold text-white">
+          {scoreOutOfTen(score)}
+        </span>
       </button>
 
       <button

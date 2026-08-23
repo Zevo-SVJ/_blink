@@ -27,7 +27,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { I18nProvider } from "@/lib/i18n";
-import { computeBlinkScore } from "@/lib/ranking";
+import { computeBlinkScore, scoreOutOfTen } from "@/lib/ranking";
 
 // ---------------------------------------------------------------------------
 // Fixtures — shaped like the rows Supabase actually returns
@@ -165,11 +165,14 @@ describe("an analysed profile in Ranks", () => {
       different totals depending on whether you were looking at Ranks or at
       the Library. Asserting against the function rather than a constant is
       what makes the two impossible to drift apart again.
+
+      Displayed out of ten — the stored integer is a ten-point score in
+      hundredths, and `scoreOutOfTen` is the one place that conversion lives.
     */
     const expected = computeBlinkScore(
       analysisRow().result as unknown as Parameters<typeof computeBlinkScore>[0],
     ).total;
-    expect(document.body.textContent).toContain(String(expected));
+    expect(document.body.textContent).toContain(scoreOutOfTen(expected));
   });
 
   it("says it is private, and carries no claimed mark", async () => {

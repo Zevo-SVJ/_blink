@@ -48,7 +48,10 @@ const readBoard = (page) =>
         marked: el.querySelectorAll("[data-verified-mark]").length > 0,
         private: /(^|\W)(PRIVATE|PRIVÉ|PRIVE)(\W|$)/i.test(text),
         rank: text.match(/#\d+/)?.[0] ?? null,
-        score: text.match(/\b\d{3,4}\b/)?.[0] ?? null,
+        // Out of ten, one decimal — the unit every score in the product is
+        // now written in. This used to look for three or four digits, which
+        // silently matched nothing once the board started saying "8.1".
+        score: text.match(/\b\d{1,2}\.\d\b/)?.[0] ?? null,
       };
     });
   });

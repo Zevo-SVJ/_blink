@@ -23,6 +23,7 @@
  */
 
 import type { Messages } from "@/lib/messages";
+import { deltaOutOfTen, scoreOutOfTen } from "@/lib/ranking";
 
 export type EmblemShape = "shield" | "hex" | "disc" | "chevron";
 export type BadgeGrade = "locked" | "earned" | "elite";
@@ -175,7 +176,7 @@ export function buildBadges(input: BadgeInput, isMe: boolean, t?: Messages): Bad
     {
       id: "peak",
       label: t?.badges.peakScore ?? "Peak score",
-      value: peakScore > 0 ? String(peakScore) : "—",
+      value: peakScore > 0 ? scoreOutOfTen(peakScore) : "—",
       detail: `The highest verified Blink Score ${who} profile has reached.`,
       shape: "hex",
       icon: "peak",
@@ -204,7 +205,7 @@ export function buildBadges(input: BadgeInput, isMe: boolean, t?: Messages): Bad
     {
       id: "momentum",
       label: t?.badges.momentum ?? "Momentum",
-      value: momentumDelta > 0 ? `+${momentumDelta}` : String(momentumDelta),
+      value: deltaOutOfTen(momentumDelta),
       detail:
         "Points gained or lost since the previous verified analysis. Only a new screenshot moves it.",
       shape: "chevron",

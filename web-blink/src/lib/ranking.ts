@@ -287,8 +287,7 @@ export interface Momentum {
 export function momentumLabel(momentum: Momentum, t?: Messages): string {
   if (!t) return momentum.label;
   if (momentum.key === "flat") return t.badges.noChange;
-  const signed = momentum.delta > 0 ? `+${momentum.delta}` : String(momentum.delta);
-  return `${signed} ${t.badges.sinceLast}`;
+  return `${deltaOutOfTen(momentum.delta)} ${t.badges.sinceLast}`;
 }
 
 export interface ProfileStats {

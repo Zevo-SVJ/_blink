@@ -60,7 +60,9 @@ describe("buildBadges", () => {
     // Movement happened, so it is earned — but a drop is never elite.
     expect(byId.momentum.grade).toBe("earned");
     expect(byId.movement.grade).toBe("earned");
-    expect(byId.momentum.value).toBe("-30");
+    // Out of ten, like every score Blink shows — and with a real minus sign,
+    // so "down" is legible at badge size rather than a hyphen you squint at.
+    expect(byId.momentum.value).toBe("\u22120.3");
     expect(byId.movement.value).toBe("-4");
   });
 

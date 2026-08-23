@@ -119,10 +119,13 @@ for (const [device, viewport] of [
         const seen = new Set();
         const started = performance.now();
         const tick = () => {
-          const el = document.querySelector("#how-it-works .origin-top");
+          // The capture is the one subject that travels through all four
+          // steps: it moves and rescales but is never remounted, so its box
+          // changing is exactly the proof that the sequence is running.
+          const el = document.querySelector("#how-it-works [data-hiw='capture']");
           if (el) {
             const r = el.getBoundingClientRect();
-            seen.add(`${Math.round(r.width)}x${Math.round(r.height)}`);
+            seen.add(`${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}`);
           }
           if (performance.now() - started < 6000) requestAnimationFrame(tick);
           else resolve(seen.size);

@@ -11,77 +11,8 @@ import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { useT } from "@/lib/i18n";
-import { MAX_SCORE, momentumLabel, type Momentum, type Tier, tierLabel } from "@/lib/ranking";
+import { momentumLabel, type Momentum } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
-
-// ---------------------------------------------------------------------------
-// Score dial
-// ---------------------------------------------------------------------------
-
-export function ScoreDial({
-  score,
-  tier,
-  size = 190,
-}: {
-  score: number;
-  tier: Tier;
-  size?: number;
-}) {
-  const t = useT();
-  const stroke = Math.round(size * 0.055);
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const progress = Math.max(0, Math.min(1, score / MAX_SCORE));
-
-  return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90" aria-hidden>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="rgba(255,255,255,0.08)"
-          strokeWidth={stroke}
-        />
-        <motion.circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="hsl(var(--blink-sky))"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: circumference * (1 - progress) }}
-          transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
-        />
-      </svg>
-
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <motion.span
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, type: "spring", stiffness: 300, damping: 28 }}
-          className="text-[2.6rem] font-extrabold leading-none tabular-nums tracking-tight text-white"
-          style={{ fontSize: size * 0.23 }}
-        >
-          {score}
-        </motion.span>
-        <span className="mt-1.5 text-[0.65rem] font-bold uppercase tracking-[0.15em] text-white/40">
-          {t.analysis.blinkScore}
-        </span>
-        <span className="mt-2 rounded-full bg-blink-sky/15 px-3 py-1 text-xs font-bold text-blink-sky">
-          {tierLabel(tier, t)}
-        </span>
-      </div>
-      <span className="sr-only">
-        {score} out of {MAX_SCORE}. Tier: {tierLabel(tier, t)}.
-      </span>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Stat tiles
@@ -103,7 +34,7 @@ export function StatTile({
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-2xl bg-white/[0.035] p-4 ring-1 ring-white/[0.07]">
+    <div className="surface p-4">
       <p className="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-white/40">
         {label}
       </p>

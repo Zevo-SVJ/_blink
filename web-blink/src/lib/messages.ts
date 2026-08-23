@@ -443,7 +443,7 @@ const en = {
     rank: "Rank",
     best: "Best",
     streak: "Streak",
-    toNextTier: "{points} points to {tier}. A higher rank means a more optimized profile.",
+    toNextTier: "{points} to go before {tier}. A higher score means a profile that reads more clearly.",
     viewFullProfile: "View full profile",
   },
 
@@ -778,7 +778,7 @@ const fr: Messages = {
     steps: {
       capture: {
         label: "Capture",
-        title: "Screenshot du profil.",
+        title: "Fais une capture du profil.",
         body: "Le tien, ou celui de n'importe qui. Une image suffit — sans connexion, sans lier Instagram.",
       },
       upload: {
@@ -1072,7 +1072,7 @@ const fr: Messages = {
     rank: "Rang",
     best: "Record",
     streak: "Série",
-    toNextTier: "{points} points avant {tier}. Un meilleur rang veut dire un profil mieux optimisé.",
+    toNextTier: "{points} avant {tier}. Un score plus haut veut dire un profil qui se lit plus clairement.",
     viewFullProfile: "Voir le profil complet",
   },
 

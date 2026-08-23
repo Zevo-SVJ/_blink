@@ -282,6 +282,7 @@ function Capture({
 
   return (
     <motion.div
+      data-hiw="capture"
       className="absolute top-0"
       initial={false}
       animate={{

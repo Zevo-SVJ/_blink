@@ -51,7 +51,7 @@ import {
   type LeaderboardEntry,
   type WeeklyWinner,
 } from "@/lib/leaderboard";
-import { getTier, tierLabel } from "@/lib/ranking";
+import { deltaOutOfTen, getTier, scoreOutOfTen, tierLabel } from "@/lib/ranking";
 import { cn } from "@/lib/utils";
 
 type Board = "standings" | "winners" | "analyzed";
@@ -365,8 +365,8 @@ function AnalyzedBoard({
                     {p.runs > 1 ? ` · ${p.runs} ${t.ranksPage.scans}` : ""}
                   </span>
                 </span>
-                <span className="shrink-0 text-base font-extrabold tabular-nums text-white">
-                  {p.score}
+                <span className="t-numeric shrink-0 text-base font-extrabold text-white">
+                  {scoreOutOfTen(p.score)}
                 </span>
               </Link>
             </li>
@@ -418,7 +418,7 @@ function BoardTabs({ board, onChange }: { board: Board; onChange: (b: Board) => 
   ];
 
   return (
-    <div className="flex gap-1 rounded-2xl bg-white/[0.05] p-1 ring-1 ring-white/[0.07]">
+    <div className="glass-inset flex gap-1 rounded-[var(--r-md)] p-1">
       {tabs.map((tab) => {
         const active = board === tab.id;
         return (
@@ -780,8 +780,8 @@ function AnalyzedRow({ profile, index }: { profile: AnalyzedProfile; index: numb
           </span>
         </span>
 
-        <span className="w-11 shrink-0 text-right text-base font-extrabold tabular-nums text-white sm:w-14 sm:text-lg">
-          {profile.score}
+        <span className="t-numeric w-11 shrink-0 text-right text-base font-extrabold text-white sm:w-14 sm:text-lg">
+          {scoreOutOfTen(profile.score)}
         </span>
       </Link>
     </motion.div>
@@ -941,8 +941,8 @@ function RankRow({
 
       <Movement movement={entry.movement} />
 
-      <span className="w-11 shrink-0 text-right text-base font-extrabold tabular-nums text-white sm:w-14 sm:text-lg">
-        {entry.score}
+      <span className="t-numeric w-11 shrink-0 text-right text-base font-extrabold text-white sm:w-14 sm:text-lg">
+        {scoreOutOfTen(entry.score)}
       </span>
     </motion.button>
   );
@@ -1024,7 +1024,7 @@ function LaunchState({ category }: { category: string | null }) {
   const label = categoryLabel(category, t);
 
   return (
-    <div className="rounded-3xl bg-white/[0.035] p-7 text-center ring-1 ring-white/[0.07]">
+    <div className="surface p-7 text-center">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blink-sky/15">
         <Rocket className="h-6 w-6 text-blink-sky" />
       </div>
@@ -1138,10 +1138,12 @@ function WinnerCard({ winner, overall = false }: { winner: WeeklyWinner; overall
       </div>
 
       <div className="shrink-0 text-right">
-        <p className="text-sm font-extrabold tabular-nums text-emerald-300">
-          +{winner.improvement}
+        <p className="t-numeric text-sm font-extrabold text-emerald-300">
+          {deltaOutOfTen(winner.improvement)}
         </p>
-        <p className="text-[0.65rem] text-white/30">{t.ranksPage.score} {winner.score}</p>
+        <p className="t-micro text-white/30">
+          {t.ranksPage.score} {scoreOutOfTen(winner.score)}
+        </p>
       </div>
     </div>
   );
@@ -1151,7 +1153,7 @@ function FairnessNote() {
   const t = useT();
 
   return (
-    <div className="flex gap-3 rounded-2xl bg-white/[0.02] p-4 ring-1 ring-white/[0.06]">
+    <div className="surface flex gap-3 p-4">
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-white/30" />
       <p className="text-xs leading-relaxed text-white/40">
         {t.ranksPage.fairness}

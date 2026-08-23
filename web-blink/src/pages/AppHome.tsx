@@ -13,13 +13,14 @@ import { useNavigate } from "react-router-dom";
 
 import { AppShell } from "@/components/app/AppShell";
 import { ErrorState, SkeletonList } from "@/components/app/states";
+import { ScoreVerdict } from "@/components/app/ScoreVerdict";
 import { MomentumPill, StatGrid, StatTile } from "@/components/app/stats";
 import { formatRank } from "@/lib/app-nav";
 import { useAuth } from "@/hooks/useAuth";
 import { useT } from "@/lib/i18n";
 import { fetchFullProfile, type FullProfile } from "@/lib/blink-profile";
 import { fetchMyStanding } from "@/lib/leaderboard";
-import { pointsToNextTier, tierLabel } from "@/lib/ranking";
+import { pointsToNextTier, scoreOutOfTen, tierLabel } from "@/lib/ranking";
 
 type Load =
   | { state: "loading" }
@@ -106,7 +107,7 @@ function StandingSummary({ data, rank }: { data: FullProfile; rank: number | nul
 
   if (stats.verifiedCount === 0) {
     return (
-      <section className="rounded-3xl border border-white/[0.07] bg-white/[0.03] p-6">
+      <section className="surface p-6">
         <p className="text-sm font-bold text-white">{t.home.noScoreTitle}</p>
         <p className="mt-2 text-sm leading-relaxed text-white/50">{t.home.noScoreBody}</p>
       </section>
@@ -116,16 +117,17 @@ function StandingSummary({ data, rank }: { data: FullProfile; rank: number | nul
   const next = pointsToNextTier(stats.score);
 
   return (
-    <section className="rounded-3xl border border-white/[0.07] bg-white/[0.03] p-6">
+    <section className="surface p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-white/40">
-            {t.home.blinkScore}
-          </p>
-          <p className="mt-1 text-4xl font-extrabold tabular-nums tracking-tight text-white">
-            {stats.score}
-          </p>
-          <p className="mt-1 text-sm font-semibold text-blink-sky">{tierLabel(stats.tier, t)}</p>
+          <ScoreVerdict
+            value={Number(scoreOutOfTen(stats.score))}
+            label={t.home.blinkScore}
+            caption={tierLabel(stats.tier, t)}
+            playKey={stats.score}
+            size="sm"
+            className="w-[11rem]"
+          />
         </div>
         <MomentumPill momentum={stats.momentum} />
       </div>
@@ -141,7 +143,7 @@ function StandingSummary({ data, rank }: { data: FullProfile; rank: number | nul
       {next && (
         <p className="mt-4 text-xs leading-relaxed text-white/45">
           {t.home.toNextTier
-            .replace("{points}", String(next.points))
+            .replace("{points}", scoreOutOfTen(next.points))
             .replace("{tier}", tierLabel(next.tier, t))}
         </p>
       )}
